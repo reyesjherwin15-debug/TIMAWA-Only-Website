@@ -87,6 +87,7 @@ jobs:
           echo "mode: ${mode:-dispatch}"
           if [ "$mode" = "list" ]; then
             python tools/send_activity_push.py --list \
+              --vapid-private "$RUNNER_TEMP/vapid-private.pem" \
               --service-account "$RUNNER_TEMP/service-account.json"
           elif [ "$mode" = "test" ]; then
             python tools/send_activity_push.py --test \
