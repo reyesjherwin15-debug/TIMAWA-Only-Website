@@ -66,6 +66,26 @@ jobs:
       - name: Install sender dependencies
         run: pip install -r tools/requirements.txt
 
+      - name: Inspect key secret (fingerprint only — never prints the key)
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: |
+          printf '%s' "$VAPID_PRIVATE_KEY" > "$RUNNER_TEMP/fingerprint.txt"
+          echo "bytes : $(wc -c < "$RUNNER_TEMP/fingerprint.txt")"
+          echo "lines : $(grep -c '' "$RUNNER_TEMP/fingerprint.txt")"
+          echo "line1 : [$(head -n1 "$RUNNER_TEMP/fingerprint.txt" | tr -d '\r' | cut -c1-60)]"
+          if grep -q 'service_account' "$RUNNER_TEMP/fingerprint.txt"; then
+            echo "verdict: SERVICE ACCOUNT JSON was pasted into VAPID_PRIVATE_KEY (wrong file)"
+          elif grep -q '\\n' "$RUNNER_TEMP/fingerprint.txt"; then
+            echo "verdict: literal backslash-n sequences — newlines were flattened (escaped copy)"
+          elif grep -q -- '-----BEGIN PRIVATE KEY-----' "$RUNNER_TEMP/fingerprint.txt"; then
+            echo "verdict: looks like a PEM private key"
+          else
+            echo "verdict: NOT a PEM and not the service-account JSON — something else was pasted"
+          fi
+          echo "sha256[:16]: $(sha256sum "$RUNNER_TEMP/fingerprint.txt" | cut -c1-16)"
+          echo "(your local file is 24850cb58e715a33 with trailing newline, 9ff5ac069810523f without)"
+
       - name: Write credentials from secrets
         env:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
