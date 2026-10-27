@@ -70,33 +70,54 @@ jobs:
         env:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: |
-          printf '%s' "$VAPID_PRIVATE_KEY" > "$RUNNER_TEMP/fingerprint.txt"
-          echo "bytes : $(wc -c < "$RUNNER_TEMP/fingerprint.txt")"
-          echo "lines : $(grep -c '' "$RUNNER_TEMP/fingerprint.txt")"
-          echo "line1 : [$(head -n1 "$RUNNER_TEMP/fingerprint.txt" | tr -d '\r' | cut -c1-60)]"
-          if grep -q 'service_account' "$RUNNER_TEMP/fingerprint.txt"; then
+          raw="$VAPID_PRIVATE_KEY"
+          printf '%s' "$raw" > "$RUNNER_TEMP/raw.txt"
+          echo "bytes : $(wc -c < "$RUNNER_TEMP/raw.txt")"
+          echo "lines : $(grep -c '' "$RUNNER_TEMP/raw.txt")"
+          echo "line1 : [$(head -n1 "$RUNNER_TEMP/raw.txt" | tr -d '\r' | cut -c1-60)]"
+          if printf '%s' "$raw" | grep -q 'service_account'; then
             echo "verdict: SERVICE ACCOUNT JSON was pasted into VAPID_PRIVATE_KEY (wrong file)"
-          elif grep -q '\\n' "$RUNNER_TEMP/fingerprint.txt"; then
-            echo "verdict: literal backslash-n sequences — newlines were flattened (escaped copy)"
-          elif grep -q -- '-----BEGIN PRIVATE KEY-----' "$RUNNER_TEMP/fingerprint.txt"; then
-            echo "verdict: looks like a PEM private key"
+            exit 1
+          elif printf '%s' "$raw" | grep -q -- '-----BEGIN'; then
+            printf '%s' "$raw" | sed 's/\\n/\n/g' > "$RUNNER_TEMP/key.pem"
+            if printf '%s' "$raw" | grep -q '\\n'; then
+              echo "verdict: PEM with flattened newlines — will be repaired automatically"
+            else
+              echo "verdict: PEM private key (real newlines)"
+            fi
+          elif printf '%s' "$raw" | base64 -d > "$RUNNER_TEMP/key.pem" 2>/dev/null \
+               && grep -q -- '-----BEGIN' "$RUNNER_TEMP/key.pem"; then
+            echo "verdict: base64-encoded PEM — will be decoded automatically"
           else
-            echo "verdict: NOT a PEM and not the service-account JSON — something else was pasted"
+            echo "verdict: NOT a PEM, NOT base64(PEM), NOT the service-account JSON"
+            exit 1
           fi
-          echo "sha256[:16]: $(sha256sum "$RUNNER_TEMP/fingerprint.txt" | cut -c1-16)"
-          echo "(your local file is 24850cb58e715a33 with trailing newline, 9ff5ac069810523f without)"
+          echo "sha256[:16]: $(sha256sum "$RUNNER_TEMP/key.pem" | cut -c1-16)"
+          echo "(expected: 24850cb58e715a33 with trailing newline, 9ff5ac069810523f without)"
 
       - name: Write credentials from secrets
         env:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
         run: |
-          printf '%s\n' "$VAPID_PRIVATE_KEY" > "$RUNNER_TEMP/vapid-private.pem"
           printf '%s' "$SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/service-account.json"
-          test -s "$RUNNER_TEMP/vapid-private.pem" || { echo "::error::VAPID_PRIVATE_KEY secret is empty or missing"; exit 1; }
           test -s "$RUNNER_TEMP/service-account.json" || { echo "::error::SERVICE_ACCOUNT_JSON secret is empty or missing"; exit 1; }
-          grep -q "PRIVATE KEY" "$RUNNER_TEMP/vapid-private.pem" || { echo "::error::VAPID_PRIVATE_KEY does not look like a PEM private key"; exit 1; }
           grep -q "service_account" "$RUNNER_TEMP/service-account.json" || { echo "::error::SERVICE_ACCOUNT_JSON does not look like a Firebase key"; exit 1; }
+
+          # Accept a raw PEM, an escaped PEM (literal \n), or base64(PEM) —
+          # every way a human paste can flatten the line breaks.
+          raw="$VAPID_PRIVATE_KEY"
+          if printf '%s' "$raw" | grep -q 'service_account'; then
+            echo "::error::VAPID_PRIVATE_KEY contains the service-account JSON — paste tools/.vapid-private.pem instead"; exit 1
+          elif printf '%s' "$raw" | grep -q -- '-----BEGIN'; then
+            printf '%s' "$raw" | sed 's/\\n/\n/g' > "$RUNNER_TEMP/vapid-private.pem"
+          elif printf '%s' "$raw" | base64 -d > "$RUNNER_TEMP/vapid-private.pem" 2>/dev/null; then
+            :
+          else
+            echo "::error::VAPID_PRIVATE_KEY is neither a PEM key nor base64 of one"; exit 1
+          fi
+          test -s "$RUNNER_TEMP/vapid-private.pem" || { echo "::error::VAPID_PRIVATE_KEY secret is empty or missing"; exit 1; }
+          grep -q "PRIVATE KEY" "$RUNNER_TEMP/vapid-private.pem" || { echo "::error::VAPID_PRIVATE_KEY does not look like a PEM private key"; exit 1; }
 
       - name: Run
         env:
