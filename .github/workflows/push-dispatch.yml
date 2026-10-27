@@ -6,17 +6,27 @@ name: Push dispatcher
 # private key and the Firebase service account come from repository secrets:
 #   Settings -> Secrets and variables -> Actions
 #
-# Cadence (pick one in `schedule` below):
-#   */5 * * * *   public repo  — unlimited free minutes, up to ~5 min latency
-#   */30 * * * *  private repo — free plan 2,000 min/month, ~1,440 used
+# Cadence (the `schedule` below):
+#   */10 * * * *  current setting — up to ~10 min delivery latency
+#   */5  * * * *  faster delivery (public repo: unlimited free minutes)
+#   */30 * * * *  private repo on the free plan (2,000 min/month, ~1,440 used)
 #
 # NOTE: GitHub pauses scheduled workflows after 60 days without repo activity.
 # Re-enable from the Actions tab if that happens.
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch: # manual "Run workflow" button, for testing
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # manual button, for testing
+    inputs:
+      mode:
+        description: 'What this run should do'
+        type: choice
+        default: dispatch
+        options:
+          - dispatch   # drain queued announcements (what the cron does)
+          - list       # print how many devices are subscribed
+          - test       # send a real test push to every subscribed device
 
 permissions:
   contents: read
@@ -68,11 +78,22 @@ jobs:
           grep -q "PRIVATE KEY" "$RUNNER_TEMP/vapid-private.pem" || { echo "::error::VAPID_PRIVATE_KEY does not look like a PEM private key"; exit 1; }
           grep -q "service_account" "$RUNNER_TEMP/service-account.json" || { echo "::error::SERVICE_ACCOUNT_JSON does not look like a Firebase key"; exit 1; }
 
-      - name: Send pending notifications
+      - name: Run
         env:
           # Apple's push service requires a real contact here (no example.com).
           VAPID_SUBJECT: https://reyesjherwin15-debug.github.io
         run: |
-          python tools/push_dispatcher.py --once \
-            --vapid-private "$RUNNER_TEMP/vapid-private.pem" \
-            --service-account "$RUNNER_TEMP/service-account.json"
+          mode="${{ inputs.mode }}"
+          echo "mode: ${mode:-dispatch}"
+          if [ "$mode" = "list" ]; then
+            python tools/send_activity_push.py --list \
+              --service-account "$RUNNER_TEMP/service-account.json"
+          elif [ "$mode" = "test" ]; then
+            python tools/send_activity_push.py --test \
+              --vapid-private "$RUNNER_TEMP/vapid-private.pem" \
+              --service-account "$RUNNER_TEMP/service-account.json"
+          else
+            python tools/push_dispatcher.py --once \
+              --vapid-private "$RUNNER_TEMP/vapid-private.pem" \
+              --service-account "$RUNNER_TEMP/service-account.json"
+          fi
