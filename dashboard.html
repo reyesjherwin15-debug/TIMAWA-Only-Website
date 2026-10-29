@@ -8466,13 +8466,14 @@
             hideLoadingOverlay(420);
         }
 
-        function showOfflineChoice() {
-            if (!window.TIMAWA_PWA || !window.TIMAWA_PWA.showOfflineChoice) return;
-            window.TIMAWA_PWA.showOfflineChoice();
-        }
-
         function setupOfflineModeChoices() {
-            if (!navigator.onLine) setTimeout(showOfflineChoice, 0);
+            // Safety net: if auth has not resolved within a few seconds and the
+            // splash is still up with no connection, offer offline mode anyway.
+            setTimeout(function () {
+                const overlay = document.getElementById('loadingOverlay');
+                if (!overlay || !overlay.classList.contains('active')) return;
+                if (navigator.onLine === false) showOfflineChoice(true);
+            }, 5000);
             window.addEventListener('online', function () {
                 window.TIMAWA_PWA?.showConnectionChoice?.();
             });
@@ -14424,8 +14425,16 @@ function startReplyTo(commentId, authorName) {
         // ===== AUTH STATE =====
         // ================================================================
         let offlineChoiceShown = false;
-        function showOfflineChoice() {
-            if (navigator.onLine) return;
+        async function showOfflineChoice(assumeOffline) {
+            if (offlineChoiceShown) return;
+            // navigator.onLine is true whenever an interface is up, even with no
+            // internet behind it — verify with a real request before deciding.
+            if (!assumeOffline) {
+                const reachable = navigator.onLine === false
+                    ? false
+                    : (window.TIMAWA_PWA?.probeNetwork ? await window.TIMAWA_PWA.probeNetwork() : true);
+                if (reachable) return;
+            }
             try {
                 if (sessionStorage.getItem('timawa.offline-mode') === '1') { hideLoadingOverlay(); return; }
                 if (sessionStorage.getItem('timawa.offline-choice-dismissed') === '1') { hideLoadingOverlay(); return; }
@@ -14441,7 +14450,8 @@ function startReplyTo(commentId, authorName) {
                 continueOffline();
                 return;
             }
-            window.TIMAWA_PWA.showOfflineChoice({ onContinue: continueOffline });
+            // Already decided above — don't probe a second time.
+            window.TIMAWA_PWA.showOfflineChoice({ assumeOffline: true, onContinue: continueOffline });
         }
 
         function renderCachedDashboardContent() {
@@ -14485,7 +14495,13 @@ function startReplyTo(commentId, authorName) {
                 // paints first while network refreshes in the background.
                 renderCachedDashboardContent();
             }
-            if (!navigator.onLine && cachedProfile) {
+            // navigator.onLine lies on a Wi-Fi with no internet; probe for real
+            // so the offline card actually appears and the saved session paints.
+            const offlineAtBoot = navigator.onLine === false
+                ? true
+                : (window.TIMAWA_PWA?.probeNetwork ? !(await window.TIMAWA_PWA.probeNetwork()) : false);
+
+            if (offlineAtBoot && cachedProfile) {
                 currentUserData = titaUserData = cachedProfile;
                 userProfileCache[user.uid] = { id: user.uid, ...cachedProfile };
                 const name = cachedProfile.displayName || user.displayName || user.email || 'Squad';
@@ -14498,7 +14514,7 @@ function startReplyTo(commentId, authorName) {
                 const launcher = document.getElementById('titaLauncher');
                 if (launcher) launcher.classList.add('visible');
                 renderCachedDashboardContent();
-                showOfflineChoice();
+                showOfflineChoice(true);
                 return;
             }
 
@@ -14535,6 +14551,9 @@ function startReplyTo(commentId, authorName) {
                 await updateLastVisitThrottled(user);
             } catch (error) {
                 console.error('Error loading user data:', error);
+                // The profile fetch needs the network: offer offline mode instead
+                // of leaving the splash up (it only shows when truly unreachable).
+                showOfflineChoice();
             }
 
             restoreCollapseState();
@@ -16985,6 +17004,6 @@ function startReplyTo(commentId, authorName) {
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.1.0" defer></script>
+    <script src="pwa.js?v=1.2.0" defer></script>
 </body>
 </html>

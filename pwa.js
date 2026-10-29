@@ -114,9 +114,60 @@
         return overlay;
     }
 
-    function showOfflineChoice(options) {
+    /* ------------------------------------------------------------------ */
+    /* Reachability                                                        */
+    /* ------------------------------------------------------------------ */
+
+    /* navigator.onLine only reports whether a network interface is up. A phone
+       on Wi-Fi with no internet, a captive portal, or a dead mobile-data session
+       all still report true — which is exactly why the offline card never showed
+       and the loading screen sat there. So ask the server for a tiny file the
+       service worker never intercepts (manifest.json is skipped in sw.js). */
+    const netState = { online: navigator.onLine !== false, checkedAt: 0, pending: null };
+
+    function probeNetwork(timeoutMs) {
+        if (netState.pending) return netState.pending;
+        const ms = timeoutMs || 2500;
+        netState.pending = new Promise((resolve) => {
+            let settled = false;
+            let timer = null;
+            let abortTimer = null;
+            const finish = (ok) => {
+                if (settled) return;
+                settled = true;
+                if (timer) clearTimeout(timer);
+                if (abortTimer) clearTimeout(abortTimer);
+                netState.online = ok;
+                netState.checkedAt = Date.now();
+                netState.pending = null;
+                resolve(ok);
+            };
+            timer = setTimeout(() => finish(false), ms);
+            let signal;
+            if (typeof AbortController === 'function') {
+                const ctrl = new AbortController();
+                signal = ctrl.signal;
+                abortTimer = setTimeout(() => { try { ctrl.abort(); } catch (_) { /* ignore */ } }, ms);
+            }
+            fetch('manifest.json?netcheck=' + Date.now(), { cache: 'no-store', signal })
+                .then((res) => finish(!!res && res.ok))
+                .catch(() => finish(false));
+        });
+        return netState.pending;
+    }
+
+    function isOffline() {
+        return netState.online === false;
+    }
+
+    async function showOfflineChoice(options) {
         options = options || {};
-        if (navigator.onLine) {
+        let offline = options.assumeOffline === true;
+        if (!offline) {
+            const reachable = navigator.onLine === false ? false : await probeNetwork();
+            offline = !reachable;
+        }
+        if (!offline) {
             if (typeof options.onContinue === 'function') options.onContinue();
             return false;
         }
@@ -1069,6 +1120,8 @@
         pushState,
         showOfflineChoice,
         showConnectionChoice,
+        probeNetwork,
+        isOffline,
         promptInstall,
         showInstallBanner,
         showNotificationNudge: maybeShowPushNudge,

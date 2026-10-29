@@ -8430,20 +8430,33 @@ function startHighlightReply(commentId, authorName) {
             window.addEventListener('orientationchange', scheduleReposition);
         })();
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             showLoadingOverlay('Loading TIMAWA…');
-            if (!navigator.onLine) {
+
+            const continueOffline = () => {
+                loadCarouselData('coffeeShops', 'coffeeTrack', 'coffeeDots', 'coffee');
+                loadCarouselData('favoritePlaces', 'placesTrack', 'placesDots', 'places');
+                loadCarouselData('thingsToDo', 'activitiesTrack', 'activitiesDots', 'activities');
+                loadMembersFromFirestore();
+                loadNotes();
+                hideLoadingOverlay();
+            };
+
+            // navigator.onLine still says true on Wi-Fi that has no internet, so
+            // this used to sail past the offline branch and leave the loading
+            // screen up forever. Ask the server for a tiny file instead.
+            const reachable = navigator.onLine === false
+                ? false
+                : (window.TIMAWA_PWA?.probeNetwork ? await window.TIMAWA_PWA.probeNetwork() : true);
+
+            if (!reachable) {
                 landingOfflineChoiceShown = true;
-                const continueOffline = () => {
-                    loadCarouselData('coffeeShops', 'coffeeTrack', 'coffeeDots', 'coffee');
-                    loadCarouselData('favoritePlaces', 'placesTrack', 'placesDots', 'places');
-                    loadCarouselData('thingsToDo', 'activitiesTrack', 'activitiesDots', 'activities');
-                    loadMembersFromFirestore();
-                    loadNotes();
-                    hideLoadingOverlay();
-                };
-                if (window.TIMAWA_PWA?.showOfflineChoice) window.TIMAWA_PWA.showOfflineChoice({ onContinue: continueOffline });
-                else continueOffline();
+                // Picking a mode loads the last cached session immediately.
+                if (window.TIMAWA_PWA?.showOfflineChoice) {
+                    window.TIMAWA_PWA.showOfflineChoice({ assumeOffline: true, onContinue: continueOffline });
+                } else {
+                    continueOffline();
+                }
                 return;
             }
 
@@ -8696,6 +8709,6 @@ function startHighlightReply(commentId, authorName) {
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.1.0" defer></script>
+    <script src="pwa.js?v=1.2.0" defer></script>
 </body>
 </html>
