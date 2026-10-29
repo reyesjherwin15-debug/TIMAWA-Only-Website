@@ -32,7 +32,7 @@
     const CFG = Object.assign({
         IMAGE_MS: 6000,
         MAX_REPLY: 300,
-        composerSrc: 'stories-composer.js?v=1.12.3',
+        composerSrc: 'stories-composer.js?v=1.12.4',
         spotifySearchUrl: '',
         allowStoryDelete: true,        // pages can override via window.STORIES_CONFIG
         allowStoryViews: true          // pages can override via window.STORIES_CONFIG

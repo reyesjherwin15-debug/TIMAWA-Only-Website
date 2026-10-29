@@ -948,6 +948,24 @@
         return mentionDirectory;
     }
 
+    // Round avatar for the mention pickers. A small Cloudinary crop keeps the
+    // list light: one 80 px face crop per member instead of the full upload.
+    function mentionThumb(url, size) {
+        const u = String(url || '');
+        if (!u || u.indexOf('res.cloudinary.com') === -1 || u.indexOf('/upload/') === -1) return u;
+        const after = u.split('/upload/')[1] || '';
+        if (/^[a-z]_/.test(after) || /^[a-z]+,[a-z]/.test(after)) return u;
+        return u.replace('/upload/', `/upload/w_${size},h_${size},c_fill,g_face,q_auto:good,f_auto/`);
+    }
+
+    function mentionAvatar(u) {
+        const name = (u && u.name) || '';
+        const initials = name.split(' ').map(x => x[0]).join('').toUpperCase().slice(0, 2) || '?';
+        const photo = u && u.photo;
+        if (!photo) return `<span class="mention-avatar">${S.esc(initials)}</span>`;
+        return `<span class="mention-avatar"><img src="${S.esc(mentionThumb(photo, 80))}" alt="${S.esc(name)}" loading="lazy"></span>`;
+    }
+
     function detectCaptionMention(input) {
         const cursor = input.selectionStart;
         const match = input.value.slice(0, cursor).match(/@([\w\s.'-]{0,30})$/);
@@ -978,7 +996,7 @@
         }
         if (!captionMentionOpen) { box.classList.remove('show'); return; }
         box.innerHTML = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
-            (captionMentionCandidates.length ? captionMentionCandidates.map((u, i) => `<button type="button" class="mention-option ${i === captionMentionIndex ? 'active' : ''}" data-mention-idx="${i}"><span class="mention-info"><span class="mention-name">${S.esc(u.name)}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('') : '<div class="mention-dropdown-empty">No members found</div>');
+            (captionMentionCandidates.length ? captionMentionCandidates.map((u, i) => `<button type="button" class="mention-option ${i === captionMentionIndex ? 'active' : ''}" data-mention-idx="${i}">${mentionAvatar(u)}<span class="mention-info"><span class="mention-name">${S.esc(u.name)}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('') : '<div class="mention-dropdown-empty">No members found</div>');
         box.classList.add('show');
         try { box.scrollIntoView({ block: 'nearest' }); } catch (err) { /* ignore */ }
     }
@@ -1038,7 +1056,7 @@
         }
         textMentionBox.innerHTML = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
             (textMentionCandidates.length
-                ? textMentionCandidates.map((u, i) => `<button type="button" class="mention-option ${i === textMentionIndex ? 'active' : ''}" data-text-mention-idx="${i}"><span class="mention-info"><span class="mention-name">${S.esc(u.name)}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('')
+                ? textMentionCandidates.map((u, i) => `<button type="button" class="mention-option ${i === textMentionIndex ? 'active' : ''}" data-text-mention-idx="${i}">${mentionAvatar(u)}<span class="mention-info"><span class="mention-name">${S.esc(u.name)}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('')
                 : '<div class="mention-dropdown-empty">No members found</div>');
         textMentionBox.classList.add('show');
 

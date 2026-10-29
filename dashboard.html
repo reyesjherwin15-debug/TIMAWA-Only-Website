@@ -16434,7 +16434,15 @@ function startReplyTo(commentId, authorName) {
         function renderHighlightCaptionMentions() {
             if (!captionMentionOpen) { highlightCaptionDropdown.classList.remove('show'); return; }
             const html = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
-                (captionMentionCandidates.length ? captionMentionCandidates.map((user, index) => `<button type="button" class="mention-option ${index === captionMentionIndex ? 'active' : ''}" data-caption-mention-index="${index}"><span class="mention-info"><span class="mention-name">${escapeHtml(user.displayName || user.email || 'Member')}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('') : '<div class="mention-dropdown-empty">No members found</div>');
+                (captionMentionCandidates.length ? captionMentionCandidates.map((user, index) => {
+                    const name = user.displayName || user.email || 'Member';
+                    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                    const photo = user.photoURL || '';
+                    const avatar = photo
+                        ? `<img src="${cloudinaryAvatar(photo, 80)}" alt="${escapeAttr(name)}" loading="lazy">`
+                        : escapeHtml(initials);
+                    return `<button type="button" class="mention-option ${index === captionMentionIndex ? 'active' : ''}" data-caption-mention-index="${index}"><span class="mention-avatar">${avatar}</span><span class="mention-info"><span class="mention-name">${escapeHtml(name)}</span><span class="mention-hint">Tap to mention</span></span></button>`;
+                }).join('') : '<div class="mention-dropdown-empty">No members found</div>');
             highlightCaptionDropdown.innerHTML = html;
             highlightCaptionDropdown.classList.add('show');
         }
@@ -17199,7 +17207,12 @@ function startReplyTo(commentId, authorName) {
             dropdown.innerHTML = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
                 (titaNoteMentionCandidates.length ? titaNoteMentionCandidates.map((u, i) => {
                     const name = u.displayName || u.email || 'Member';
-                    return `<button type="button" class="mention-option ${i === titaNoteMentionIndex ? 'active' : ''}" data-tita-note-mention="${i}"><span class="mention-info"><span class="mention-name">${escapeHtml(name)}</span><span class="mention-hint">Tap to mention</span></span></button>`;
+                    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                    const photo = u.photoURL || '';
+                    const avatar = photo
+                        ? `<img src="${cloudinaryAvatar(photo, 80)}" alt="${escapeAttr(name)}" loading="lazy">`
+                        : escapeHtml(initials);
+                    return `<button type="button" class="mention-option ${i === titaNoteMentionIndex ? 'active' : ''}" data-tita-note-mention="${i}"><span class="mention-avatar">${avatar}</span><span class="mention-info"><span class="mention-name">${escapeHtml(name)}</span><span class="mention-hint">Tap to mention</span></span></button>`;
                 }).join('') : '<div class="mention-dropdown-empty">No members found</div>');
             dropdown.classList.add('show');
         }

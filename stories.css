@@ -772,6 +772,19 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 }
 .st-comp .st-sh-b:has(.st-caption-field .st-mention-list.show) { padding-bottom: 14px; }
 
+/* Avatars in the picker: defined here too, because the composer can also be
+   opened from a page whose stylesheet does not carry the page-level rules. */
+.st-comp .mention-option .mention-avatar {
+    width: 30px; height: 30px; border-radius: 50%; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; background: var(--theme-gradient, #7c5cff);
+    color: #fff; font-size: 11px; font-weight: 800;
+}
+.st-comp .mention-option .mention-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (max-width: 768px) {
+    .st-comp .mention-option .mention-avatar { width: 26px; height: 26px; font-size: 10px; }
+}
+
 /* Scoped + !important on the offsets: the global .mention-dropdown rule in the
    page stylesheet pins it with bottom:100%, which collapsed this box to 0 height. */
 .st-comp .st-text-mention {
