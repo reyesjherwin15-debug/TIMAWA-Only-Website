@@ -56,7 +56,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.11.2" />
+    <link rel="stylesheet" href="stories.css?v=1.11.3" />
     <script src="theme.js"></script>
 
     <!-- Cloudinary Upload Widget -->
@@ -1929,6 +1929,11 @@
             flex: 1;
             overflow-y: auto;
             padding: 6px;
+            /* keep the scroll work inside the list: no repaint of the page
+               behind it and no scroll chaining into the tab body */
+            contain: layout paint;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
         }
 
         .chat-user-item {
@@ -1938,9 +1943,12 @@
             padding: 10px 12px;
             border-radius: 12px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            /* Never `transition: all` on a list row: on touch screens a sticky
+               :hover keeps animating every property while the list scrolls. */
+            transition: background 0.16s ease, box-shadow 0.16s ease;
             position: relative;
             margin-bottom: 2px;
+            contain: layout style paint;
         }
 
         .chat-user-item:hover {
@@ -2063,12 +2071,15 @@
             background: var(--theme-danger);
             border: 2px solid var(--theme-card);
             box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-danger) 20%, transparent);
-            animation: pulseDot 1.6s ease-in-out infinite;
+            animation: pulseDot 1.9s ease-in-out infinite;
+            will-change: transform, opacity;
         }
 
+        /* Composited only: animating box-shadow repainted every unread row on
+           each frame, which is what made the chat list stutter while scrolling. */
         @keyframes pulseDot {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-danger) 20%, transparent); }
-            50% { transform: scale(1.15); box-shadow: 0 0 0 5px color-mix(in srgb, var(--theme-danger) 0%, transparent); }
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50%      { transform: scale(1.16); opacity: 0.78; }
         }
 
         .chat-user-item .chat-user-info {
@@ -7317,7 +7328,8 @@
         }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="tita-panel.css?v=2.0.0" />
+    <link rel="stylesheet" href="tita-panel.css?v=2.1.0" />
+    <link rel="stylesheet" href="launch.css?v=1.0.0" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
@@ -7936,15 +7948,15 @@
 
     <!-- TITA TIMA -->
     <button id="titaLauncher" class="tita-launcher" onclick="toggleTitaPanel()" aria-label="Open Tita Tima assistant">
-        <span class="tita-pulse"></span>
-        <i class="fas fa-robot"></i>
+        <span class="tita-pulse" aria-hidden="true"></span>
+        <span class="tita-launcher-mark" aria-hidden="true">T<span class="tita-launcher-spark">✦</span></span>
         <span class="tita-badge" id="titaBadge"></span>
     </button>
 
         <div id="titaPanel" class="tita-panel" role="dialog" aria-modal="true" aria-labelledby="titaTitle">
         <div class="tita-grab" id="titaGrab" aria-hidden="true"><span></span></div>
         <div class="tita-header">
-            <div class="tita-avatar"><i class="fas fa-robot"></i></div>
+            <div class="tita-avatar"><span class="tita-avatar-mark">T</span><span class="tita-avatar-spark" aria-hidden="true">✦</span></div>
             <div class="tita-header-info">
                 <div class="tita-name" id="titaTitle">Tita Tima <span class="tita-online"></span></div>
                 <div class="tita-tagline">"Anong update mo today, 'nak?"</div>
@@ -9586,7 +9598,7 @@
                 const last = chatLastMessages[member.id];
 
                 const avatarContent = photoUrl
-                    ? `<img src="${cloudinaryAvatar(photoUrl, 100)}" alt="${escapeAttr(name)}" loading="lazy" />`
+                    ? `<img src="${cloudinaryAvatar(photoUrl, 100)}" alt="${escapeAttr(name)}" loading="lazy" decoding="async" />`
                     : escapeHtml(initials);
 
                 allItems.push({
@@ -9629,6 +9641,7 @@
                         </p>
                     </div>
                 `;
+                listEl.dataset.sig = 'empty';
                 return;
             }
 
@@ -9676,7 +9689,15 @@
                 `;
             });
 
+            // Every unread/last-message snapshot calls this. Rebuilding rows that
+            // did not change is what made the list stutter while scrolling, so
+            // skip the DOM work when the markup is identical.
+            const sig = filtered.length + '|' + html;
+            if (listEl.dataset.sig === sig) return;
+            const keepTop = listEl.scrollTop;
             listEl.innerHTML = html;
+            listEl.dataset.sig = sig;
+            if (keepTop) listEl.scrollTop = keepTop;
         }
 
         function filterChatUsers() {
@@ -11384,7 +11405,7 @@
                 );
 
                 const avatarContent = photoUrl
-                    ? `<img src="${cloudinaryAvatar(photoUrl, 100)}" alt="${escapeAttr(name)}" loading="lazy" />`
+                    ? `<img src="${cloudinaryAvatar(photoUrl, 100)}" alt="${escapeAttr(name)}" loading="lazy" decoding="async" />`
                     : escapeHtml(initials);
 
                 html += `
@@ -17083,9 +17104,11 @@ function startReplyTo(commentId, authorName) {
             }
             const panel = document.getElementById('titaPanel');
             if (!panel) return;
-            populateTitaFields();
+            // Start the motion before the field sync: populateTitaFields() does
+            // enough DOM work that running it first delayed the whole transition.
             panel.classList.add('open');
             panel.setAttribute('aria-hidden', 'false');
+            populateTitaFields();
             try { document.getElementById('titaGrab').style.transform = ''; } catch (e) { /* ignore */ }
             const badge = document.getElementById('titaBadge');
             if (badge) badge.classList.remove('show');
@@ -17534,9 +17557,9 @@ function startReplyTo(commentId, authorName) {
         }, true);
     </script>
 
-    <script src="stories-shared.js?v=1.11.1"></script>
+    <script src="stories-shared.js?v=1.11.3"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.5"></script>
+    <script src="stories.js?v=1.12.6"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.1"></script>

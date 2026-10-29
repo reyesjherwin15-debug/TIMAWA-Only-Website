@@ -1,24 +1,105 @@
 /* ================================================================
-   tita-panel.css  ·  TIMAWA — Tita Tima AI assistant panel (v2)
+   tita-panel.css  ·  TIMAWA — Tita Tima AI assistant panel (v2.1)
    Shared by index.html, dashboard.html and calendar.html.
 
-   Fixes:
-   • the panel is a proper dialog: one scroll area, pinned actions,
-     never taller than the screen (the old markup nested .tita-body
-     twice and left #titaPanel unclosed on 2 pages).
-   • desktop = floating card; mobile = bottom sheet with grab handle.
-   • only Note, Status and Location are editable here.
+   v2.1 — the assistant now wears the same brand language as the app:
+   • the launcher is the app's gradient "T" tile squircle, not a generic
+     robot glyph, and its halo is a soft ring instead of a hard outline
+   • the panel has a layered brand header, sectioned fields and a pinned,
+     gradient action bar
+   • motion is composited (translate3d + opacity only, will-change set) so
+     opening/closing no longer drops frames on phones
 
-   Uses the shared --theme-* palette, so it follows every theme/mode.
+   Structure is unchanged — only presentation is.
    ================================================================ */
 
+/* ================================================================
+   LAUNCHER — the app mark
+   ================================================================ */
+.tita-launcher {
+    background:
+        linear-gradient(158deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0) 46%),
+        var(--theme-gradient) !important;
+    border-radius: 30% !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+        0 10px 26px -8px color-mix(in srgb, var(--theme-primary) 62%, transparent),
+        0 22px 46px -18px color-mix(in srgb, var(--theme-accent) 68%, transparent) !important;
+    transition: transform 0.24s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.24s ease !important;
+    will-change: transform;
+    overflow: visible;
+    isolation: isolate;
+}
+.tita-launcher:hover,
+.tita-launcher:focus-visible {
+    transform: translateY(-2px) scale(1.04);
+}
+.tita-launcher:active {
+    transform: scale(0.96);
+}
+.tita-launcher:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--theme-primary) 60%, transparent);
+    outline-offset: 3px;
+}
+
+/* the mark itself: brand T with a sparkle, drawn with text so it needs no SVG */
+.tita-launcher .tita-launcher-mark {
+    position: relative;
+    display: grid;
+    place-items: center;
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-size: 25px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(4, 30, 70, 0.3);
+    transform: translateY(-0.5px);
+}
+.tita-launcher .tita-launcher-spark {
+    position: absolute;
+    top: -5px;
+    right: -7px;
+    font-size: 9px;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+    animation: titaSpark 3.4s ease-in-out infinite;
+}
+@keyframes titaSpark {
+    0%, 100% { opacity: 0.45; transform: scale(0.85) rotate(0deg); }
+    50%      { opacity: 1;    transform: scale(1.1) rotate(18deg); }
+}
+
+/* keep the halo, make it a soft brand ring instead of a hard outline */
+.tita-launcher .tita-pulse {
+    inset: -7px !important;
+    border: 1.5px solid color-mix(in srgb, var(--theme-primary) 34%, transparent) !important;
+    border-radius: 34% !important;
+    background: radial-gradient(circle at 50% 50%,
+        color-mix(in srgb, var(--theme-primary) 14%, transparent) 0%,
+        transparent 68%);
+    animation: titaPulse 2.8s cubic-bezier(0.2, 0.7, 0.3, 1) infinite !important;
+}
+.tita-launcher .tita-badge {
+    top: -3px;
+    right: -3px;
+    width: 15px;
+    height: 15px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* ================================================================
+   PANEL
+   ================================================================ */
 #titaPanel.tita-panel {
-    width: 400px;
+    width: 404px;
     max-width: calc(100vw - 32px);
-    max-height: min(78vh, 720px);
+    max-height: min(80vh, 740px);
     padding: 0;
-    border-radius: 24px;
-    border: 1px solid var(--theme-border, rgba(0, 0, 0, .06));
+    border-radius: 26px;
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 10%, var(--theme-border, rgba(0, 0, 0, 0.06)));
     background: var(--theme-card, #fff);
     color: var(--theme-text, #1a1a2e);
     display: flex;
@@ -26,15 +107,31 @@
     overflow: hidden;
     z-index: 2600;
     opacity: 0;
-    transform: translateY(18px) scale(.96);
+    transform: translate3d(0, 16px, 0) scale(0.96);
     transform-origin: bottom right;
-    transition: transform .3s cubic-bezier(.22, 1, .36, 1), opacity .24s ease;
-    box-shadow: 0 30px 80px -26px color-mix(in srgb, var(--theme-primary, #1089d3) 50%, transparent),
-                0 0 0 1px color-mix(in srgb, var(--theme-primary, #1089d3) 8%, transparent);
+    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    box-shadow:
+        0 34px 84px -30px color-mix(in srgb, var(--theme-primary, #1089d3) 58%, transparent),
+        0 2px 0 0 rgba(255, 255, 255, 0.05) inset,
+        0 0 0 1px color-mix(in srgb, var(--theme-primary, #1089d3) 7%, transparent);
 }
 #titaPanel.tita-panel.open {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+    /* Keep the transforms (the mobile sheet relies on translateY to stay off
+       screen) and just drop the animation time. */
+    #titaPanel.tita-panel {
+        transition-duration: 0.01ms;
+        animation: none !important;
+    }
+    .tita-launcher .tita-pulse,
+    .tita-launcher .tita-launcher-spark { animation: none !important; }
+    .tita-launcher:hover,
+    .tita-launcher:active { transform: none; }
 }
 
 /* ---------- grab handle (bottom sheet only) ---------- */
@@ -42,66 +139,124 @@
     display: none;
     align-items: center;
     justify-content: center;
-    padding: 9px 0 2px;
-    background: linear-gradient(135deg,
-        color-mix(in srgb, var(--theme-primary, #1089d3) 10%, var(--theme-card, #fff)) 0%,
-        var(--theme-card, #fff) 70%);
+    padding: 10px 0 4px;
+    background: color-mix(in srgb, var(--theme-primary, #1089d3) 8%, var(--theme-card, #fff));
     flex-shrink: 0;
     cursor: grab;
     touch-action: none;
 }
 #titaPanel .tita-grab span {
-    width: 42px;
+    width: 44px;
     height: 4px;
     border-radius: 99px;
-    background: color-mix(in srgb, var(--theme-text, #1a1a2e) 22%, transparent);
+    background: color-mix(in srgb, var(--theme-text, #1a1a2e) 20%, transparent);
     display: block;
 }
 
 /* ---------- header ---------- */
 #titaPanel .tita-header {
-    padding: 16px 18px;
+    padding: 17px 18px;
     gap: 12px;
-    background: var(--theme-gradient, linear-gradient(45deg, #1089d3, #12b1d1));
+    align-items: center;
+    background:
+        radial-gradient(120% 130% at 92% -20%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 58%),
+        radial-gradient(90% 120% at 6% 120%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
+        var(--theme-gradient, linear-gradient(45deg, #1089d3, #12b1d1));
+    color: #fff;
     position: relative;
     flex-shrink: 0;
     overflow: hidden;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
 }
 #titaPanel .tita-header::after {
     content: '';
     position: absolute;
-    top: -60px;
-    right: -40px;
-    width: 150px;
-    height: 150px;
+    top: -70px;
+    right: -46px;
+    width: 168px;
+    height: 168px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, .14);
+    background: rgba(255, 255, 255, 0.12);
     pointer-events: none;
 }
 #titaPanel .tita-avatar {
-    width: 42px;
-    height: 42px;
-    border-radius: 14px;
-    font-size: 18px;
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    font-size: 19px;
     position: relative;
     z-index: 1;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, .18);
+    color: var(--theme-primary, #1089d3);
+    background: linear-gradient(180deg, #fff 0%, rgba(255, 255, 255, 0.88) 100%);
+    box-shadow:
+        0 0 0 1.5px rgba(255, 255, 255, 0.55),
+        0 8px 20px rgba(4, 26, 58, 0.22);
 }
-#titaPanel .tita-header-info { position: relative; z-index: 1; }
-#titaPanel .tita-name { font-size: 15px; letter-spacing: .2px; }
+#titaPanel .tita-avatar-mark {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-size: 21px;
+    font-weight: 900;
+    line-height: 1;
+    background: var(--theme-gradient, linear-gradient(45deg, #1089d3, #12b1d1));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+#titaPanel .tita-avatar-spark {
+    position: absolute;
+    top: 7px;
+    right: 8px;
+    font-size: 7px;
+    line-height: 1;
+    color: var(--theme-primary, #1089d3);
+    opacity: 0.75;
+}
+#titaPanel .tita-header-info { position: relative; z-index: 1; min-width: 0; }
+#titaPanel .tita-name {
+    font-size: 15.5px;
+    font-weight: 800;
+    letter-spacing: 0.1px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+#titaPanel .tita-online {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #a7f3c0;
+    box-shadow: 0 0 0 3px rgba(167, 243, 192, 0.28);
+}
 #titaPanel .tita-tagline {
     font-size: 11.5px;
-    opacity: .92;
     font-style: normal;
     font-weight: 500;
-    margin-top: 1px;
+    opacity: 0.9;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 #titaPanel .tita-close {
-    width: 32px;
-    height: 32px;
-    background: rgba(255, 255, 255, .22);
+    width: 33px;
+    height: 33px;
+    border-radius: 11px;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 14px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
     position: relative;
     z-index: 2;
+    transition: background 0.18s ease, transform 0.18s ease;
+}
+#titaPanel .tita-close:hover {
+    background: rgba(255, 255, 255, 0.34);
+    transform: rotate(90deg);
 }
 
 /* ---------- scroll body ---------- */
@@ -113,51 +268,59 @@
     min-height: 0;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
+    background:
+        radial-gradient(120% 70% at 100% 0%,
+            color-mix(in srgb, var(--theme-primary, #1089d3) 5%, transparent) 0%,
+            transparent 62%);
 }
 #titaPanel .tita-body::-webkit-scrollbar { width: 5px; }
 #titaPanel .tita-body::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--theme-primary, #1089d3) 35%, transparent);
+    background: color-mix(in srgb, var(--theme-primary, #1089d3) 32%, transparent);
     border-radius: 99px;
 }
 
 /* greeting */
 #titaPanel .tita-greeting {
-    background: color-mix(in srgb, var(--theme-primary, #1089d3) 7%, var(--theme-card, #fff));
+    position: relative;
+    background: color-mix(in srgb, var(--theme-primary, #1089d3) 6%, var(--theme-card, #fff));
+    border: 1px solid color-mix(in srgb, var(--theme-primary, #1089d3) 12%, transparent);
     border-left: 3px solid var(--theme-primary, #1089d3);
-    padding: 11px 13px;
-    border-radius: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
     font-size: 12.5px;
-    line-height: 1.55;
-    margin-bottom: 14px;
+    line-height: 1.6;
+    color: var(--theme-text-muted, #555);
+    margin-bottom: 16px;
 }
+#titaPanel .tita-greeting strong { color: var(--theme-primary, #1089d3); }
 
 /* fields */
-#titaPanel .tita-field { margin-bottom: 14px; }
+#titaPanel .tita-field { margin-bottom: 15px; }
 #titaPanel .tita-label-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 7px;
 }
 #titaPanel .tita-field label {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 800;
-    letter-spacing: .6px;
+    letter-spacing: 0.62px;
     text-transform: uppercase;
     color: var(--theme-text-muted, #555);
     margin-bottom: 0;
 }
 #titaPanel .tita-label-row > label { margin-bottom: 0; }
-#titaPanel .tita-field > label { margin-bottom: 6px; }
+#titaPanel .tita-field > label { margin-bottom: 7px; }
 #titaPanel .tita-field label i {
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
-    background: color-mix(in srgb, var(--theme-primary, #1089d3) 10%, transparent);
+    width: 23px;
+    height: 23px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--theme-primary, #1089d3) 11%, transparent);
     color: var(--theme-primary, #1089d3);
     font-size: 10px;
     display: inline-flex;
@@ -168,21 +331,24 @@
     font-size: 10.5px;
     font-weight: 700;
     color: var(--theme-text-dim, #888);
-    letter-spacing: .3px;
+    letter-spacing: 0.3px;
     font-variant-numeric: tabular-nums;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--theme-primary, #1089d3) 7%, transparent);
 }
 #titaPanel .tita-field input[type="text"],
 #titaPanel .tita-field select,
 #titaPanel .tita-field textarea {
     width: 100%;
     padding: 11px 13px;
-    border-radius: 12px;
+    border-radius: 13px;
     border: 1.5px solid var(--theme-border-input, #e0e7ff);
-    background: var(--theme-bg-soft, #f8faff);
+    background: color-mix(in srgb, var(--theme-primary, #1089d3) 3%, var(--theme-bg-soft, #f8faff));
     font-size: 13.5px;
     font-family: inherit;
     color: var(--theme-text, #1a1a2e);
-    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
     -webkit-appearance: none;
     appearance: none;
 }
@@ -199,9 +365,9 @@
     outline: none;
     border-color: var(--theme-primary, #1089d3);
     background: var(--theme-card, #fff);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary, #1089d3) 14%, transparent);
+    box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--theme-primary, #1089d3) 13%, transparent);
 }
-#titaPanel .tita-custom-loc { display: none; margin-top: 7px; }
+#titaPanel .tita-custom-loc { display: none; margin-top: 8px; }
 #titaPanel .tita-custom-loc.show { display: block; }
 
 /* note extras */
@@ -211,7 +377,7 @@
     gap: 5px;
     font-size: 10.5px;
     color: var(--theme-text-dim, #888);
-    margin-top: 6px;
+    margin-top: 7px;
 }
 #titaPanel .tita-warning {
     display: flex;
@@ -219,9 +385,9 @@
     align-items: flex-start;
     font-size: 10px;
     line-height: 1.45;
-    color: #dc2626;
-    opacity: .85;
-    margin-top: 7px;
+    color: var(--theme-danger, #dc2626);
+    opacity: 0.85;
+    margin-top: 8px;
 }
 
 /* link to the full profile editor */
@@ -229,19 +395,19 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px;
+    padding: 11px 13px;
     margin: 2px 0 4px;
-    border-radius: 12px;
+    border-radius: 13px;
     background: color-mix(in srgb, var(--theme-primary, #1089d3) 6%, transparent);
-    border: 1px dashed color-mix(in srgb, var(--theme-primary, #1089d3) 28%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--theme-primary, #1089d3) 30%, transparent);
     color: var(--theme-primary, #1089d3);
     font-size: 11.5px;
     font-weight: 700;
     text-decoration: none;
-    transition: background .2s ease, border-color .2s ease;
+    transition: background 0.18s ease, border-color 0.18s ease;
 }
 #titaPanel .tita-profile-link span { flex: 1; }
-#titaPanel .tita-profile-link i:last-child { font-size: 10px; opacity: .7; }
+#titaPanel .tita-profile-link i:last-child { font-size: 10px; opacity: 0.7; }
 #titaPanel .tita-profile-link:hover {
     background: color-mix(in srgb, var(--theme-primary, #1089d3) 12%, transparent);
     border-color: var(--theme-primary, #1089d3);
@@ -252,27 +418,75 @@
     display: flex;
     gap: 10px;
     padding: 12px 18px 14px;
-    border-top: 1px solid var(--theme-border, rgba(0, 0, 0, .06));
+    border-top: 1px solid color-mix(in srgb, var(--theme-primary, #1089d3) 10%, var(--theme-border, rgba(0, 0, 0, 0.06)));
     background: color-mix(in srgb, var(--theme-primary, #1089d3) 4%, var(--theme-card, #fff));
     flex-shrink: 0;
 }
 #titaPanel .tita-footer .tita-save {
     flex: 1;
     padding: 12px 16px;
-    border-radius: 13px;
+    border-radius: 14px;
+    border: none;
     font-size: 13px;
     font-weight: 800;
+    letter-spacing: 0.15px;
+    background: var(--theme-gradient);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--theme-primary, #1089d3) 65%, transparent);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
+#titaPanel .tita-footer .tita-save:hover { transform: translateY(-1px); }
+#titaPanel .tita-footer .tita-save:active { transform: scale(0.985); }
+#titaPanel .tita-footer .tita-save:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
 #titaPanel .tita-footer .tita-cancel {
     padding: 12px 16px;
-    border-radius: 13px;
+    border-radius: 14px;
     font-size: 12.5px;
+    font-weight: 600;
     background: var(--theme-card, #fff);
-    border-width: 1.5px;
+    border: 1.5px solid var(--theme-border-input, #e0e7ff);
+    color: var(--theme-text-muted, #555);
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.18s ease, color 0.18s ease;
 }
-#titaPanel .tita-status-msg { margin-top: 10px; }
+#titaPanel .tita-footer .tita-cancel:hover {
+    border-color: var(--theme-primary, #1089d3);
+    color: var(--theme-primary, #1089d3);
+}
 
+/* status message */
+#titaPanel .tita-status-msg {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    display: none;
+    text-align: center;
+}
 #titaPanel .tita-status-msg.show { display: block; }
+#titaPanel .tita-status-msg.success {
+    background: var(--theme-success-soft, #dcfce7);
+    color: var(--theme-success, #16a34a);
+    border: 1px solid color-mix(in srgb, var(--theme-success, #16a34a) 20%, transparent);
+}
+#titaPanel .tita-status-msg.error {
+    background: var(--theme-danger-soft, #fee2e2);
+    color: var(--theme-danger, #ef4444);
+    border: 1px solid color-mix(in srgb, var(--theme-danger, #ef4444) 20%, transparent);
+}
+#titaPanel .tita-status-msg.info {
+    background: var(--theme-primary-soft, #e0f2fe);
+    color: var(--theme-primary, #1089d3);
+    border: 1px solid color-mix(in srgb, var(--theme-primary, #1089d3) 20%, transparent);
+}
 
 /* ================================================================
    MOBILE — bottom sheet
@@ -288,13 +502,15 @@
         border-radius: 26px 26px 0 0;
         border-bottom: none;
         opacity: 1;
-        transform: translateY(102%);
+        transform: translate3d(0, 102%, 0);
         transform-origin: bottom center;
-        box-shadow: 0 -24px 60px -24px rgba(0, 0, 0, .4);
+        box-shadow: 0 -24px 60px -24px rgba(0, 0, 0, 0.4);
+        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
     }
-    #titaPanel.tita-panel.open { transform: translateY(0); }
+    #titaPanel.tita-panel.open { transform: translate3d(0, 0, 0); }
     #titaPanel .tita-grab { display: flex; }
-    #titaPanel .tita-header { padding: 14px 18px; }
+    #titaPanel .tita-header { padding: 13px 16px 15px; }
+    #titaPanel .tita-avatar { width: 42px; height: 42px; border-radius: 14px; font-size: 17px; }
     #titaPanel .tita-body { padding: 14px 16px 16px; }
     #titaPanel .tita-footer {
         padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
@@ -310,8 +526,4 @@
 @media (max-width: 380px) {
     #titaPanel .tita-cancel { display: none; }
     #titaPanel .tita-footer .tita-save { flex: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    #titaPanel.tita-panel { transition: none; }
 }

@@ -1,0 +1,195 @@
+/* ============================================================================
+   launch.css · TIMAWA — app launch screen
+   ----------------------------------------------------------------------------
+   pwa.js turns #loadingOverlay into the branded .t-splash (mark + wordmark +
+   progress sweep). This file is the visual layer on top of it: a deep brand
+   field instead of the white page background, a richer tile, a wordmark that
+   reads on dark, and a calmer sweep.
+
+   Loaded after the page's inline <style> and after pwa.css, so it wins by
+   source order. It only touches `.t-splash*` — the overlay every page uses for
+   ordinary "Loading…" states is left alone once decorated.
+
+   The native PWA splash (manifest background_color) is the same #071322, so a
+   cold start on a phone goes native splash → this screen without a white flash.
+   ========================================================================== */
+
+/* ---------- brand field ---------------------------------------------------- */
+.loading-overlay.t-splash {
+    background:
+        radial-gradient(70% 46% at 50% 20%, rgba(58, 130, 255, 0.30) 0%, rgba(58, 130, 255, 0) 68%),
+        radial-gradient(60% 42% at 50% 96%, rgba(112, 92, 255, 0.26) 0%, rgba(112, 92, 255, 0) 70%),
+        radial-gradient(120% 120% at 50% 50%, rgba(7, 19, 34, 0) 42%, rgba(3, 9, 18, 0.55) 100%),
+        #071322;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color-scheme: dark;
+}
+
+/* Before pwa.js decorates the overlay there is one paint with the plain
+   theme background — keep that first frame dark so the launch never flashes. */
+.loading-overlay:not(.t-splash) {
+    background: #071322;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+/* ---------- tile ----------------------------------------------------------- */
+.t-splash-mark {
+    width: 94px;
+    height: 94px;
+    border-radius: 29px;
+    background:
+        linear-gradient(158deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 44%),
+        linear-gradient(140deg, #3ea7ff 0%, #2a63ee 52%, #6f52ff 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+        0 26px 60px -18px rgba(38, 126, 255, 0.72),
+        0 54px 96px -40px rgba(122, 92, 255, 0.7);
+    animation: tSplashFloat 3.8s ease-in-out infinite;
+}
+
+.t-splash-mark::after {
+    background:
+        radial-gradient(120% 85% at 26% -6%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%),
+        radial-gradient(90% 70% at 84% 116%, rgba(255, 255, 255, 0.18), transparent 62%);
+}
+
+.t-splash-mark b {
+    font-size: 46px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: #fff;
+    text-shadow: 0 3px 14px rgba(3, 16, 40, 0.4);
+}
+
+/* rotating arc: thinner, brand-blue, and slower than the old 1.5s spin */
+.t-splash-ring {
+    inset: -12px;
+    border-radius: 40px;
+    background: conic-gradient(from 0turn,
+        rgba(255, 255, 255, 0) 0 58%,
+        #4fc3ff 78%,
+        #b9a6ff 92%,
+        rgba(255, 255, 255, 0) 100%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 0);
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 0);
+    animation: tSplashSpin 2.2s linear infinite;
+    opacity: 0.9;
+    filter: drop-shadow(0 0 10px rgba(79, 195, 255, 0.45));
+}
+
+/* ---------- wordmark ------------------------------------------------------- */
+.t-splash-word {
+    margin-top: 10px;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    background: linear-gradient(90deg,
+        #cfe2ff 0%,
+        #ffffff 42%,
+        #d8c9ff 72%,
+        #cfe2ff 100%);
+    background-size: 240% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: tSplashShine 3.4s linear infinite;
+}
+
+.t-splash-sub {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.26em;
+    text-indent: 0.26em;
+    text-transform: uppercase;
+    color: rgba(184, 214, 255, 0.66);
+    opacity: 1;
+}
+
+/* ---------- progress sweep ------------------------------------------------- */
+.t-splash-bar {
+    margin-top: 6px;
+    width: 148px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(148, 190, 255, 0.16);
+    overflow: hidden;
+}
+
+.t-splash-bar i {
+    background: linear-gradient(90deg, transparent, #4fa8ff, #b9a6ff, transparent);
+    animation: tSplashSweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* ---------- status line ---------------------------------------------------- */
+.t-splash .loading-text {
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(190, 220, 255, 0.68);
+    animation: tSplashStatus 2s ease-in-out infinite;
+}
+
+@keyframes tSplashStatus {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
+}
+
+/* ---------- enter/leave ---------------------------------------------------- */
+.loading-overlay.t-splash {
+    transition: opacity 0.42s ease, transform 0.55s cubic-bezier(0.4, 0, 0.2, 1), filter 0.38s ease;
+}
+
+.loading-overlay.t-splash:not(.active) {
+    transform: scale(1.05);
+    filter: blur(8px);
+}
+
+/* ---------- mobile --------------------------------------------------------- */
+@media (max-width: 768px) {
+    .t-splash-mark {
+        width: 84px;
+        height: 84px;
+        border-radius: 26px;
+    }
+    .t-splash-mark b { font-size: 41px; }
+    .t-splash-ring { inset: -10px; border-radius: 36px; }
+    .t-splash-word { font-size: 14px; letter-spacing: 0.38em; text-indent: 0.38em; }
+}
+
+/* ---------- accessibility -------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .loading-overlay.t-splash {
+        transition: opacity 0.2s linear;
+    }
+    .loading-overlay.t-splash:not(.active) {
+        transform: none;
+        filter: none;
+    }
+    .t-splash-stage,
+    .t-splash-mark,
+    .t-splash-ring,
+    .t-splash-word,
+    .t-splash-bar i,
+    .t-splash .loading-text {
+        animation: none !important;
+    }
+    .t-splash-ring { opacity: 0.45; }
+}
+
+@media (forced-colors: active) {
+    .loading-overlay.t-splash { background: Canvas; }
+    .t-splash-mark { background: Canvas; border: 2px solid CanvasText; }
+    .t-splash-word,
+    .t-splash-sub,
+    .t-splash .loading-text {
+        -webkit-text-fill-color: CanvasText;
+        color: CanvasText;
+    }
+}

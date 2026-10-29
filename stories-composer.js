@@ -26,6 +26,9 @@
         hist: [], preview: false, xhr: null, busy: false, results: [], msg: '', searching: false, playing: '', drag: null, lastTap: null, tl: null
     };
     let PALETTE = ['#ffffff', '#111111', '#ffd23f', '#ff5a6e', '#4ade80', '#38bdf8', '#c084fc'];
+    // Music sticker tints. White is the classic look; the rest match the app's
+    // brand palette so a card never clashes with the theme.
+    const MUSIC_COLORS = ['#ffffff', '#0b1220', '#1089d3', '#12b1d1', '#f43f5e', '#f59e0b', '#22c55e', '#a855f7'];
 
     const $ = (s, r) => (r || root).querySelector(s);
     const find = id => M.texts.find(t => t.id === id);
@@ -175,7 +178,7 @@
         Object.assign(M, {
             sheet: null, items: [], video: null, layout: '', fit: 'fill', dur: MIN_DUR,
             texts: [], sel: null, caption: '', track: null, spotify: null, mstyle: 'bar',
-            mpos: { x: 0.5, y: 0.54, scale: 1, rot: 0 },
+            mpos: { x: 0.5, y: 0.54, scale: 1, rot: 0 }, mcolor: '#ffffff',
             mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
             mSel: false, dragS: null,
             query: '', spq: '', changing: false,
@@ -285,7 +288,7 @@
         const m = M.track;
         if (!m) { q.msk.innerHTML = ''; q.song.textContent = ''; q.song.hidden = true; return; }
         const showHandles = M.mSel && !M.preview;
-        q.msk.innerHTML = S.musicSticker(m, M.mstyle, M.mpos, { showHandles });
+        q.msk.innerHTML = S.musicSticker(m, M.mstyle, M.mpos, { showHandles, color: M.mcolor });
         q.song.textContent = S.musicLine(m);
         q.song.hidden = !(M.preview && m);
     }
@@ -381,11 +384,7 @@
     function textSheet() {
         const t = selT();
         let h = `<div class="st-row2"><button class="st-btn sm" type="button" data-k="addText"><i class="fas fa-plus"></i> Add text</button>
-            <button class="st-btn ghost sm" type="button" data-k="editText" ${t ? '' : 'disabled'}><i class="fas fa-pen"></i> Edit</button>
-            <button class="st-btn ghost sm" type="button" data-k="dup" ${t ? '' : 'disabled'}><i class="far fa-clone"></i> Duplicate</button>
-            <button class="st-btn danger sm" type="button" data-k="del" ${t ? '' : 'disabled'} aria-label="Delete text"><i class="fas fa-trash"></i></button>
-            <button class="st-btn ghost sm" type="button" data-k="undo" ${M.hist.length > 1 ? '' : 'disabled'}><i class="fas fa-rotate-left"></i> Undo</button>
-            <button class="st-btn ghost sm" type="button" data-k="resetText" ${M.texts.length ? '' : 'disabled'}>Reset</button></div>`;
+            <button class="st-btn ghost sm" type="button" data-k="editText" ${t ? '' : 'disabled'}><i class="fas fa-pen"></i> Edit text</button></div>`;
         if (!t) return h + `<p class="st-hint">Tap a text on the story to style it. Double-tap a text to edit it, drag to move it${coarse() ? ', pinch to resize and rotate it' : ''}.</p>`;
         return h + `<div class="st-lab">Font</div><div class="st-row2">${Object.entries(S.FONTS).map(([k, f]) => `<button type="button" class="st-chip ${t.font === k ? 'on' : ''}" data-k="font" data-v="${k}" style="font-family:${f.css}">${f.label}</button>`).join('')}</div>
           ${coarse() ? '' : `<div class="st-row2 st-desk-only"><label class="st-range">Size <input type="range" min="35" max="180" value="${Math.round(t.size * 1000)}" data-in="size"></label>
@@ -419,7 +418,9 @@
               ${M.video ? `<p class="st-note2">Your video is ${S.fmtSec(vidSec())} long, so the clip follows it (${tr.clipSec}s). The video's own sound is muted while a song is attached.</p>`
                 : `<div class="st-lab" style="margin-top:10px">Clip length = story length</div><div class="st-lenrow">${lens.map(v => `<button type="button" class="st-chip ${tr.clipSec === v ? 'on' : ''}" data-k="clipLen" data-v="${v}">${v}s</button>`).join('')}</div>`}
               ${M.changing ? '' : `<div class="st-lab" style="margin-top:12px">Show on story</div>
-              <div class="st-row2">${chips(S.MUSIC_STYLES, S.normStyle(M.mstyle), 'mstyle')}</div>`}
+              <div class="st-row2">${chips(S.MUSIC_STYLES, S.normStyle(M.mstyle), 'mstyle')}</div>
+              ${S.normStyle(M.mstyle) === 'none' ? '' : `<div class="st-lab" style="margin-top:10px">Sticker colour</div>
+              <div class="st-row2">${sw(MUSIC_COLORS, M.mcolor, 'mcolor')}</div>`}`}
               ${M.changing ? '' : `
                 ${coarse() ? '' : `<div class="st-lab" style="margin-top:12px">Sticker on story</div>
                 <div class="st-row2" style="margin-top:6px">
@@ -581,8 +582,16 @@
             t.y = S.clamp(d.oy + dy / d.h, d.hh, 1 - d.hh);
             refreshEl(t);
         });
-        const end = () => { const d = M.drag; M.drag = null; st.classList.remove('drag'); if (d && d.moved) pushHist(); };
-        st.addEventListener('pointerup', end); st.addEventListener('pointercancel', end);
+        // A tap (no drag) on a text opens its formatting panel straight away,
+        // the way Instagram does. Dragging still moves it without opening anything.
+        const end = (allowOpen) => {
+            const d = M.drag; M.drag = null; st.classList.remove('drag');
+            if (!d) return;
+            if (d.moved) { pushHist(); return; }
+            if (allowOpen && find(d.id) && M.sheet !== 'text') openSheet('text');
+        };
+        st.addEventListener('pointerup', () => end(true));
+        st.addEventListener('pointercancel', () => end(false));
     }
 
     // ---------------- sticker interaction ----------------
@@ -609,7 +618,11 @@
             detach();
             const wasTap = s.kind === 'move' && !moved && (performance.now() - downAt) < TAP_MS;
             if (s.kind === 'move') {
-                if (wasTap) { M.mSel = true; renderSticker(); }
+                if (wasTap) {
+                    M.mSel = true; renderSticker();
+                    // Tapping the music sticker opens its formatting panel.
+                    if (M.sheet !== 'music') openSheet('music');
+                }
                 else { paintSticker(); pushHist(); }
             } else { paintSticker(); pushHist(); }
             if (M.sheet === 'music') renderSheet();
@@ -863,6 +876,7 @@
             case 'bg': style(x => { x.bg = v; }); break;
             case 'bgColor': style(x => { x.bgColor = v; }); break;
             case 'mstyle': M.mstyle = v; renderPv(); renderSheet(); break;
+            case 'mcolor': M.mcolor = v; renderSticker(); renderSheet(); break;
             case 'musicGo': musicSearch(); break;
             case 'playRes': {
                 const r = M.results[Number(v)]; if (!r) break;
@@ -1271,6 +1285,7 @@
                     previewUrl: M.track.previewUrl, previewSec: M.track.previewSec || 30,
                     startSec: M.track.startSec, clipSec: M.track.clipSec,
                     style: S.normStyle(M.mstyle),
+                    color: M.mcolor,
                     sticker: {
                         x: +M.mpos.x.toFixed(4),
                         y: +M.mpos.y.toFixed(4),

@@ -193,6 +193,16 @@
     const MUSIC_STYLES = [['none', 'None'], ['bar', 'Bar'], ['square', 'Square'], ['disc', 'Disc']];
     const normStyle = v => (MUSIC_STYLES.some(x => x[0] === v) ? v : 'bar');
 
+    // Sticker tint. Only a plain #rrggbb is accepted, so a crafted document
+    // value can never inject a second CSS declaration.
+    const safeHex = v => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim().toLowerCase() : '');
+    const inkFor = hex => {
+        const n = parseInt(hex.slice(1), 16);
+        const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+        const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+        return L > 0.55 ? '#0b1220' : '#ffffff';
+    };
+
     // Allow the sticker to be pushed off the frame; the center stays reachable.
     function cleanSticker(s) {
         if (!s || typeof s !== 'object') return { x: 0.5, y: 0.54, scale: 1, rot: 0 };
@@ -232,8 +242,13 @@
               '<i class="st-h bl"  data-h="bl"></i>' +
               '<i class="st-h br"  data-h="br"></i>'
             : '';
+        // Composer passes an explicit colour; a stored story carries its own.
+        const color = safeHex(opts.color) || safeHex(m.color);
+        // --msk-bg / --msk-fg paint the card and its ink; --msk-tint is the raw
+        // choice, used where the colour *is* the text (the disc style).
+        const skin = color ? ` style="--msk-bg:${color};--msk-fg:${inkFor(color)};--msk-tint:${color}"` : '';
         return `<div class="st-mwrap" style="left:${left}%;top:${top}%;transform:${transform};" data-sticker="1">` +
-            `<span class="st-msk st-msk-${style} st-ui" data-a="mute">${musicStickerInner(m, style)}</span>${handles}</div>`;
+            `<span class="st-msk st-msk-${style} st-ui"${skin} data-a="mute">${musicStickerInner(m, style)}</span>${handles}</div>`;
     }
 
     const musicLine = m => m ? ('♪ ' + String(m.title || '') + (m.artist ? ' · ' + m.artist : '')) : '';
@@ -248,6 +263,7 @@
         return {
             provider: 'itunes', trackId: String(m.trackId || '').slice(0, 20), title: String(m.title || 'Song').slice(0, 120), artist: String(m.artist || '').slice(0, 80),
             thumbnail: safeImgUrl(m.thumbnail) || '', previewUrl: url, previewSec, startSec, clipSec, style: normStyle(m.style),
+            color: safeHex(m.color),
             sticker: cleanSticker(m.sticker)
         };
     }
