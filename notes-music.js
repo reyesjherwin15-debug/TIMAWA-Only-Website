@@ -39,6 +39,14 @@
         .nm-add .nm-addic{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.22);display:grid;place-items:center;font-size:12px}
         .nm-add small{font-weight:600;opacity:.85;font-size:11.5px}
         .nm-chip{display:flex;align-items:center;gap:10px;padding:9px 10px;box-sizing:border-box;width:100%;border-radius:14px;border:1.5px solid color-mix(in srgb,var(--theme-primary,#1089d3) 35%,transparent);background:color-mix(in srgb,var(--theme-primary,#1089d3) 8%,var(--theme-card,#fff))}
+        .nm-chip.nm-locked{border-style:dashed;opacity:.92}
+        .nm-lockic{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;font-size:12px;background:color-mix(in srgb,var(--theme-text,#000) 8%,transparent);color:var(--theme-text-muted,#666)}
+        .nm-locked-note{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:11px 13px;border-radius:14px;border:1.5px dashed var(--theme-border-input,#cbd5e1);background:color-mix(in srgb,var(--theme-text,#000) 4%,transparent);color:var(--theme-text-muted,#666);font-size:12.5px;line-height:1.35}
+        .nm-locked-note i{color:var(--theme-text-dim,#94a3b8);flex:0 0 auto}
+        .nm-locked-note b{color:var(--theme-text,#1a1a2e);font-weight:800}
+        /* a live note is read-only until the member taps Replace note */
+        #titaNote.nm-locked,.tita-note-editor.nm-locked input{background:color-mix(in srgb,var(--theme-text,#000) 6%,var(--theme-bg,#fff))!important;color:var(--theme-text-muted,#666)!important;cursor:default;-webkit-text-fill-color:var(--theme-text-muted,#666)}
+        #titaNote.nm-locked:focus{outline:none;border-color:var(--theme-border-input,#cbd5e1)}
         .nm-art{width:42px;height:42px;border-radius:9px;object-fit:cover;flex:0 0 auto;background:#1db954}
         .nm-ph{width:42px;height:42px;border-radius:9px;flex:0 0 auto;background:var(--theme-gradient,#1089d3);display:grid;place-items:center;color:#fff;font-size:16px}
         .nm-meta{min-width:0;flex:1;line-height:1.3}
@@ -216,9 +224,34 @@
     const expMs = n => { const e = n && n.expireAt; if (!e) return 0; if (e.toMillis) return e.toMillis(); if (e.seconds) return e.seconds * 1000; const t = new Date(e).getTime(); return isNaN(t) ? 0 : t; };
     const isActive = n => hasContent(n) && expMs(n) > Date.now();
     const isReplacing = () => replacing;
-    // Editing text or choosing/removing a song updates the active note directly;
-    // Replace remains only for an intentional fresh 24-hour timer.
-    const canEditSong = () => true;
+    // An active note is LOCKED: its text and its song cannot be touched until the
+    // member taps "Replace note". Typing is only possible for a brand-new note (or
+    // one that already expired), so a stray keystroke can never rewrite the note
+    // every other member is looking at. Replace clears the editor and unlocks it;
+    // Save then publishes the new note with a fresh 24-hour timer.
+    const isNoteLocked = () => isActive(liveNote) && !replacing;
+    const canEditSong = () => !isNoteLocked();
+    function refreshNoteLock() {
+        const input = document.getElementById('titaNote');
+        if (!input) return;
+        const locked = isNoteLocked();
+        const live = String((liveNote && liveNote.text) || '');
+        if (!input.dataset.nmPh) input.dataset.nmPh = input.placeholder || '';
+        if (locked) {
+            if (document.activeElement === input) input.blur();
+            if (input.value !== live) {
+                input.value = live;
+                const cnt = document.getElementById('titaNoteCount');
+                if (cnt) cnt.textContent = String(live.length);
+            }
+        }
+        input.readOnly = locked;
+        input.setAttribute('aria-readonly', locked ? 'true' : 'false');
+        input.classList.toggle('nm-locked', locked);
+        const box = input.closest('.tita-note-editor');
+        if (box) box.classList.toggle('nm-locked', locked);
+        input.placeholder = locked ? 'Note locked — tap Replace note to change it' : (input.dataset.nmPh || '');
+    }
     function syncLiveDraft() {
         if (replacing) return;
         const input = document.getElementById('titaNote');
@@ -237,7 +270,7 @@
     function setReplaceNote(note, keepMode) {
         liveNote = note || null;
         if (!keepMode) { replacing = false; replaceSnap = null; }
-        renderRow(); renderReplace();
+        renderRow(); renderReplace(); refreshNoteLock();
     }
     async function startReplace() {
         if (replacing) return;
@@ -247,13 +280,13 @@
         replaceSnap = { text: inp ? inp.value : '', music: draft };
         if (inp) { inp.value = ''; }
         if (cnt) cnt.textContent = '0';
-        draft = null; replacing = true; renderRow(); renderReplace();
+        draft = null; replacing = true; renderRow(); renderReplace(); refreshNoteLock();
         if (inp) inp.focus({ preventScroll: true });
     }
     function cancelReplace() {
         const inp = document.getElementById('titaNote'), cnt = document.getElementById('titaNoteCount');
         if (replaceSnap) { if (inp) inp.value = replaceSnap.text; if (cnt) cnt.textContent = String((replaceSnap.text || '').length); draft = replaceSnap.music; }
-        replacing = false; replaceSnap = null; renderRow(); renderReplace();
+        replacing = false; replaceSnap = null; renderRow(); renderReplace(); refreshNoteLock();
     }
 
     // ------------------------------------------------------------ draft (the song being attached in Tita Tima)
@@ -270,11 +303,13 @@
         const host = document.getElementById('titaNoteMusicRow'); if (!host) return;
         injectStyles();
         host.className = 'nm-row';
+        const locked = isNoteLocked();
+        if (locked && !draft) { host.innerHTML = '<div class="nm-locked-note"><i class="fas fa-lock"></i><span>A song can only be added when you start a new note.</span></div>'; return; }
         if (!draft) { host.innerHTML = '<button type="button" class="nm-add" data-nm="open"><span class="nm-addic"><i class="fas fa-music"></i></span><span>Add a song</span><small>optional</small></button>'; return; }
         const art = S().safeImgUrl(draft.thumbnail);
-        host.innerHTML = `<div class="nm-chip">${art ? `<img class="nm-art" src="${esc(art)}" alt="">` : '<span class="nm-ph"><i class="fas fa-music"></i></span>'}
+        host.innerHTML = `<div class="nm-chip${locked ? ' nm-locked' : ''}">${art ? `<img class="nm-art" src="${esc(art)}" alt="">` : '<span class="nm-ph"><i class="fas fa-music"></i></span>'}
             <div class="nm-meta"><b>${esc(draft.title)}</b><small>${esc(draft.artist || 'Song')} · ${fmt(draft.previewSec)}</small></div>
-            <button type="button" class="nm-ib" data-nm="open" aria-label="Change song"><i class="fas fa-pen"></i></button><button type="button" class="nm-ib danger" data-nm="remove" aria-label="Remove song"><i class="fas fa-xmark"></i></button></div>`;
+            ${locked ? '<span class="nm-lockic" title="Replace the note to change the song"><i class="fas fa-lock"></i></span>' : '<button type="button" class="nm-ib" data-nm="open" aria-label="Change song"><i class="fas fa-pen"></i></button><button type="button" class="nm-ib danger" data-nm="remove" aria-label="Remove song"><i class="fas fa-xmark"></i></button>'}</div>`;
     }
 
     // ------------------------------------------------------------ picker panel
@@ -341,13 +376,13 @@
             else if (a === 'replace') startReplace();
             else if (a === 'replace-cancel') cancelReplace();
             else if (a === 'go') search();
-            else if (a === 'remove') { draft = null; stop(); renderRow(); paint(); }
+            else if (a === 'remove') { if (!canEditSong()) return; draft = null; stop(); renderRow(); paint(); }
             else if (a === 'prev') {
                 const r = results[Number(t.dataset.i)]; if (!r) return;
                 if (cur && cur.url === r.previewUrl && audio && !audio.paused) stop(); else play(r.previewUrl, null);
                 paint();
             } else if (a === 'pick') {
-                const r = results[Number(t.dataset.i)]; if (!r) return;
+                const r = results[Number(t.dataset.i)]; if (!r || !canEditSong()) return;
                 draft = clean(r); renderRow(); results = []; msg = ''; paint(); play(draft.previewUrl, null);
             }
             return;
@@ -372,7 +407,7 @@
         el.classList.remove('nm-flash'); void el.offsetWidth; el.classList.add('nm-flash');
         setTimeout(() => el.classList.remove('nm-flash'), 1400);
     }
-    function initRows() { renderRow(); renderReplace(); }
+    function initRows() { renderRow(); renderReplace(); refreshNoteLock(); }
     injectStyles();
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initRows); else initRows();
 

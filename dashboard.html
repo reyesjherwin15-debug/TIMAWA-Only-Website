@@ -1740,6 +1740,69 @@
             display: none !important;
         }
 
+        /* ----- Fullscreen chat enter / leave motion -----
+           The chat lives in a panel that is only shown while it is open, so
+           there is no card on screen to grow out of. It rises in as a sheet and
+           fades back out over the tab that is being revealed underneath it. */
+        .chat-container.fullscreen-chat.chat-entering {
+            animation: chatPanelIn 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+            will-change: transform, opacity;
+        }
+
+        .chat-container.fullscreen-chat.chat-leaving {
+            animation: chatPanelOut 210ms cubic-bezier(0.4, 0, 0.7, 1) both;
+            pointer-events: none;
+            will-change: transform, opacity;
+        }
+
+        @keyframes chatPanelIn {
+            from {
+                opacity: 0;
+                transform: translateY(22px) scale(0.985);
+                box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0);
+            }
+            55% { opacity: 1; }
+            to {
+                opacity: 1;
+                transform: none;
+                box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.6);
+            }
+        }
+
+        @keyframes chatPanelOut {
+            from {
+                opacity: 1;
+                transform: none;
+                box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.6);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(18px) scale(0.985);
+                box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0);
+            }
+        }
+
+        /* The chats panel is normally display:none once another tab is picked.
+           Hold it on screen while the sheet fades, so the two tabs cross-fade
+           instead of one blinking out before the other appears. */
+        .social-section .panel-view.chat-leaving-layer {
+            display: block !important;
+        }
+
+        /* A transform on an animating panel would become the containing block
+           for the fixed-position chat sheet and make it jump. The sheet has its
+           own entrance, so the panel fade stays off for the chats tab. */
+        .social-section .panel-view#panel-chats.active {
+            animation: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .chat-container.fullscreen-chat.chat-entering,
+            .chat-container.fullscreen-chat.chat-leaving {
+                animation: none;
+            }
+        }
+
         .chat-sidebar {
             background: var(--theme-bg-soft);
             border-right: 1px solid var(--theme-border);
@@ -8576,7 +8639,10 @@
         // ===== SOCIAL TABS =====
         // ================================================================
         function switchSocialTab(tab) {
-            if (tab !== 'chats' && document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) {
+            const chatEl = document.getElementById('chatContainerEl');
+            if (tab !== 'chats' && chatEl?.classList.contains('fullscreen-chat') && !chatEl.classList.contains('chat-leaving')) {
+                // Skip when an exit is already animating: setChatFullscreen added
+                // chat-leaving and will drop the fullscreen class when it ends.
                 setChatFullscreen(false);
             }
             const pills = document.querySelectorAll('.social-section .tab-pill');
@@ -9080,16 +9146,36 @@
             setChatFullscreen(true);
         }
 
+        let _chatExitTimer = 0;
+
+        // Drop every helper class the enter/leave motion adds. Safe to call at
+        // any time: it also cancels a pending exit so a fast re-open is clean.
+        function releaseChatMorph() {
+            const container = document.getElementById('chatContainerEl');
+            const panelChats = document.getElementById('panel-chats');
+            if (_chatExitTimer) { clearTimeout(_chatExitTimer); _chatExitTimer = 0; }
+            if (container) container.classList.remove('chat-leaving', 'chat-entering');
+            if (panelChats) panelChats.classList.remove('chat-leaving-layer');
+        }
+
         function setChatFullscreen(isFullscreen, skipReturn) {
             const container = document.getElementById('chatContainerEl');
             const btn = document.getElementById('chatFullscreenBtn');
             const btnSidebar = document.getElementById('chatFullscreenBtnSidebar');
             if (!container) return;
             const wasFullscreen = container.classList.contains('fullscreen-chat');
-            container.classList.toggle('fullscreen-chat', !!isFullscreen);
             const body = document.body;
 
             if (isFullscreen) {
+                releaseChatMorph();
+                container.classList.add('fullscreen-chat');
+                if (!wasFullscreen) {
+                    void container.offsetWidth; // commit the layout so the animation runs
+                    container.classList.add('chat-entering');
+                    setTimeout(() => {
+                        if (container.classList.contains('fullscreen-chat')) container.classList.remove('chat-entering');
+                    }, 340);
+                }
                 _fullscreenScrollY = window.scrollY || window.pageYOffset || 0;
                 body.style.top = `-${_fullscreenScrollY}px`;
                 body.classList.add('chat-fullscreen-active');
@@ -9097,6 +9183,26 @@
                     try { history.pushState({ timawaChatFullscreen: true }, ''); _chatFullscreenHistory = true; } catch (e) { /* ignore */ }
                 }
             } else {
+                if (wasFullscreen) {
+                    // Keep the sheet painted for one beat and fade it out over the
+                    // tab that is already being revealed underneath it. The panel
+                    // it lives in is display:none once the new tab is active, so
+                    // chat-leaving-layer holds it on screen until the fade ends.
+                    const panelChats = document.getElementById('panel-chats');
+                    container.classList.remove('chat-entering');
+                    container.classList.remove('chat-leaving');
+                    void container.offsetWidth;
+                    container.classList.add('chat-leaving');
+                    if (panelChats) panelChats.classList.add('chat-leaving-layer');
+                    _chatExitTimer = setTimeout(() => {
+                        _chatExitTimer = 0;
+                        container.classList.remove('chat-leaving');
+                        container.classList.remove('fullscreen-chat');
+                        if (panelChats) panelChats.classList.remove('chat-leaving-layer');
+                    }, 220);
+                } else {
+                    container.classList.remove('fullscreen-chat');
+                }
                 if (wasFullscreen && _chatFullscreenHistory && !skipReturn) {
                     _chatFullscreenHistory = false;
                     ignoredChatBackEvents++;
@@ -16870,7 +16976,7 @@ function startReplyTo(commentId, authorName) {
     </script>
 
     <script src="stories-shared.js?v=1.11.1"></script>
-    <script src="notes-music.js?v=1.1.0"></script>
+    <script src="notes-music.js?v=1.2.0"></script>
     <script src="stories.js?v=1.12.2"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
