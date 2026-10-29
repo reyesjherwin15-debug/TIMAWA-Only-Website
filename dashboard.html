@@ -1820,6 +1820,33 @@
             flex-shrink: 0;
         }
 
+        /* Chat list -> Members. Lives in the list header because that is the
+           level the member is on when the conversation view is not showing. */
+        .chat-list-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 0 8px;
+            padding: 4px 8px;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            color: var(--theme-primary);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .chat-list-back:hover {
+            background: var(--theme-primary-soft-2);
+        }
+
+        .chat-list-back i {
+            font-size: 13px;
+        }
+
         .chat-sidebar-header h4 {
             font-size: 13px;
             font-weight: 800;
@@ -7514,6 +7541,9 @@
                     <div class="chat-container" id="chatContainerEl">
                         <aside class="chat-sidebar" id="chatSidebar">
                             <div class="chat-sidebar-header">
+                                <button type="button" class="chat-list-back" id="chatListBack" onclick="showChatSidebar()" aria-label="Back to members" title="Back to members">
+                                    <i class="fas fa-chevron-left"></i> Back to members
+                                </button>
                                 <h4>
                                     <span><i class="fas fa-user-friends"></i> Conversations</span>
                                     <span class="chat-sidebar-header-actions">
@@ -7536,10 +7566,10 @@
                             <div class="chat-user-list" id="chatUserList"></div>
                         </aside>
                         <div class="chat-main" id="chatMain">
-                <div class="chat-mobile-back" onclick="showChatSidebar()">
-                    <i class="fas fa-chevron-left"></i> Back to members
+                <div class="chat-mobile-back" id="chatBackMobile" onclick="chatBack()" aria-label="Back to members">
+                    <i class="fas fa-chevron-left"></i> <span class="chat-back-label">Back to members</span>
                 </div>
-                <button type="button" class="chat-mobile-back chat-desktop-back" onclick="showChatSidebar()" aria-label="Back to members"><i class="fas fa-arrow-left"></i> Back to members</button>
+                <button type="button" class="chat-mobile-back chat-desktop-back" id="chatBackDesktop" onclick="chatBack()" aria-label="Back to members"><i class="fas fa-arrow-left"></i> <span class="chat-back-label">Back to members</span></button>
                             <div class="chat-main-empty" id="chatMainEmpty">
                                 <i class="fas fa-comments"></i>
                                 <h3>Select a conversation</h3>
@@ -9227,25 +9257,98 @@
             }
         }
 
-        function showChatSidebar() {
+        // ================================================================
+        // The chat tab is two levels deep: conversation -> chat list -> the
+        // dashboard. Every back control (header button, hardware back) moves
+        // exactly one level, and the label says which level is next.
+        // ================================================================
+        function noConversationOpen() {
+            return !activeChatUid && !activeChatIsGroup;
+        }
+
+        // Paint the chat list: drop the open conversation, stay fullscreen.
+        function showChatList() {
+            activeChatUid = null;
+            activeChatIsGroup = false;
+            chatMessages = [];
+            detachChatMessagesListener();
+            renderChatHeader();
             const sidebar = document.getElementById('chatSidebar');
             const main = document.getElementById('chatMain');
             if (sidebar) sidebar.classList.remove('hidden');
             if (main) main.classList.remove('visible');
-            if (document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) {
-                activeChatUid = null;
-                activeChatIsGroup = false;
-                chatMessages = [];
-                detachChatMessagesListener();
-                renderChatHeader();
-                setChatFullscreen(false, true);
-                switchSocialTab('members');
-                if (_chatFullscreenHistory) {
-                    _chatFullscreenHistory = false;
-                    ignoredChatBackEvents++;
-                    setTimeout(() => history.back(), 0);
+        }
+
+        // "Back to chats" inside a conversation, "Back to members" on the list.
+        function updateChatBackLabels() {
+            const label = noConversationOpen() ? 'Back to members' : 'Back to chats';
+            document.querySelectorAll('.chat-back-label').forEach((el) => { el.textContent = label; });
+            ['chatBackMobile', 'chatBackDesktop'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.setAttribute('aria-label', label);
+                el.title = label;
+            });
+        }
+
+        // A Back we trigger ourselves fires one popstate that must be ignored.
+        // If the traversal never happens (the entry is already gone) the ignore
+        // would swallow the member's next real Back, so it self-cancels.
+        function ignoreOneBackEvent() {
+            const before = ignoredChatBackEvents;
+            ignoredChatBackEvents++;
+            setTimeout(() => {
+                if (ignoredChatBackEvents > before) ignoredChatBackEvents = before;
+            }, 450);
+        }
+
+        // The header back control.
+        function chatBack() {
+            if (!noConversationOpen()) {
+                const hadEntry = _chatConversationHistory;
+                _chatConversationHistory = false;
+                showChatList();
+                if (hadEntry) {
+                    ignoreOneBackEvent();
+                    try { history.back(); } catch (e) { /* ignore */ }
                 }
+                return;
             }
+            showChatSidebar();
+        }
+
+        // Pop every entry this page added for the chat (conversation, then the
+        // chats tab), so leaving the chat never leaves a dead Back press behind.
+        function releaseChatHistoryEntries() {
+            const depth = (_chatConversationHistory ? 1 : 0) + (_chatFullscreenHistory ? 1 : 0);
+            _chatConversationHistory = false;
+            _chatFullscreenHistory = false;
+            if (!depth) return;
+            ignoreOneBackEvent();
+            try { history.go(-depth); } catch (e) { /* ignore */ }
+        }
+
+        // A conversation gets its own history entry so Back lands on the list.
+        function pushConversationHistoryEntry() {
+            if (_chatConversationHistory) return;
+            try {
+                history.pushState({ timawaChatConversation: true }, '',
+                    window.location.pathname + window.location.search);
+                _chatConversationHistory = true;
+            } catch (e) { /* ignore */ }
+        }
+
+        // Chat list -> Members tab.
+        function showChatSidebar() {
+            showChatList();
+            const container = document.getElementById('chatContainerEl');
+            if (!container?.classList.contains('fullscreen-chat')) {
+                switchSocialTab('members');
+                return;
+            }
+            setChatFullscreen(false, true);
+            switchSocialTab('members');
+            releaseChatHistoryEntries();
         }
 
         function hideChatSidebar() {
@@ -9260,6 +9363,7 @@
         // ================================================================
         let _fullscreenScrollY = 0;
         let _chatFullscreenHistory = false;
+        let _chatConversationHistory = false;
         let ignoredChatBackEvents = 0;
         // The conversation a back press just closed. A queued hashchange can
         // still arrive carrying the old hash; this stops it reopening the chat.
@@ -9278,6 +9382,17 @@
             if (ignoredChatBackEvents > 0) { ignoredChatBackEvents--; return; }
             // A modal on top of the chat already handled this back press.
             if (modalConsumedBackAt && performance.now() - modalConsumedBackAt < 50) return;
+
+            // One level up inside the chat: conversation -> chat list.
+            if (_chatConversationHistory) {
+                _chatConversationHistory = false;
+                if (!noConversationOpen()) {
+                    suppressedChatTarget = activeChatIsGroup ? 'group' : (activeChatUid || '');
+                    suppressChatDeepLinkUntil = performance.now() + 700;
+                    showChatList();
+                }
+                return;
+            }
 
             if (!_chatFullscreenHistory) return;
             _chatFullscreenHistory = false;
@@ -9388,11 +9503,7 @@
                 } else {
                     container.classList.remove('fullscreen-chat');
                 }
-                if (wasFullscreen && _chatFullscreenHistory && !skipReturn) {
-                    _chatFullscreenHistory = false;
-                    ignoredChatBackEvents++;
-                    try { history.back(); } catch (e) { ignoredChatBackEvents = Math.max(0, ignoredChatBackEvents - 1); }
-                }
+                if (wasFullscreen && !skipReturn) releaseChatHistoryEntries();
                 body.classList.remove('chat-fullscreen-active');
                 body.style.top = '';
                 window.scrollTo(0, _fullscreenScrollY);
@@ -9999,6 +10110,7 @@
             if (!document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) setChatFullscreen(true);
             if (uid === currentUser.uid) return;
 
+            pushConversationHistoryEntry();
             activeChatUid = uid;
             activeChatIsGroup = false;
             chatMessages = [];
@@ -10029,6 +10141,7 @@
             if (!currentUser) return;
             if (!document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) setChatFullscreen(true);
 
+            pushConversationHistoryEntry();
             activeChatUid = GROUP_CHAT_KEY;
             activeChatIsGroup = true;
             chatMessages = [];
@@ -10069,6 +10182,9 @@
             const bodyEl = document.getElementById('chatBody');
             const inputEl = document.getElementById('chatInputWrap');
             const inputTextarea = document.getElementById('chatInput');
+
+            // Runs on every conversation change, including closing one.
+            updateChatBackLabels();
 
             if (!activeChatUid) {
                 headerEl.style.display = 'none';
