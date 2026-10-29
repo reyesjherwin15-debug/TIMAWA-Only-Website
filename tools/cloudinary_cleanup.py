@@ -284,6 +284,109 @@ def drain_queue(db, key: str, secret: str, args) -> tuple[int, int]:
     return done, failed
 
 
+# --------------------------------------------------------------------------- #
+# Expired content
+
+# Collections whose documents carry an expiry, plus the subcollections that hang
+# off them (Firestore does not remove those when the parent goes).
+EXPIRING = (
+    ("stories", "expiresAt", ("reactions", "views")),
+    ("highlights", "expiresAt", ()),
+    ("announcements", "expiresAt", ()),
+)
+
+
+def purge_expired(db, key: str, secret: str, args) -> tuple[int, int, int]:
+    """Delete documents whose expiry has passed, then the media they held.
+
+    Expiry on its own only hides content: the document stays in Firestore with
+    its mediaUrl intact, so the orphan sweep counts the file as referenced and
+    keeps it forever. Deleting the document here closes that loop — once it is
+    gone the file is unreferenced, and this run reclaims the storage.
+
+    Returns (documents_deleted, assets_deleted, assets_failed).
+    """
+    now = datetime.now(timezone.utc)
+    subs_of = {name: subs for name, _field, subs in EXPIRING}
+    doomed: list[tuple[str, str, dict]] = []
+
+    for name, field, _subs in EXPIRING:
+        try:
+            docs = list(db.collection(name).where(field, "<=", now)
+                        .limit(args.max_delete).stream())
+        except Exception as exc:  # noqa: BLE001
+            log(f"expired: could not scan {name}: {exc}")
+            continue
+        if docs:
+            log(f"expired: {len(docs)} {name} document(s) past their {field}")
+        for doc in docs:
+            doomed.append((name, doc.id, doc.to_dict() or {}))
+
+    if not doomed:
+        log("expired: nothing past its expiry")
+        return 0, 0, 0
+
+    # What those documents were holding, and with which resource type.
+    held: dict[str, str] = {}
+    for _name, _id, data in doomed:
+        ids: set[str] = set()
+        _collect_media(data, ids)
+        rtype = "video" if data.get("mediaType") == "video" else "image"
+        for pid in ids:
+            held.setdefault(pid, rtype)
+
+    if args.dry_run:
+        log(f"expired: would delete {len(doomed)} document(s) and free "
+            f"{len(held)} asset(s) — run with --apply to remove them")
+        return len(doomed), 0, 0
+
+    deleted = 0
+    for name, doc_id, _data in doomed:
+        ref = db.collection(name).document(doc_id)
+        for sub in subs_of.get(name, ()):
+            try:
+                for child in ref.collection(sub).limit(200).stream():
+                    child.reference.delete()
+            except Exception:  # noqa: BLE001
+                pass                    # subcollections are best effort
+        try:
+            ref.delete()
+            deleted += 1
+        except Exception as exc:  # noqa: BLE001
+            log(f"  ! could not delete {name}/{doc_id}: {exc}")
+    log(f"expired: removed {deleted} document(s); their media is unreferenced now")
+
+    if not held:
+        return deleted, 0, 0
+
+    # Only the files nothing else points at (a story quoted in a chat, a reused
+    # public id) — the same guarantee the orphan sweep gives.
+    try:
+        live = referenced_ids(db, args.scan_limit)
+    except Exception as exc:  # noqa: BLE001
+        log(f"expired: media kept — reference scan failed ({exc})")
+        return deleted, 0, 0
+
+    done = failed = 0
+    for pid in sorted(held):
+        if done + failed >= args.max_delete:
+            log(f"expired: stopping at --max-delete {args.max_delete}")
+            break
+        if pid in live:
+            log(f"  - keep {pid} (still referenced)")
+            continue
+        if not pid.startswith(args.prefix) and not args.allow_outside_prefix:
+            log(f"  - skip {pid} (outside {args.prefix})")
+            continue
+        ok, msg = destroy(pid, held[pid], key, secret, False)
+        log(f"  {'✓' if ok else '✗'} {pid} — {msg}")
+        done += 1 if ok else 0
+        failed += 0 if ok else 1
+        if ok:
+            time.sleep(0.05)            # stay well inside rate limits
+    return deleted, done, failed
+
+
 def sweep_orphans(db, key: str, secret: str, args) -> tuple[int, int]:
     try:
         live = referenced_ids(db, args.scan_limit)
@@ -348,6 +451,9 @@ def main() -> int:
                     help="documents scanned per collection when finding orphans")
     ap.add_argument("--min-age-hours", type=float, default=24.0,
                     help="orphans must be at least this old (upload in flight guard)")
+    ap.add_argument("--purge-expired", action=argparse.BooleanOptionalAction, default=True,
+                    help="delete stories/highlights/announcements past expiresAt, "
+                         "then the media they were holding (--no-purge-expired to skip)")
     args = ap.parse_args()
     args.dry_run = not args.apply
 
@@ -370,6 +476,15 @@ def main() -> int:
         log(f"::warning::Firestore unavailable ({exc}); queue step skipped")
 
     total_done = total_failed = 0
+    expired_docs = 0
+
+    # Runs in every mode: an expired document is dead weight in Firestore and
+    # pins its media for as long as it exists.
+    if db is not None and args.purge_expired:
+        expired_docs, done, failed = purge_expired(db, key, secret, args)
+        total_done += done
+        total_failed += failed
+
     if db is not None and args.mode in ("queue", "both"):
         done, failed = drain_queue(db, key, secret, args)
         total_done += done
@@ -383,7 +498,9 @@ def main() -> int:
             total_done += done
             total_failed += failed
 
-    log(f"\n{'would delete' if args.dry_run else 'deleted'}: {total_done} · "
+    log(f"\nexpired documents {'that would be removed' if args.dry_run else 'removed'}: "
+        f"{expired_docs}")
+    log(f"{'would delete' if args.dry_run else 'deleted'}: {total_done} · "
         f"failed: {total_failed}")
     if total_failed:
         log("::warning::some assets could not be deleted — see the lines above")

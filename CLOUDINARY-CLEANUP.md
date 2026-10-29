@@ -73,8 +73,23 @@ runs on two schedules and also has a **Run workflow** button:
 
 | When | Mode | What it does |
 |---|---|---|
-| every hour (`:23`) | `queue` | deletes exactly what the app queued |
-| daily, 03:47 UTC | `both` | queue **plus** an orphan sweep |
+| every hour (`:23`) | `queue` | removes expired documents, then deletes exactly what the app queued |
+| daily, 03:47 UTC | `both` | the same, **plus** an orphan sweep |
+
+Every run starts with the expired step (see below), whatever the mode.
+
+### Expired content is removed, not just hidden
+
+Expiry used to hide a story or highlight without removing anything: the
+document stayed in Firestore with its `mediaUrl` intact. The orphan sweep then
+counted that file as still in use and kept it — so an expired story could hold
+its photo forever, invisible to everyone.
+
+Every run now starts by deleting documents whose `expiresAt` has passed in
+`stories`, `highlights` and `announcements` (plus a story's `reactions` and
+`views` subcollections), and then deleting the media those documents were
+holding. A file is still kept if anything else references it, so a story quoted
+in a chat never loses its media. Turn the step off with `--no-purge-expired`.
 
 ### Why the daily sweep matters
 
@@ -83,8 +98,8 @@ else stays in the account until something sweeps it:
 
 * a profile photo that was **replaced** (the new URL is the only one any document
   references — the old file is simply unreferenced);
-* a story that expired while nobody had the site open (its document is still
-  there, and Firestore's TTL may lag a day, but the media is no longer shown);
+* a story that expired while nobody had the site open (the expired step removes
+  its document and media; the sweep catches anything an older build left behind);
 * uploads interrupted mid-way, and posts deleted from an older page version that
   did not know about the queue.
 
@@ -100,6 +115,7 @@ incomplete picture would look exactly like a pile of orphans.
 |---|---|
 | `mode` | `queue` (default) — only what the app queued; `orphans` — files no document references; `both` |
 | `apply` | on = delete for real, off = dry run that only lists |
+| `purge_expired` | on (default) = also remove expired stories/highlights/announcements and their media |
 | `min_age_hours` | orphan files must be at least this old (default 24) — protects uploads whose document is still being written |
 
 ## The admin panel
@@ -133,7 +149,9 @@ Safety rails:
 - at most `--max-delete` (300) per run;
 - orphan sweep skips anything younger than `--min-age-hours`;
 - failures are retried up to 5 times, then marked `failed` and left in the queue
-  for inspection.
+  for inspection;
+- the expired step only deletes documents already past `expiresAt`, and keeps
+  any media another document still references.
 
 ## Tests
 
@@ -148,7 +166,9 @@ It covers the URL → public-id parsing, the request signature, every queue
 outcome (deleted, already gone, auth rejected, retried then `failed`, wrong
 folder, dry run), and the orphan sweep (replaced avatar deleted while the new
 one is kept, fresh uploads protected by `min_age_hours`, referenced assets kept,
-refuses to run on an incomplete scan, `max_delete` cap).
+refuses to run on an incomplete scan, `max_delete` cap), and the expired step
+(expired story and its media removed, active or expiry-less documents kept, dry
+run touches nothing, referenced media kept, subcollections removed).
 
 ## Optional: tighter rules
 

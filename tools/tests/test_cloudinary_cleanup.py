@@ -49,6 +49,10 @@ class FakeRef:
     def delete(self):
         self.store[self.coll].pop(self.doc_id, None)
 
+    def collection(self, name):
+        # A story's reactions/views hang off the document itself.
+        return FakeCollection(self.store, f"{self.coll}/{self.doc_id}/{name}")
+
 
 class FakeDoc:
     def __init__(self, store, coll, doc_id, data):
@@ -520,6 +524,99 @@ class ProfileReplacementEndToEnd(unittest.TestCase):
         self.assertEqual(done, 1)
         self.assertEqual([p["data"]["public_id"] for p in REQ.posts],
                          ["t-imawa/profiles/from-2023"])
+
+
+# --------------------------------------------------------------------------- #
+# Expired content: the document goes, then the media it was holding
+# --------------------------------------------------------------------------- #
+
+class ExpiredPurge(unittest.TestCase):
+    def _db(self, expires_in_hours, extra=None):
+        data = {
+            "stories": {
+                "s1": {
+                    "mediaUrl": URL.format("t-imawa/stories/dead"),
+                    "mediaType": "image",
+                    "expiresAt": datetime.now(timezone.utc)
+                                  + timedelta(hours=expires_in_hours),
+                }
+            }
+        }
+        for k, v in (extra or {}).items():
+            data.setdefault(k, {}).update(v)
+        return FakeDB(data)
+
+    def test_expired_story_is_removed_with_its_media(self):
+        db = self._db(-2)                                   # expired 2 h ago
+        req = FakeRequests()
+        docs, done, failed = quiet(cc.purge_expired, db, "k", "s", args())
+        self.assertEqual((docs, done, failed), (1, 1, 0))
+        self.assertEqual(db.docs("stories"), {})            # document gone
+        self.assertEqual([p["data"]["public_id"] for p in REQ.posts],
+                         ["t-imawa/stories/dead"])          # media gone
+
+    def test_active_story_is_never_touched(self):
+        db = self._db(+5)                                   # still playing
+        FakeRequests()
+        docs, done, failed = quiet(cc.purge_expired, db, "k", "s", args())
+        self.assertEqual((docs, done, failed), (0, 0, 0))
+        self.assertIn("s1", db.docs("stories"))
+        self.assertEqual(REQ.posts, [])
+
+    def test_a_document_without_an_expiry_is_kept(self):
+        db = FakeDB({"highlights": {"h1": {
+            "imageURLs": [URL.format("t-imawa/highlights/keep")]}}})
+        FakeRequests()
+        docs, _done, _failed = quiet(cc.purge_expired, db, "k", "s", args())
+        self.assertEqual(docs, 0)
+        self.assertIn("h1", db.docs("highlights"))
+
+    def test_dry_run_removes_nothing_at_all(self):
+        db = self._db(-3)
+        FakeRequests()
+        docs, done, failed = quiet(cc.purge_expired, db, "k", "s",
+                                   args(dry_run=True))
+        self.assertEqual((docs, done, failed), (1, 0, 0))
+        self.assertIn("s1", db.docs("stories"))
+        self.assertEqual(REQ.posts, [])
+
+    def test_media_still_referenced_elsewhere_is_kept(self):
+        url = URL.format("t-imawa/stories/dead")
+        db = self._db(-2, {"chatMessages": {"m1": {"imageURLs": [url]}}})
+        FakeRequests()
+        docs, done, failed = quiet(cc.purge_expired, db, "k", "s", args())
+        self.assertEqual((docs, done, failed), (1, 0, 0))   # doc gone, file kept
+        self.assertEqual(db.docs("stories"), {})
+        self.assertEqual(REQ.posts, [])
+
+    def test_story_subcollections_are_removed_with_the_document(self):
+        db = self._db(-2)
+        db.store["stories/s1/reactions"] = {"u1": {"emoji": "❤️"}}
+        db.store["stories/s1/views"] = {"u2": {"name": "Ana"}}
+        FakeRequests()
+        quiet(cc.purge_expired, db, "k", "s", args())
+        self.assertEqual(db.docs("stories"), {})
+        self.assertEqual(db.docs("stories/s1/reactions"), {})
+        self.assertEqual(db.docs("stories/s1/views"), {})
+
+    def test_video_story_media_is_destroyed_as_video(self):
+        db = FakeDB({"stories": {"s2": {
+            "mediaUrl": URL.format("t-imawa/stories/clip"),
+            "mediaType": "video",
+            "expiresAt": datetime.now(timezone.utc) - timedelta(hours=1)}}})
+        FakeRequests()
+        quiet(cc.purge_expired, db, "k", "s", args())
+        self.assertTrue(REQ.posts)
+        self.assertIn("/video/destroy", REQ.posts[0]["url"])
+
+    def test_media_outside_the_app_folder_is_never_deleted(self):
+        db = FakeDB({"stories": {"s3": {
+            "mediaUrl": "https://res.cloudinary.com/ooq99nlw/image/upload/v1/elsewhere/x.jpg",
+            "expiresAt": datetime.now(timezone.utc) - timedelta(hours=1)}}})
+        FakeRequests()
+        quiet(cc.purge_expired, db, "k", "s", args())
+        self.assertEqual(REQ.posts, [])
+        self.assertEqual(db.docs("stories"), {})             # doc still removed
 
 
 if __name__ == "__main__":

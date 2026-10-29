@@ -497,6 +497,10 @@
         const o = originEl && originEl.getBoundingClientRect ? originEl.getBoundingClientRect() : findOrigin(uid);
         V.returnFocus = document.activeElement;
         V.el.hidden = false; V.open = true;
+        // Lock the page behind the viewer: a scrollbar left on the document
+        // also takes a strip off the right edge of the fixed frame, which
+        // showed up as a thin line down the corner of the screen.
+        document.documentElement.classList.add('st-lock');
         try { history.pushState({ stv: 1 }, ''); V.pushed = true; } catch (e) { /* ignore */ }
         const { full, small } = frameState(o);
         V.animating = true; V.q.frame.classList.add('blank');
@@ -529,6 +533,11 @@
         const fr = V.q.frame;
         const finish = () => {
             V.closing = false; V.el.hidden = true; stopAnims();
+            // The composer can take over the lock, so only release it when
+            // nothing else full-screen is open.
+            if (!document.querySelector('.st-comp:not([hidden])')) {
+                document.documentElement.classList.remove('st-lock');
+            }
             fr.style.transform = ''; V.q.bd.style.opacity = '';
             if (V.pushed && !fromPop) { V.pushed = false; try { history.back(); } catch (e) { /* ignore */ } }
             if (V.returnFocus && V.returnFocus.focus) { try { V.returnFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
