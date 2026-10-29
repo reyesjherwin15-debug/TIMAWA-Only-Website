@@ -1,0 +1,108 @@
+name: Cloudinary cleanup
+
+# Deletes the media behind deleted / expired highlights and stories.
+#
+# Why a worker: the browser cannot delete Cloudinary assets. `/image/destroy`
+# needs the API secret (unsigned requests get 401 "Unknown API key"), and
+# Cloudinary refuses delete tokens for unsigned uploads. The app therefore
+# queues public IDs in Firestore (`mediaCleanupQueue`) and this job removes
+# them, so storage never has to be cleaned by hand in the Cloudinary console.
+#
+# Secrets to add once (Settings -> Secrets and variables -> Actions):
+#   CLOUDINARY_API_KEY       Cloudinary dashboard -> Settings -> API Keys
+#   CLOUDINARY_API_SECRET    (same page)
+# SERVICE_ACCOUNT_JSON is already used by the push dispatcher.
+#
+# Scheduled runs delete for real; a manual run can be a dry run.
+#
+# Two schedules on purpose:
+#   hourly  queue   — what the app queued when a highlight/story/avatar was deleted
+#   daily   both    — also sweeps ORPHANS: files no document references any more
+#                     (replaced profile photos, expired stories nobody opened,
+#                     abandoned uploads). The sweep only touches assets older than
+#                     min_age_hours and refuses to run if any collection cannot be
+#                     read, so an incomplete scan can never delete live media.
+
+on:
+  schedule:
+    - cron: '23 * * * *'          # hourly; GitHub may start it a few minutes late
+    - cron: '47 3 * * *'          # daily 03:47 UTC — queue + orphan sweep
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'What to clean'
+        type: choice
+        default: queue
+        options:
+          - queue     # only assets the app queued when content was deleted
+          - orphans   # assets no document references (expired stories, abandoned uploads)
+          - both
+      apply:
+        description: 'Delete for real (turn off for a dry run)'
+        type: boolean
+        default: true
+      min_age_hours:
+        description: 'Orphan assets must be at least this many hours old'
+        default: '24'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudinary-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Delete unused Cloudinary media
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r tools/requirements.txt
+
+      - name: Write Firebase credentials
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/service-account.json"
+          test -s "$RUNNER_TEMP/service-account.json" || { echo "::error::SERVICE_ACCOUNT_JSON is empty"; exit 1; }
+
+      - name: Check Cloudinary secrets
+        env:
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        run: |
+          if [ -z "$CLOUDINARY_API_KEY" ] || [ -z "$CLOUDINARY_API_SECRET" ]; then
+            echo "::error::Add CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in Settings -> Secrets and variables -> Actions (Cloudinary dashboard -> Settings -> API Keys)."
+            exit 1
+          fi
+          echo "Cloudinary credentials present."
+
+      - name: Run cleanup
+        env:
+          CLOUDINARY_CLOUD_NAME: ooq99nlw
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          MODE: ${{ inputs.mode || (github.event.schedule == '47 3 * * *' && 'both' || 'queue') }}
+          APPLY: ${{ inputs.apply }}
+          MIN_AGE: ${{ inputs.min_age_hours || '24' }}
+        run: |
+          args=(--mode "${MODE:-queue}" --service-account "$RUNNER_TEMP/service-account.json" --min-age-hours "${MIN_AGE:-24}")
+          if [ "$APPLY" = "false" ]; then
+            echo "Dry run — nothing will be deleted."
+          else
+            args+=(--apply)
+          fi
+          python tools/cloudinary_cleanup.py "${args[@]}"
