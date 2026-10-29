@@ -56,7 +56,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.11.0" />
+    <link rel="stylesheet" href="stories.css?v=1.11.1" />
     <script src="theme.js"></script>
 
     <!-- JSZip for ZIP downloads -->
@@ -131,6 +131,9 @@
         .navbar .nav-links > li { display: flex; align-items: center; }
         .navbar .nav-links a { text-decoration: none; color: var(--theme-text-muted); font-weight: 500; font-size: 13px; transition: all 0.3s ease; padding: 6px 12px; border-radius: 8px; white-space: nowrap; }
         .navbar .nav-links a:hover { color: var(--theme-primary); background: color-mix(in srgb, var(--theme-primary) 6%, transparent); }
+
+        /* Notification taps land on these sections; keep the fixed navbar clear */
+        #highlights, #members-section { scroll-margin-top: 96px; }
 
         .navbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .navbar-mobile-bell { display: none; position: relative; }
@@ -8507,6 +8510,30 @@ function startHighlightReply(commentId, authorName) {
             window.addEventListener('orientationchange', scheduleReposition);
         })();
 
+        /* ------------------------------------------------------------------
+           Section deep links from notifications
+           `index.html#highlights` and `index.html#members-section` are what the
+           highlight and mention announcements store. The browser jumps on
+           load, but the carousels and member grid render afterwards and push
+           the section around, so re-scroll once the content has settled.
+           ------------------------------------------------------------------ */
+        function applySectionDeepLink() {
+            let id = '';
+            try { id = (location.hash || '').replace('#', ''); } catch (e) { id = ''; }
+            if (id !== 'highlights' && id !== 'members-section') return false;
+            const el = document.getElementById(id);
+            if (!el) return false;
+            try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            catch (e) { try { el.scrollIntoView(); } catch (err) { /* ignore */ } }
+            return true;
+        }
+        window.addEventListener('hashchange', applySectionDeepLink);
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!applySectionDeepLink()) return;
+            setTimeout(applySectionDeepLink, 700);
+            setTimeout(applySectionDeepLink, 1600);
+        });
+
         document.addEventListener('DOMContentLoaded', async function() {
             showLoadingOverlay('Loading TIMAWA…');
 
@@ -8786,13 +8813,13 @@ function startHighlightReply(commentId, authorName) {
 
     <script src="stories-shared.js?v=1.11.1"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.3"></script>
+    <script src="stories.js?v=1.12.4"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="mobile-nav.js?v=1.2.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.3.0" defer></script>
+    <script src="pwa.js?v=1.3.1" defer></script>
 </body>
 </html>

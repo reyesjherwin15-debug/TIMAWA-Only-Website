@@ -32,7 +32,7 @@
     const CFG = Object.assign({
         IMAGE_MS: 6000,
         MAX_REPLY: 300,
-        composerSrc: 'stories-composer.js?v=1.12.1',
+        composerSrc: 'stories-composer.js?v=1.12.2',
         spotifySearchUrl: '',
         allowStoryDelete: true,        // pages can override via window.STORIES_CONFIG
         allowStoryViews: true          // pages can override via window.STORIES_CONFIG
@@ -146,18 +146,41 @@
                 st.loaded = true; st.error = err; renderRow();
             });
     }
-    let deepDone = false;
+    /* `index.html?story=<id>` is what a story notification stores. The id is
+       kept in the URL until the story is actually found, and the lookup is
+       retried across snapshots: a cold start can deliver the first snapshot
+       before the row is rendered, and dropping the param up front used to
+       leave a tap on the feed with no viewer. */
+    let deepPending = '';
+    let deepTries = 0;
+    let deepTimer = 0;
     function handleDeepLink() {
-        if (deepDone) return;
-        deepDone = true;
-        let id = null;
-        try { id = new URLSearchParams(location.search).get('story'); } catch (e) { /* ignore */ }
-        if (!id) return;
+        if (!deepPending) {
+            try { deepPending = new URLSearchParams(location.search).get('story') || ''; }
+            catch (e) { deepPending = ''; }
+        }
+        if (!deepPending || deepTimer) return;
+        if (!st.stories.some(x => x.id === deepPending)) {
+            if (deepTries >= 8) {
+                // Expired or never visible to this member: stop retrying and
+                // drop the param so a reload does not replay the attempt.
+                deepPending = '';
+                deepTries = 0;
+                try { const u = new URL(location.href); u.searchParams.delete('story'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch (e) { /* ignore */ }
+                return;
+            }
+            deepTries += 1;
+            deepTimer = setTimeout(() => { deepTimer = 0; handleDeepLink(); }, 600);
+            return;
+        }
+        const id = deepPending;
+        deepPending = '';
+        deepTries = 0;
         try { const u = new URL(location.href); u.searchParams.delete('story'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch (e) { /* ignore */ }
         if (st.me && window.TIMAWA_PWA?.clearNotifications) {
             window.TIMAWA_PWA.clearNotifications(`mention:story_${id}`);
         }
-        setTimeout(() => openById(id), 400);
+        setTimeout(() => openById(id), 300);
     }
     function stopListener() { if (st.unsub) { st.unsub(); st.unsub = null; } }
     // drop expired stories from the UI without waiting for a snapshot

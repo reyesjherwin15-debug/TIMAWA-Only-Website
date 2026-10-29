@@ -8,7 +8,7 @@
    Bump CACHE_VERSION whenever the shell files change.
    ========================================================================== */
 
-const CACHE_VERSION = 'v1.5.2';
+const CACHE_VERSION = 'v1.5.4';
 const SHELL_CACHE = `timawa-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `timawa-runtime-${CACHE_VERSION}`;
 const MAX_RUNTIME_ENTRIES = 60;
@@ -263,6 +263,30 @@ self.addEventListener('notificationclick', (event) => {
             // client.navigate() in some versions. Focus first, then try the
             // route change, and let the page finish it if the worker cannot.
             try { await client.focus(); } catch (_) { /* keep going */ }
+
+            // Warm tap on the same page: ask the running app to switch screens
+            // itself. Reloading here replayed the entire boot (members, chat
+            // list, feature flag), which is why a chat tap used to land on the
+            // dashboard and sit there.
+            let handledInPlace = false;
+            try {
+                const clientUrl = new URL(client.url);
+                const targetUrl = new URL(target);
+                if (clientUrl.origin === targetUrl.origin &&
+                    clientUrl.pathname === targetUrl.pathname) {
+                    const channel = new MessageChannel();
+                    const ack = new Promise((resolve) => {
+                        const timer = setTimeout(() => resolve(false), 600);
+                        channel.port1.onmessage = (e) => {
+                            clearTimeout(timer);
+                            resolve(!!(e.data && e.data.handled));
+                        };
+                    });
+                    client.postMessage({ type: 'PUSH_OPEN_URL', url: target, probe: true }, [channel.port2]);
+                    handledInPlace = await ack;
+                }
+            } catch (_) { handledInPlace = false; }
+            if (handledInPlace) return;
 
             let navigated = false;
             if ('navigate' in client) {

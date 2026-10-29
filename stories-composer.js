@@ -274,6 +274,24 @@
         q.song.textContent = S.musicLine(m);
         q.song.hidden = !(M.preview && m);
     }
+
+    // Dragging, resizing and rotating only move and scale the sticker. Rebuilding
+    // its markup on every pointer event reloaded the artwork and restarted the
+    // disc spin — that is what read as a stutter. Mutate the live node instead,
+    // at most once per animation frame.
+    let stickerFrame = 0;
+    function paintSticker() {
+        const wrap = q.msk && q.msk.querySelector('.st-mwrap');
+        if (!wrap) { renderSticker(); return; }
+        const p = M.mpos;
+        wrap.style.left = (p.x * 100).toFixed(2) + '%';
+        wrap.style.top = (p.y * 100).toFixed(2) + '%';
+        wrap.style.transform = `translate(-50%,-50%) rotate(${(p.rot || 0).toFixed(1)}deg) scale(${(p.scale || 1).toFixed(3)})`;
+    }
+    function paintStickerSoon() {
+        if (stickerFrame) return;
+        stickerFrame = requestAnimationFrame(() => { stickerFrame = 0; paintSticker(); });
+    }
     function renderPv() {
         renderSticker();
         q.stage.classList.toggle('pv', M.preview);
@@ -387,12 +405,12 @@
               ${M.changing ? '' : `<div class="st-lab" style="margin-top:12px">Show on story</div>
               <div class="st-row2">${chips(S.MUSIC_STYLES, S.normStyle(M.mstyle), 'mstyle')}</div>`}
               ${M.changing ? '' : `
-                <div class="st-lab" style="margin-top:12px">Sticker on story</div>
+                ${coarse() ? '' : `<div class="st-lab" style="margin-top:12px">Sticker on story</div>
                 <div class="st-row2" style="margin-top:6px">
                   <button type="button" class="st-btn ghost sm" data-k="resetSticker"><i class="fas fa-rotate-left"></i> Reset position & size</button>
                   <button type="button" class="st-btn ghost sm" data-k="centerSticker"><i class="fas fa-crosshairs"></i> Center</button>
                 </div>
-                ${coarse() ? '' : `<div class="st-row2 st-desk-only" style="margin-top:6px">
+                <div class="st-row2 st-desk-only" style="margin-top:6px">
                   <label class="st-range">Size <input type="range" min="25" max="400" step="1" value="${Math.round(M.mpos.scale * 100)}" data-in="stickerScale"></label>
                 </div>
                 <div class="st-row2 st-desk-only">
@@ -557,8 +575,8 @@
             const wasTap = s.kind === 'move' && !moved && (performance.now() - downAt) < TAP_MS;
             if (s.kind === 'move') {
                 if (wasTap) { M.mSel = true; renderSticker(); }
-                else pushHist();
-            } else pushHist();
+                else { paintSticker(); pushHist(); }
+            } else { paintSticker(); pushHist(); }
             if (M.sheet === 'music') renderSheet();
             if (e && e.pointerId != null) { try { st.releasePointerCapture(e.pointerId); } catch (err) {} }
         }
@@ -576,7 +594,7 @@
                 const dy = dyPx / sr.height;
                 M.mpos.x = S.clamp(s.ox + dx, s.hw || 0, 1 - (s.hw || 0));
                 M.mpos.y = S.clamp(s.oy + dy, s.hh || 0, 1 - (s.hh || 0));
-                renderSticker();
+                paintStickerSoon();
             } else if (s.mode === 'rot') {
                 const ang = Math.atan2(e.clientY - s.cy, e.clientX - s.cx);
                 let deg = (ang - s.startAngle) * 180 / Math.PI + s.orot;
@@ -584,14 +602,14 @@
                 if (deg > 180) deg -= 360;
                 if (deg < -180) deg += 360;
                 M.mpos.rot = S.clamp(deg, -180, 180);
-                renderSticker();
+                paintStickerSoon();
             } else {
                 const cx = s.rect.left + s.rect.width / 2;
                 const cy = s.rect.top + s.rect.height / 2;
                 const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
                 const startDist = Math.hypot(s.sx - cx, s.sy - cy) || 1;
                 M.mpos.scale = S.clamp(s.oscale * (dist / startDist), 0.25, 4);
-                renderSticker();
+                paintStickerSoon();
             }
             e.preventDefault();
             e.stopPropagation();
@@ -694,7 +712,7 @@
                 const t = find(P.tg.id); if (!t) return;
                 t.size = S.clamp(P.size0 * k, 0.035, 0.18); t.rot = S.clamp(Math.round(wrap(P.rot0 + dr)), -180, 180); refreshEl(t);
             } else if (P.tg.k === 'sticker') {
-                M.mpos.scale = S.clamp(P.sc0 * k, 0.25, 4); M.mpos.rot = S.clamp(Math.round(wrap(P.sr0 + dr)), -180, 180); renderSticker();
+                M.mpos.scale = S.clamp(P.sc0 * k, 0.25, 4); M.mpos.rot = S.clamp(Math.round(wrap(P.sr0 + dr)), -180, 180); paintStickerSoon();
             } else { M.mt.scale = S.clamp(P.sc0 * k, 0.5, 3); applyMT(); }
         }
         st.addEventListener('pointerdown', e => {
@@ -777,8 +795,8 @@
         else if (k === 'music') { M.query = e.target.value; }
         else if (k === 'spotify') { M.spq = e.target.value; }
         else if (k === 'dur') { M.dur = S.clamp(Math.round(e.target.value), MIN_DUR, MAX_DUR); const b = $('.st-durv'); if (b) b.textContent = M.dur + 's'; }
-        else if (k === 'stickerScale') { M.mpos.scale = S.clamp(Number(e.target.value) / 100, 0.25, 4); renderSticker(); }
-        else if (k === 'stickerRot') { M.mpos.rot = S.clamp(Math.round(Number(e.target.value)), -180, 180); renderSticker(); }
+        else if (k === 'stickerScale') { M.mpos.scale = S.clamp(Number(e.target.value) / 100, 0.25, 4); paintStickerSoon(); }
+        else if (k === 'stickerRot') { M.mpos.rot = S.clamp(Math.round(Number(e.target.value)), -180, 180); paintStickerSoon(); }
         else if (t && k === 'size') { t.size = S.clamp(e.target.value / 1000, 0.035, 0.18); refreshEl(t); }
         else if (t && k === 'rot') { t.rot = Number(e.target.value); refreshEl(t); }
     }

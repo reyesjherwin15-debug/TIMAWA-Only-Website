@@ -408,11 +408,34 @@
                 log('opened from notification:', data.url);
             }
             if (data.type === 'PUSH_OPEN_URL' && data.url) {
+                const port = event.ports && event.ports[0];
+                let target = null;
+                try { target = new URL(data.url, location.href); } catch (err) { target = null; }
+
+                // Same page already open: switch screens in place. A reload here
+                // would replay the whole boot and the tap would look stuck on
+                // whatever page happened to be visible.
+                const sameDoc = !!(target && target.origin === location.origin &&
+                    target.pathname === location.pathname);
+                if (data.probe && sameDoc) {
+                    try {
+                        const nextHash = target.hash || '';
+                        if (nextHash && nextHash !== location.hash) location.hash = nextHash;
+                    } catch (err) { warn('deep link failed', err); }
+                    // Even when the hash was already set, let the app act on it.
+                    try {
+                        window.dispatchEvent(new CustomEvent('timawa:push-open', {
+                            detail: { url: data.url }
+                        }));
+                    } catch (err) { /* ignore */ }
+                    if (port) { try { port.postMessage({ handled: true }); } catch (err) { /* ignore */ } }
+                    return;
+                }
+
                 // iOS WebKit cannot always run client.navigate() from the worker,
                 // so the page finishes the deep link itself.
                 try {
-                    const target = new URL(data.url, location.href);
-                    if (target.origin === location.origin && target.href !== location.href) {
+                    if (target && target.origin === location.origin && target.href !== location.href) {
                         location.assign(target.href);
                     }
                 } catch (err) { warn('deep link failed', err); }

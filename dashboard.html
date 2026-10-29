@@ -56,7 +56,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.11.0" />
+    <link rel="stylesheet" href="stories.css?v=1.11.1" />
     <script src="theme.js"></script>
 
     <!-- Cloudinary Upload Widget -->
@@ -8207,6 +8207,17 @@
         // ===== CHAT STATE =====
         let chatFeatureEnabled = false;
         let chatFeatureUnsubscribe = null;
+        // Resolves the first time the settings snapshot arrives (or the listener
+        // errors). A notification tap waits on this instead of polling, so the
+        // conversation opens exactly once, at the right moment.
+        let resolveChatFeatureReady = null;
+        const chatFeatureReady = new Promise((resolve) => { resolveChatFeatureReady = resolve; });
+        function markChatFeatureReady() {
+            if (!resolveChatFeatureReady) return;
+            const done = resolveChatFeatureReady;
+            resolveChatFeatureReady = null;
+            try { done(); } catch (err) { /* ignore */ }
+        }
         let activeChatUid = null;
         let activeChatIsGroup = false;
         let chatMessagesUnsubscribe = null;
@@ -8725,10 +8736,12 @@
                     } else if (!chatFeatureEnabled) {
                         detachChatListeners();
                     }
+                    markChatFeatureReady();
                 }, (error) => {
                     console.warn('Chat feature flag listener error:', error.message);
                     chatFeatureEnabled = false;
                     applyChatFeatureState();
+                    markChatFeatureReady();
                 });
         }
 
@@ -9785,37 +9798,121 @@
         // `dashboard.html#chat_<uid>` (and #chat_group) is where a tapped chat
         // notification lands. Also runs on hashchange so an in-app announcement
         // link that only changes the hash still opens the conversation.
-        function handleChatDeepLink() {
+        const CHAT_DEEP_LINK_HASH = '#chat_';
+
+        function readChatDeepLink() {
             try {
                 const hash = window.location.hash || '';
-                if (hash.indexOf('#chat_') !== 0) return false;
-                if (!currentUser || !chatFeatureEnabled) return false;
+                if (hash.indexOf(CHAT_DEEP_LINK_HASH) !== 0) return '';
+                const target = hash.slice(CHAT_DEEP_LINK_HASH.length);
+                if (!target) return '';
+                if (!currentUser || target === currentUser.uid) return '';
+                return target;
+            } catch (err) { return ''; }
+        }
 
-                const target = hash.slice('#chat_'.length);
-                if (!target || target === currentUser.uid) return false;
+        function consumeDeepLink() {
+            try {
+                // Consume the link: the same URL can then be used again and a
+                // plain reload does not silently reopen the conversation.
+                window.history.replaceState(null, '',
+                    window.location.pathname + window.location.search);
+            } catch (err) { /* ignore */ }
+        }
 
-                if (target === 'group') openGroupChat();
-                else openChatWith(target);
+        // Open a conversation that a notification pointed at. The chats tab is
+        // selected first so the sheet animates up over the chat list instead of
+        // over the member grid — closing it then lands on Members, as usual.
+        function openChatDeepLink(target) {
+            if (!target || !currentUser || !chatFeatureEnabled) return false;
+            if (!document.getElementById('chatContainerEl')) return false;
+            const onChatsTab = chatActiveTabIsSelected();
+            if (!onChatsTab) switchSocialTab('chats');
+            if (target === 'group') openGroupChat();
+            else openChatWith(target);
+            return true;
+        }
 
-                try {
-                    // Consume the link: the same URL can then be used again and
-                    // a plain reload does not silently reopen the conversation.
-                    window.history.replaceState(null, '',
-                        window.location.pathname + window.location.search);
-                } catch (err) { /* ignore */ }
-                return true;
+        // Warm path: the app is already open and the worker (or an in-app link)
+        // only changes the hash.
+        function handleChatDeepLink() {
+            const target = readChatDeepLink();
+            if (!target) return false;
+            if (!openChatDeepLink(target)) return false;
+            consumeDeepLink();
+            return true;
+        }
+
+        // Cold path: called once, after the tab, members and feature flag are
+        // ready. The splash stays up until this settles, so a tap lands directly
+        // in the conversation instead of flashing the dashboard first.
+        async function openPendingDeepLink() {
+            if (navigator.onLine === false) return false;
+            const chatTarget = readChatDeepLink();
+            if (chatTarget) {
+                if (!chatFeatureEnabled) {
+                    // Give the settings snapshot a moment; never hang the boot.
+                    await Promise.race([
+                        chatFeatureReady,
+                        new Promise((resolve) => setTimeout(resolve, 1800))
+                    ]);
+                }
+                const opened = openChatDeepLink(chatTarget);
+                consumeDeepLink();
+                return opened;
+            }
+
+            try {
+                if ((window.location.hash || '') === '#highlights') {
+                    scrollToDashboardHighlights();
+                    consumeDeepLink();
+                    return true;
+                }
+            } catch (err) { /* ignore */ }
+            return false;
+        }
+
+        function scrollToDashboardHighlights() {
+            const target = document.getElementById('highlightsContent') ||
+                document.getElementById('highlights-section');
+            if (!target) return;
+            try {
+                const top = target.getBoundingClientRect().top + window.scrollY - 84;
+                window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
             } catch (err) {
-                return false;
+                try { target.scrollIntoView(); } catch (e) { /* ignore */ }
             }
         }
 
-        // The chat feature flag and listeners arrive a beat after sign-in, so
-        // retry a few times instead of failing on the first attempt.
-        function scheduleChatDeepLink(attempt) {
-            const tries = attempt || 0;
-            if (handleChatDeepLink()) return;
-            if (tries >= 12) return;
-            setTimeout(() => scheduleChatDeepLink(tries + 1), 700);
+        // A warm tap can land in the first second of a boot, before the settings
+        // snapshot says chat is available. Retry briefly instead of losing it.
+        let warmDeepLinkTries = 0;
+        let warmDeepLinkTimer = 0;
+        function handleWarmPushOpen() {
+            if (handleDashboardHash()) { warmDeepLinkTries = 0; return; }
+            if (!readChatDeepLink()) { warmDeepLinkTries = 0; return; }
+            if (warmDeepLinkTimer) return;
+            if (warmDeepLinkTries >= 6) { warmDeepLinkTries = 0; return; }
+            warmDeepLinkTries += 1;
+            warmDeepLinkTimer = setTimeout(() => {
+                warmDeepLinkTimer = 0;
+                handleWarmPushOpen();
+            }, 400);
+        }
+
+        // Every dashboard notification target in one place: conversations,
+        // the group chat, and the highlights section. Warm and cold paths both
+        // run through here, so a tap behaves the same either way.
+        function handleDashboardHash() {
+            if (handleChatDeepLink()) return true;
+            try {
+                if ((window.location.hash || '') === '#highlights') {
+                    scrollToDashboardHighlights();
+                    consumeDeepLink();
+                    return true;
+                }
+            } catch (err) { /* ignore */ }
+            return false;
         }
 
         function openChatWith(uid) {
@@ -14713,8 +14810,9 @@ function startReplyTo(commentId, authorName) {
 
                 loadAnnouncements(user);
                 runAutoGeneration(user);
-                scheduleChatDeepLink();
-                window.addEventListener('hashchange', handleChatDeepLink);
+                window.addEventListener('hashchange', handleWarmPushOpen);
+                // The worker asks the live page to switch screens (no reload).
+                window.addEventListener('timawa:push-open', handleWarmPushOpen);
 
                 await updateLastVisitThrottled(user);
             } catch (error) {
@@ -14735,6 +14833,14 @@ function startReplyTo(commentId, authorName) {
             startCommentAutoCleanup();
 
             restoreActiveSocialTab();
+
+            // A tapped notification opens its conversation before the splash
+            // lifts, so the first frame the member sees is the chat itself.
+            try {
+                await openPendingDeepLink();
+            } catch (err) {
+                console.warn('Notification deep link failed:', err);
+            }
 
             hideLoadingOverlayWhenReady();
         });
@@ -17199,7 +17305,7 @@ function startReplyTo(commentId, authorName) {
 
     <script src="stories-shared.js?v=1.11.1"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.3"></script>
+    <script src="stories.js?v=1.12.4"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.0"></script>
@@ -17207,6 +17313,6 @@ function startReplyTo(commentId, authorName) {
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.3.0" defer></script>
+    <script src="pwa.js?v=1.3.1" defer></script>
 </body>
 </html>
