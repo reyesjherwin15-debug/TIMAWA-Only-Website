@@ -245,3 +245,196 @@
         transition: none;
     }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Launch splash                                                               */
+/* pwa.js swaps the generic spinner inside #loadingOverlay for this branded     */
+/* mark. The overlay keeps its id and .active class, so every page's           */
+/* showLoadingOverlay()/hideLoadingOverlay() keeps working unchanged.          */
+/* -------------------------------------------------------------------------- */
+
+.loading-overlay.t-splash {
+    background:
+        radial-gradient(115% 80% at 50% 8%,
+            color-mix(in srgb, var(--theme-primary, #1089d3) 18%, transparent) 0%,
+            transparent 58%),
+        color-mix(in srgb, var(--theme-bg, #f7fafc) 97%, transparent);
+    transition: opacity 0.45s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), filter 0.4s ease;
+}
+
+/* Leaving: the splash lifts and blurs away instead of blinking out. */
+.loading-overlay.t-splash:not(.active) {
+    transform: scale(1.06);
+    filter: blur(7px);
+}
+
+.loading-overlay.t-splash.active {
+    transform: none;
+    filter: none;
+}
+
+.t-splash-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 11px;
+    padding: 0 24px;
+    text-align: center;
+    animation: tSplashRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.t-splash-mark {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    border-radius: 30px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(150deg, #0096ff 0%, #2f6bff 55%, #5e4aff 100%);
+    box-shadow:
+        0 26px 64px -22px color-mix(in srgb, var(--theme-primary, #1089d3) 90%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    animation: tSplashFloat 3.4s ease-in-out infinite;
+}
+
+.t-splash-mark::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(120% 85% at 28% 0%, rgba(255, 255, 255, 0.5), transparent 62%);
+    pointer-events: none;
+}
+
+.t-splash-mark b {
+    position: relative;
+    z-index: 1;
+    font-size: 46px;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(3, 20, 48, 0.28);
+}
+
+.t-splash-ring {
+    position: absolute;
+    inset: -10px;
+    border-radius: 38px;
+    background: conic-gradient(from 0turn, transparent 0 52%, #4fc3ff 76%, #b9a6ff 90%, transparent 100%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+    animation: tSplashSpin 1.5s linear infinite;
+    opacity: 1;
+}
+
+.t-splash-word {
+    margin-top: 4px;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 0.38em;
+    text-indent: 0.38em;
+    background: linear-gradient(90deg,
+        var(--theme-text, #10233c) 15%,
+        var(--theme-primary, #1089d3) 48%,
+        var(--theme-text, #10233c) 80%);
+    background-size: 240% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: tSplashShine 2.8s linear infinite;
+}
+
+.t-splash-sub {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--theme-text-muted, #5b6b80);
+    opacity: 0.8;
+}
+
+.t-splash-bar {
+    margin-top: 5px;
+    width: 132px;
+    height: 3px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--theme-text, #10233c) 12%, transparent);
+    overflow: hidden;
+}
+
+.t-splash-bar i {
+    display: block;
+    height: 100%;
+    width: 45%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, var(--theme-primary, #1089d3), #7c5cff, transparent);
+    animation: tSplashSweep 1.35s ease-in-out infinite;
+}
+
+.t-splash .loading-text {
+    margin-top: 3px;
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+}
+
+@keyframes tSplashRise {
+    from { opacity: 0; transform: translateY(14px) scale(0.94); }
+    to   { opacity: 1; transform: none; }
+}
+
+@keyframes tSplashFloat {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+}
+
+@keyframes tSplashSpin {
+    to { transform: rotate(1turn); }
+}
+
+@keyframes tSplashShine {
+    from { background-position: 140% 0; }
+    to   { background-position: -140% 0; }
+}
+
+@keyframes tSplashSweep {
+    0%   { transform: translateX(-130%); }
+    100% { transform: translateX(320%); }
+}
+
+@media (max-width: 768px) {
+    .t-splash-mark {
+        width: 82px;
+        height: 82px;
+        border-radius: 26px;
+    }
+
+    .t-splash-mark b {
+        font-size: 40px;
+    }
+
+    .t-splash-ring {
+        inset: -8px;
+        border-radius: 32px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-overlay.t-splash {
+        transition: opacity 0.2s linear;
+    }
+
+    .loading-overlay.t-splash:not(.active) {
+        transform: none;
+        filter: none;
+    }
+
+    .t-splash-stage,
+    .t-splash-mark,
+    .t-splash-ring,
+    .t-splash-word,
+    .t-splash-bar i {
+        animation: none;
+    }
+}

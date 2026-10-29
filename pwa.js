@@ -139,19 +139,66 @@
     }
 
     const PUSH_NUDGE_KEY = 'timawa.push.nudge-dismissed-at';
-    function maybeShowPushNudge(user) {
-        if (!user || IS_IOS_TAB || !pushSupported() || !configured() || Notification.permission !== 'default') return;
+
+    /* The one prompt a member sees when they open the app.
+       Deliberately answers three different situations, because "nothing pops"
+       usually means one of them was silently skipped before:
+         • iPhone in a Safari tab  → there is no Notification API at all, so the
+           only useful ask is "add it to your Home Screen".
+         • permission blocked      → tell them where the switch lives instead of
+           staying quiet forever.
+         • permission untouched    → ask, once per session, snoozed 14 days if
+           they decline.
+       Pass force=true to show it outside that schedule (profile / debug). */
+    function maybeShowPushNudge(user, force) {
+        if (!configured()) return false;
+        if (!force && !user) return false;
+        const card = document.getElementById('pwaNotifToggle');
+        if (card && !force) return false; // Profile has a persistent, non-modal opt-in card.
+
         let dismissedAt = 0;
         try { dismissedAt = Number(localStorage.getItem(PUSH_NUDGE_KEY) || 0); } catch (_) {}
-        if (dismissedAt && Date.now() - dismissedAt < 14 * 86400000) return;
-        if (sessionStorage.getItem('timawa.push.nudge-shown') === '1') return;
-        const button = document.getElementById('pwaNotifToggle');
-        if (button) return; // Profile has a persistent, non-modal opt-in card.
-        try { sessionStorage.setItem('timawa.push.nudge-shown', '1'); } catch (_) {}
-        renderChoice('Stay in the loop', 'Allow TIMAWA notifications to receive member messages, mentions, and other activity alerts. You can change this later in your profile.', [
+        if (!force) {
+            if (dismissedAt && Date.now() - dismissedAt < 14 * 86400000) return false;
+            let shown = '';
+            try { shown = sessionStorage.getItem('timawa.push.nudge-shown') || ''; } catch (_) {}
+            if (shown === '1') return false;
+        }
+        const snooze = () => { try { localStorage.setItem(PUSH_NUDGE_KEY, String(Date.now())); } catch (_) { /* ignore */ } };
+
+        if (IS_IOS_TAB) {
+            try { sessionStorage.setItem('timawa.push.nudge-shown', '1'); } catch (_) { /* ignore */ }
+            renderChoice('Get TIMAWA notifications', 'On iPhone, notifications only work from the installed app. Tap the Share button → “Add to Home Screen”, then open TIMAWA from its new icon and allow notifications when asked.', [
+                { label: 'Got it', run: snooze },
+                { label: 'Remind me later', secondary: true, run: snooze }
+            ]);
+            return true;
+        }
+        if (!pushSupported()) return false;
+
+        const permission = Notification.permission;
+        if (permission === 'granted') {
+            // Already allowed: make sure this device really is subscribed so a
+            // granted-but-silent device fixes itself without asking again.
+            syncSilently(true);
+            return false;
+        }
+
+        try { sessionStorage.setItem('timawa.push.nudge-shown', '1'); } catch (_) { /* ignore */ }
+
+        if (permission === 'denied') {
+            renderChoice('Notifications are blocked', 'TIMAWA cannot alert you about messages, mentions or reactions because notifications are blocked for this site. You can re-enable them in your browser or phone settings.', [
+                { label: 'Got it', run: snooze },
+                { label: 'How to fix it', secondary: true, run: () => { try { location.assign('profile.html#notifications'); } catch (_) { /* ignore */ } } }
+            ]);
+            return true;
+        }
+
+        renderChoice('Stay in the loop', 'Allow TIMAWA notifications to receive member messages, mentions, reactions and other activity alerts. You can change this later in your profile.', [
             { label: 'Enable notifications', run: () => enablePush() },
-            { label: 'Not now', secondary: true, run: () => { try { localStorage.setItem(PUSH_NUDGE_KEY, String(Date.now())); } catch (_) {} } }
+            { label: 'Not now', secondary: true, run: snooze }
         ]);
+        return true;
     }
 
     function markPushNudgeDismissed() {
@@ -691,7 +738,7 @@
         banner.id = 'pwaInstallBanner';
         banner.className = 'pwa-banner';
         banner.innerHTML = [
-            '<div class="pwa-banner__art"><img src="icons/icon-192.png" alt="" width="44" height="44" /></div>',
+            '<div class="pwa-banner__art"><img src="icons/icon-192.png?v=3" alt="" width="44" height="44" /></div>',
             '<div class="pwa-banner__copy">',
             '<strong>Install TIMAWA</strong>',
             '<span></span>',
@@ -940,7 +987,35 @@
     /* Boot                                                                */
     /* ------------------------------------------------------------------ */
 
+    /* ------------------------------------------------------------------ */
+    /* Splash                                                              */
+    /* ------------------------------------------------------------------ */
+
+    /* Replaces the generic spinner in #loadingOverlay with the branded mark.
+       The overlay keeps its id and its .active class, so every page's
+       showLoadingOverlay()/hideLoadingOverlay() keeps working untouched — only
+       its contents and its enter/leave motion are different. */
+    function decorateSplash() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (!overlay || overlay.dataset.timawaSplash === '1') return;
+        overlay.dataset.timawaSplash = '1';
+        const oldLabel = document.getElementById('loadingText');
+        const labelText = (oldLabel && oldLabel.textContent) || 'Loading TIMAWA…';
+        overlay.classList.add('t-splash');
+        overlay.innerHTML =
+            '<div class="t-splash-stage">' +
+                '<div class="t-splash-mark" aria-hidden="true"><span class="t-splash-ring"></span><b>T</b></div>' +
+                '<div class="t-splash-word" aria-hidden="true">TIMAWA</div>' +
+                '<div class="t-splash-sub" aria-hidden="true">Squad Hub</div>' +
+                '<div class="t-splash-bar" aria-hidden="true"><i></i></div>' +
+                '<div class="loading-text" id="loadingText" role="status"></div>' +
+            '</div>';
+        const label = document.getElementById('loadingText');
+        if (label) label.textContent = labelText;
+    }
+
     async function boot() {
+        decorateSplash();
         listenForWorkerMessages();
         setupInstallBanner();
 
@@ -974,13 +1049,18 @@
                 auth.onAuthStateChanged((user) => {
                     renderNotificationCard();
                     syncSilently();
-                    maybeShowPushNudge(user);
+                    // Let the splash finish first: the permission card should be
+                    // the first thing a member sees, not a modal behind a loader.
+                    setTimeout(() => maybeShowPushNudge(user), 1100);
                 });
             }
         } catch (_) { /* page without auth */ }
 
         await syncSilently();
         state.ready = true;
+        // Second chance for the prompt: covers a session restored before this
+        // script attached its listener, and pages that sign in late.
+        setTimeout(() => { try { maybeShowPushNudge(currentUser()); } catch (_) { /* ignore */ } }, 1500);
     }
 
     window.TIMAWA_PWA = {
@@ -991,6 +1071,8 @@
         showConnectionChoice,
         promptInstall,
         showInstallBanner,
+        showNotificationNudge: maybeShowPushNudge,
+        decorateSplash,
         clearNotifications,
         testNotification,
         syncSilently,
@@ -1002,9 +1084,12 @@
         get isStandalone() { return IS_STANDALONE; }
     };
 
+    // This script is deferred, so by the time it runs the overlay markup exists:
+    // decorate it before the browser paints the generic spinner.
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', boot);
+        document.addEventListener('DOMContentLoaded', () => { decorateSplash(); boot(); });
     } else {
+        decorateSplash();
         boot();
     }
 })();
