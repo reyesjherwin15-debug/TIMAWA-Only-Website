@@ -15,6 +15,12 @@ name: Cloudinary cleanup
 #
 # Scheduled runs delete for real; a manual run can be a dry run.
 #
+# Every run starts with the EXPIRED step: documents past their `expiresAt`
+# (stories, highlights, announcements) are deleted from Firestore, and the
+# media they were holding is deleted with them. Without that, an expired
+# document keeps its mediaUrl and the orphan sweep counts the file as still in
+# use — so it stayed forever. Turn it off with the `purge_expired` input.
+#
 # Two schedules on purpose:
 #   hourly  queue   — what the app queued when a highlight/story/avatar was deleted
 #   daily   both    — also sweeps ORPHANS: files no document references any more
@@ -39,6 +45,10 @@ on:
           - both
       apply:
         description: 'Delete for real (turn off for a dry run)'
+        type: boolean
+        default: true
+      purge_expired:
+        description: 'Also remove expired stories/highlights/announcements and their media'
         type: boolean
         default: true
       min_age_hours:
@@ -97,6 +107,7 @@ jobs:
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           MODE: ${{ inputs.mode || (github.event.schedule == '47 3 * * *' && 'both' || 'queue') }}
           APPLY: ${{ inputs.apply }}
+          PURGE: ${{ inputs.purge_expired }}
           MIN_AGE: ${{ inputs.min_age_hours || '24' }}
         run: |
           args=(--mode "${MODE:-queue}" --service-account "$RUNNER_TEMP/service-account.json" --min-age-hours "${MIN_AGE:-24}")
@@ -104,5 +115,8 @@ jobs:
             echo "Dry run — nothing will be deleted."
           else
             args+=(--apply)
+          fi
+          if [ "$PURGE" = "false" ]; then
+            args+=(--no-purge-expired)
           fi
           python tools/cloudinary_cleanup.py "${args[@]}"
