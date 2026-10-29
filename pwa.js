@@ -197,6 +197,14 @@
         probeNetwork().then((ok) => { if (!ok) reveal(); });
     }
 
+    /* Spin & Poll is the one screen that still works with no signal: the wheel
+       lives in localStorage and the polls render from Firestore's local copy.
+       Nothing is written while offline — the page says so and blocks the taps. */
+    function openOfflineWheel() {
+        try { sessionStorage.setItem('timawa.offline-mode', '1'); } catch (_) { /* storage unavailable */ }
+        location.assign('squad-wheel.html');
+    }
+
     async function showOfflineChoice(options) {
         options = options || {};
         let offline = options.assumeOffline === true;
@@ -208,8 +216,9 @@
             if (typeof options.onContinue === 'function') options.onContinue();
             return false;
         }
-        renderChoice('No internet connection', 'Would you like to continue offline? Previously visited pages and Firestore data may be available from this device’s cache.', [
+        renderChoice('No internet connection', 'Would you like to continue offline? Pages you visited before and their saved data are still on this device. Spin & Poll works without a connection, so the squad can still decide on food, place and time.', [
             { label: 'Continue offline', run: () => { try { sessionStorage.setItem('timawa.offline-mode', '1'); sessionStorage.removeItem('timawa.offline-choice-dismissed'); } catch (_) {} if (options.onContinue) options.onContinue(); } },
+            { label: 'Wheel & polls', secondary: true, run: openOfflineWheel },
             { label: 'Wait for connection', secondary: true, run: () => { try { sessionStorage.setItem('timawa.offline-choice-dismissed', '1'); } catch (_) {} if (options.onContinue) options.onContinue(); } }
         ]);
         return true;
@@ -1192,6 +1201,7 @@
         pushState,
         showOfflineChoice,
         showConnectionChoice,
+        openOfflineWheel,
         probeNetwork,
         isOffline,
         offlineBootCheck,

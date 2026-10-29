@@ -123,6 +123,33 @@
         }
         .hero p { color: var(--theme-text-muted); font-size: 14.5px; margin-top: 6px; max-width: 620px; }
 
+        /* ---------- offline mode ---------- */
+        .offline-note {
+            display: flex; align-items: flex-start; gap: 9px;
+            margin-top: 14px; padding: 10px 14px; max-width: 620px;
+            border-radius: 14px; font-size: 12.5px; line-height: 1.5;
+            color: var(--theme-text-muted);
+            background: color-mix(in srgb, var(--theme-warning, #d97706) 10%, var(--theme-card));
+            border: 1px solid color-mix(in srgb, var(--theme-warning, #d97706) 32%, transparent);
+        }
+        .offline-note[hidden] { display: none; }
+        .offline-note i { color: var(--theme-warning, #d97706); margin-top: 2px; flex-shrink: 0; }
+        .offline-note b { color: var(--theme-text); font-weight: 750; }
+
+        /* Starts and votes need the cloud — say so instead of failing on tap. */
+        .poll-offline .poll-opt,
+        .poll-offline .poll-add-btn,
+        .poll-offline .poll-clear-btn,
+        .poll-offline .poll-winner-btn,
+        .poll-offline .poll-add-row button { opacity: .5; }
+        .poll-offline .poll-opt { cursor: not-allowed; }
+        .poll-head .offline-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 9px; border-radius: 50px; font-size: 10.5px; font-weight: 750;
+            letter-spacing: .3px; text-transform: uppercase;
+            color: #92400e; background: #fef3c7;
+        }
+
         .layout {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
@@ -576,6 +603,10 @@
         <header class="hero">
             <h1>🎡 Pili na, <span class="grad" id="heroName">'nak</span>!</h1>
             <p>Edit the wheel, give it a spin, then settle food, place and date with a live squad poll. Everything saves to the squad automatically.</p>
+            <p class="offline-note" id="wheelOfflineNote" hidden>
+                <i class="fas fa-plane-slash" aria-hidden="true"></i>
+                <span><b id="wheelOfflineTitle">Offline mode.</b> <span id="wheelOfflineText">The wheel and the polls saved on this device still work. Voting, adding options and plotting to the calendar need a connection.</span></span>
+            </p>
         </header>
 
         <div class="layout">
@@ -1279,7 +1310,9 @@
             if (!card) return;
 
             if (!data) {
-                card.innerHTML = '<div class="poll-empty"><i class="fas fa-circle-notch fa-spin"></i> Loading poll…</div>';
+                card.innerHTML = (typeof isOffline === 'function' && isOffline())
+                    ? '<div class="poll-empty"><i class="fas fa-cloud-arrow-down"></i> This poll was not saved on this device yet. It appears once you are back online.</div>'
+                    : '<div class="poll-empty"><i class="fas fa-circle-notch fa-spin"></i> Loading poll…</div>';
                 return;
             }
 
@@ -1310,6 +1343,7 @@
                         <h3>${escapeHtml(data.title || cat)}</h3>
                         <p>${data.question || 'Cast your vote'}</p>
                     </div>
+                    ${isOffline() ? '<span class="offline-chip"><i class="fas fa-wifi"></i> Offline</span>' : ''}
                     <div class="poll-total">
                         <b>${total}</b>
                         <span>vote${total === 1 ? '' : 's'}</span>
@@ -1407,6 +1441,53 @@
             });
         }
 
+        // ================================================================
+        // ===== OFFLINE MODE =============================================
+        // Firestore keeps a local copy (enablePersistence + POLL_CACHE_KEY), so
+        // the wheel and the polls still paint with no signal. Only writes need
+        // the cloud: voting, adding/clearing options and plotting to calendar.
+        // ================================================================
+        let offlineNow = typeof navigator !== 'undefined' && navigator.onLine === false;
+
+        // This page explains its own offline state, so pwa.js must not stack the
+        // shared "no internet" card on top of it — members arrive here to use it.
+        window.TIMAWA_OFFLINE_HANDLED = true;
+
+        function isOffline() { return offlineNow; }
+
+        function applyOfflineState(active) {
+            offlineNow = !!active;
+            document.body.classList.toggle('offline', offlineNow);
+            const note = document.getElementById('wheelOfflineNote');
+            if (note) note.hidden = !offlineNow;
+            const grid = document.getElementById('pollGrid');
+            if (grid) grid.classList.toggle('poll-offline', offlineNow);
+        }
+
+        function requireOnline(message) {
+            if (!offlineNow) return true;
+            showToast(message || 'You are offline — this needs a connection.', 'err');
+            return false;
+        }
+
+        applyOfflineState(offlineNow);
+
+        // Never park an offline member on the loading ring: the wheel and cached
+        // polls are already on the device, so reveal them even if the auth
+        // handshake is slow to settle without a connection.
+        if (offlineNow) setTimeout(() => { try { hideBoot(); } catch (_) { /* not defined yet */ } }, 2200);
+
+        window.addEventListener('offline', () => {
+            applyOfflineState(true);
+            renderAllPolls();
+        });
+
+        window.addEventListener('online', () => {
+            applyOfflineState(false);
+            renderAllPolls();
+            showToast('Back online — you can vote and save again.', 'ok');
+        });
+
         function toggleAddRow(cat) {
             const row = document.getElementById('pollAdd-' + cat);
             if (!row) return;
@@ -1419,6 +1500,7 @@
 
         async function votePoll(cat, optionId) {
             if (!currentUser) { showToast('Sign in to vote.', 'err'); return; }
+            if (!requireOnline('Votes need a connection — cast it once you are back online.')) return;
             const ref = db.collection(POLLS_COL).doc(cat);
 
             try {
@@ -1461,6 +1543,7 @@
         }
 
         async function addPollOption(cat) {
+            if (!requireOnline('Adding options needs a connection.')) return;
             const input = document.getElementById('pollInput-' + cat);
             const label = String(input ? input.value : '').replace(/\s+/g, ' ').trim().slice(0, 32);
             if (!label) { showToast('Type an option first.', 'err'); return; }
@@ -1513,6 +1596,7 @@
 
         async function clearPoll(cat) {
             if (!currentUser) return;
+            if (!requireOnline('Clearing a poll needs a connection.')) return;
             const data = pollState[cat] || DEFAULT_POLLS[cat];
             const ok = window.confirm('Remove every entry from the ' + (data.title || cat) + ' poll? All options and votes will be cleared.');
             if (!ok) return;
@@ -1539,6 +1623,7 @@
         // ================================================================
         async function addEventToCalendar(pick) {
             if (!currentUser) { showToast('Sign in first.', 'err'); return; }
+            if (!requireOnline('Plotting to the calendar needs a connection.')) return;
             if (!pick || !pick.label) { showToast('Nothing chosen yet.', 'info'); return; }
             if (!pick.date) { showToast('That pick has no date yet — add a dated option in the Date poll.', 'err'); return; }
 
@@ -1742,6 +1827,6 @@
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.4.0" defer></script>
+    <script src="pwa.js?v=1.5.0" defer></script>
 </body>
 </html>

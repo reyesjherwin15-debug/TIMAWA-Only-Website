@@ -8,19 +8,29 @@
    Bump CACHE_VERSION whenever the shell files change.
    ========================================================================== */
 
-const CACHE_VERSION = 'v1.5.8';
+const CACHE_VERSION = 'v1.5.9';
 const SHELL_CACHE = `timawa-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `timawa-runtime-${CACHE_VERSION}`;
 const MAX_RUNTIME_ENTRIES = 60;
 
 /* Small, always-needed files. Pages are cached on first visit instead of being
-   precached, so installing the app does not download ~2 MB of HTML. */
+   precached, so installing the app does not download ~2 MB of HTML.
+
+   The one exception is Spin & Poll: it is the page members need when there is
+   no signal at all (an outing with no data), so it — and the two local files it
+   cannot render without — are precached. Firebase and Font Awesome come from
+   CDNs whose URLs every other page already loads into the browser cache. */
 const SHELL_ASSETS = [
     './offline.html',
     './pwa.css',
     './launch.css',
     './pwa.js',
     './push-config.js',
+    './squad-wheel.html',
+    './theme.css',
+    './theme.js',
+    './mobile-nav.css',
+    './mobile-nav.js',
     './icons/icon-192.png',
     './icons/icon-512.png',
     './icons/badge-72.png',
@@ -123,6 +133,15 @@ async function staleWhileRevalidate(request) {
     }).catch(() => null);
 
     if (cached) return cached;
+
+    // Shell files are precached without their ?v= suffix, so a page that asks
+    // for pwa.css?v=1.3.0 or mobile-nav.js?v=1.3.0 would otherwise miss them and
+    // fall through to a network that is not there. Look in the shell cache only:
+    // the runtime cache can still hold an older version under the old query.
+    const shellCache = await caches.open(SHELL_CACHE);
+    const shell = await shellCache.match(request, { ignoreSearch: true });
+    if (shell) return shell;
+
     const fresh = await network;
     if (fresh) return fresh;
 
