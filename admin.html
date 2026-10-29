@@ -6526,8 +6526,23 @@
         // ways: publish the missing/changed ones AND drop cards whose member is
         // gone — otherwise a deleted member keeps showing on the visitor homepage.
         let _publishingCards = false;
+        let _publicProfileRetry = null;
+        let _publicProfileRetries = 0;
         async function publishMemberCards(manual) {
-            if (_publishingCards || !window.PublicProfile || !allAppUsers.length) return;
+            if (_publishingCards || !allAppUsers.length) return;
+            if (!window.PublicProfile) {
+                // public-profile.js can still be loading when the first users
+                // snapshot lands; retry instead of silently skipping the prune.
+                if (!_publicProfileRetry && _publicProfileRetries < 5) {
+                    _publicProfileRetries++;
+                    _publicProfileRetry = setTimeout(() => {
+                        _publicProfileRetry = null;
+                        publishMemberCards(manual);
+                    }, 1000);
+                }
+                return;
+            }
+            _publicProfileRetries = 0;
             _publishingCards = true;
             try {
                 const published = await PublicProfile.backfill(allAppUsers);

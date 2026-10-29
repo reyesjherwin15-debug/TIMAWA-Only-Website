@@ -8,7 +8,7 @@
    Bump CACHE_VERSION whenever the shell files change.
    ========================================================================== */
 
-const CACHE_VERSION = 'v1.5.6';
+const CACHE_VERSION = 'v1.5.7';
 const SHELL_CACHE = `timawa-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `timawa-runtime-${CACHE_VERSION}`;
 const MAX_RUNTIME_ENTRIES = 60;
@@ -80,7 +80,10 @@ async function trimRuntimeCache() {
 async function networkFirstPage(request) {
     const cache = await caches.open(RUNTIME_CACHE);
     try {
-        const fresh = await fetch(request);
+        // GitHub Pages serves HTML with max-age=600, so a plain fetch() can hand
+        // back the copy from ten minutes ago — a reload then keeps showing the
+        // old page and a shipped fix looks like it never arrived. Revalidate.
+        const fresh = await fetch(request, { cache: 'no-store' });
         if (fresh && fresh.ok) {
             cache.put(request, fresh.clone()).then(trimRuntimeCache).catch(() => {});
         }
