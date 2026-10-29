@@ -311,3 +311,45 @@ conversation (`dashboard.html#chat_<uid>`), which resolves it the same way.
   description. No emails, no birthdays, no private profile fields.
 * If a private key leaks: `python tools/generate_vapid_keys.py --force`, redeploy
   `push-config.js`, and members re-enable notifications.
+
+---
+
+## 12. Shipping an update (the "new version" prompt)
+
+The app reads a tiny file, `app-version.json`, on every launch and compares it
+with the build the device last applied (stored as `timawa.app.version`). They
+only differ when you release something, so an up-to-date app never shows a card.
+
+```json
+{
+  "version": "1.6.0",
+  "requiresReinstall": true,
+  "announceOnFirstRun": true,
+  "title": "TIMAWA has a new look"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `version` | The live build. **Bump it on every release** you want members to see the prompt for. |
+| `requiresReinstall` | `true` when the icon, the manifest or the launch screen changed — the phone only re-reads those when the installed app is updated. Also tells iPhone members to remove and re-add the app. |
+| `announceOnFirstRun` | `true` also prompts devices that never stored a version (members who installed before this feature existed). Set it back to `false` after that rollout. |
+| `title` | Heading on the card. `message` may be added to replace the built-in wording. |
+
+**What the member sees**
+
+* **Update now** — records the build, asks the waiting service worker to take
+  over, and reloads. Caches are *not* cleared, so a reload with no connection
+  still opens the offline copy.
+* **Later** — snoozed for 14 days; the card returns after that until the update
+  is applied.
+* On an **iPhone**, the button is **Got it** instead, with the steps to remove
+  the app and add it to the Home Screen again — iOS cannot refresh an installed
+  icon any other way.
+
+The card is skipped (and shown on a later launch) when another dialog is
+already up, and it never appears offline.
+
+**Testing it**: open the console on any page and run
+`TIMAWA_PWA.checkAppUpdate({ force: true })` after setting
+`localStorage.setItem('timawa.app.version', '0.0.0')`.

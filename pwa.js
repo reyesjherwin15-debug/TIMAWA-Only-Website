@@ -235,6 +235,129 @@
         return true;
     }
 
+    /* ------------------------------------------------------------------ */
+    /* App version / update prompt                                         */
+    /* ------------------------------------------------------------------ */
+
+    /* A deploy can change more than the service worker's caches: the icon, the
+       launch screen and the manifest are only re-read when the browser updates
+       the *installed* app — and on iPhone only when it is added to the Home
+       Screen again. app-version.json names the live build; the build a device
+       last applied is kept in localStorage.
+
+       Different => this device is outdated => one update card. Equal => silent.
+       A device that never stored a version is a fresh install, so it stays quiet
+       unless the release file sets announceOnFirstRun (first rollout). */
+    const APP_VERSION_URL = 'app-version.json';
+    const APP_VERSION_KEY = 'timawa.app.version';
+    const APP_UPDATE_SNOOZE_KEY = 'timawa.app.update-snoozed-at';
+    const APP_UPDATE_SNOOZE_MS = 14 * 86400000;
+    const APP_UPDATE_SHOWN_KEY = 'timawa.app.update-shown';
+    const APP_UPDATE_RECHECK_MS = 10 * 60 * 1000;
+    let appUpdateCheckedAt = 0;
+
+    function storedAppVersion() {
+        try { return localStorage.getItem(APP_VERSION_KEY) || ''; } catch (_) { return ''; }
+    }
+
+    function recordAppVersion(version) {
+        try { localStorage.setItem(APP_VERSION_KEY, String(version)); } catch (_) { /* storage blocked */ }
+    }
+
+    function appUpdateMessage(data) {
+        if (data && data.message) return String(data.message);
+        if (data && data.requiresReinstall === true) {
+            if (IS_IOS) {
+                return 'The app icon and launch screen changed. On iPhone the new icon only appears after a reinstall: ' +
+                    'long-press the TIMAWA icon → Remove App → Delete, then open TIMAWA in Safari and use ' +
+                    'Share → “Add to Home Screen”. Your account, chats and polls are not affected.';
+            }
+            return 'The app icon and launch screen changed. Tap Update now and the new icon appears on your home ' +
+                'screen (or in your app list) the next time TIMAWA opens. If it still shows the old one, ' +
+                'reinstall TIMAWA from the browser menu — “Install app” or “Add to Home screen”. ' +
+                'Nothing is deleted.';
+        }
+        return 'A newer version of TIMAWA is ready. Updating reloads the app with the latest code.';
+    }
+
+    /* Take the new page and let a waiting worker become the active one. Caches
+       are deliberately not cleared: if the reload cannot reach the network the
+       offline copy must still be there. */
+    async function applyAppUpdate(version) {
+        recordAppVersion(version);
+        try {
+            const reg = registration || (navigator.serviceWorker && await navigator.serviceWorker.getRegistration());
+            if (reg) {
+                try { if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) { /* ignore */ }
+                try { await reg.update(); } catch (_) { /* offline is fine */ }
+            }
+        } catch (_) { /* no worker on this browser */ }
+        setTimeout(() => { try { location.reload(); } catch (_) { /* ignore */ } }, 320);
+    }
+
+    function showAppUpdateCard(data, version) {
+        try { sessionStorage.setItem(APP_UPDATE_SHOWN_KEY, '1'); } catch (_) { /* ignore */ }
+        const snooze = () => {
+            try { localStorage.setItem(APP_UPDATE_SNOOZE_KEY, String(Date.now())); } catch (_) { /* ignore */ }
+        };
+        // iPhone can only gain a new icon by being added to the Home Screen again,
+        // and nothing in a browser can do that for the member.
+        const manualReinstall = data && data.requiresReinstall === true && IS_IOS;
+        const choices = manualReinstall
+            ? [{ label: 'Got it', run: () => recordAppVersion(version) },
+               { label: 'Later', secondary: true, run: snooze }]
+            : [{ label: 'Update now', run: () => applyAppUpdate(version) },
+               { label: 'Later', secondary: true, run: snooze }];
+        renderChoice((data && data.title) || 'Update TIMAWA', appUpdateMessage(data), choices);
+    }
+
+    async function checkAppUpdate(options) {
+        options = options || {};
+        if (!/^https?:$/.test(location.protocol)) return false;
+        if (!options.force) {
+            if (Date.now() - appUpdateCheckedAt < APP_UPDATE_RECHECK_MS) return false;
+            appUpdateCheckedAt = Date.now();
+            if (navigator.onLine === false) return false;
+        }
+
+        let data = null;
+        try {
+            const res = await fetch(APP_VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' });
+            if (!res || !res.ok) return false;
+            data = await res.json();
+        } catch (_) {
+            return false; // offline, blocked, or the file is missing
+        }
+
+        const latest = String((data && data.version) || '').trim();
+        if (!latest) return false;
+
+        const seen = storedAppVersion();
+        if (seen === latest) return false;
+
+        if (!options.force) {
+            let shown = '';
+            try { shown = sessionStorage.getItem(APP_UPDATE_SHOWN_KEY) || ''; } catch (_) { /* ignore */ }
+            if (shown === '1') return false;
+
+            let snoozed = 0;
+            try { snoozed = Number(localStorage.getItem(APP_UPDATE_SNOOZE_KEY) || 0); } catch (_) { /* ignore */ }
+            if (snoozed && Date.now() - snoozed < APP_UPDATE_SNOOZE_MS) return false;
+
+            if (!seen && data.announceOnFirstRun !== true) {
+                recordAppVersion(latest);
+                return false;
+            }
+
+            // Another card (offline choice, push prompt) owns the screen; the
+            // next launch asks instead of stacking a second modal on top of it.
+            if (document.getElementById('timawaModeChoice')) return false;
+        }
+
+        showAppUpdateCard(data, latest);
+        return true;
+    }
+
     const PUSH_NUDGE_KEY = 'timawa.push.nudge-dismissed-at';
 
     /* The one prompt a member sees when they open the app.
@@ -1155,6 +1278,10 @@
         wireNotificationCard();
         wireInstallCard();
 
+        // Only speaks up when the live build differs from the one this device
+        // last applied — an up-to-date app never sees this card.
+        setTimeout(() => { checkAppUpdate().catch(() => {}); }, 2600);
+
         // iOS suspends home-screen apps instead of closing them: permission can
         // change in Settings, and a subscription can be dropped while away.
         document.addEventListener('visibilitychange', () => {
@@ -1162,6 +1289,8 @@
             renderNotificationCard();
             renderInstallCard();
             syncSilently();
+            // Throttled + session-guarded, so this only costs a tiny fetch.
+            checkAppUpdate().catch(() => {});
         });
         // Restored from the back/forward cache — same refresh, plus the banner
         // and cards may predate a change made in another tab.
@@ -1202,6 +1331,8 @@
         showOfflineChoice,
         showConnectionChoice,
         openOfflineWheel,
+        checkAppUpdate,
+        applyAppUpdate,
         probeNetwork,
         isOffline,
         offlineBootCheck,

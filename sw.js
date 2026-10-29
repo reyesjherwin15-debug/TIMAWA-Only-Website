@@ -8,7 +8,7 @@
    Bump CACHE_VERSION whenever the shell files change.
    ========================================================================== */
 
-const CACHE_VERSION = 'v1.5.9';
+const CACHE_VERSION = 'v1.5.10';
 const SHELL_CACHE = `timawa-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `timawa-runtime-${CACHE_VERSION}`;
 const MAX_RUNTIME_ENTRIES = 60;
@@ -134,16 +134,17 @@ async function staleWhileRevalidate(request) {
 
     if (cached) return cached;
 
-    // Shell files are precached without their ?v= suffix, so a page that asks
-    // for pwa.css?v=1.3.0 or mobile-nav.js?v=1.3.0 would otherwise miss them and
-    // fall through to a network that is not there. Look in the shell cache only:
-    // the runtime cache can still hold an older version under the old query.
+    // Network first, so a new ?v= URL always gets the bytes that match it.
+    const fresh = await network;
+    if (fresh) return fresh;
+
+    // Offline: fall back to the precached shell. Those copies are stored without
+    // their ?v= suffix, so pwa.css?v=1.3.0 or mobile-nav.js?v=1.3.0 would miss
+    // them. The shell cache is rebuilt per CACHE_VERSION, and it is checked last
+    // so it can never answer for a newer filename.
     const shellCache = await caches.open(SHELL_CACHE);
     const shell = await shellCache.match(request, { ignoreSearch: true });
     if (shell) return shell;
-
-    const fresh = await network;
-    if (fresh) return fresh;
 
     return new Response('', { status: 504, statusText: 'Offline' });
 }
@@ -157,6 +158,7 @@ self.addEventListener('fetch', (event) => {
     if (url.pathname.endsWith('/sw.js')) return;             // never cache the worker
     if (request.headers.has('range')) return;                // media / partial content
     if (url.pathname.endsWith('/manifest.json')) return;      // keep install metadata fresh
+    if (url.pathname.endsWith('/app-version.json')) return;   // always the live build
 
     if (request.mode === 'navigate') {
         event.respondWith(networkFirstPage(request));
