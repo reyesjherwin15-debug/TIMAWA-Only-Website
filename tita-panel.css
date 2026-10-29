@@ -279,20 +279,64 @@
     border-radius: 99px;
 }
 
-/* greeting */
-#titaPanel .tita-greeting {
-    position: relative;
-    background: color-mix(in srgb, var(--theme-primary, #1089d3) 6%, var(--theme-card, #fff));
-    border: 1px solid color-mix(in srgb, var(--theme-primary, #1089d3) 12%, transparent);
-    border-left: 3px solid var(--theme-primary, #1089d3);
-    padding: 12px 14px;
-    border-radius: 14px;
-    font-size: 12.5px;
-    line-height: 1.6;
+/* greeting — one quiet line, not a box */
+#titaPanel .tita-hello {
+    margin: 0 0 13px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
     color: var(--theme-text-muted, #555);
-    margin-bottom: 16px;
 }
-#titaPanel .tita-greeting strong { color: var(--theme-primary, #1089d3); }
+#titaPanel .tita-hello strong { color: var(--theme-primary, #1089d3); font-weight: 800; }
+
+/* the note is the one card on the panel: everything else stays flat so the
+   screen reads as one task instead of a stack of boxes */
+#titaPanel .tita-field--note {
+    background: color-mix(in srgb, var(--theme-primary, #1089d3) 4%, var(--theme-card, #fff));
+    border: 1px solid color-mix(in srgb, var(--theme-primary, #1089d3) 12%, var(--theme-border, #eef2f7));
+    border-radius: 18px;
+    padding: 12px 14px 13px;
+    margin-bottom: 15px;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+#titaPanel .tita-field--note:focus-within {
+    border-color: color-mix(in srgb, var(--theme-primary, #1089d3) 55%, transparent);
+    box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--theme-primary, #1089d3) 11%, transparent);
+}
+#titaPanel .tita-field--note .tita-label-row { margin-bottom: 8px; }
+/* borderless field inside the card: one box, not a box in a box */
+#titaPanel .tita-field.tita-field--note input[type="text"] {
+    background: transparent;
+    border-color: transparent;
+    border-radius: 10px;
+    padding: 6px 0;
+    font-size: 14.5px;
+    box-shadow: none;
+}
+#titaPanel .tita-field.tita-field--note input[type="text"]:focus {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+/* status + location side by side */
+#titaPanel .tita-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 11px;
+}
+#titaPanel .tita-grid .tita-field { margin-bottom: 12px; min-width: 0; }
+
+#titaPanel .tita-fineprint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: -2px 0 9px;
+    font-size: 10px;
+    line-height: 1.4;
+    color: var(--theme-text-faint, #aaa);
+}
+#titaPanel .tita-fineprint i { font-size: 10px; color: var(--theme-text-dim, #888); }
 
 /* fields */
 #titaPanel .tita-field { margin-bottom: 15px; }
@@ -391,35 +435,33 @@
 }
 
 /* link to the full profile editor */
+/* quiet text link — no card, no dashed border */
 #titaPanel .tita-profile-link {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 11px 13px;
-    margin: 2px 0 4px;
-    border-radius: 13px;
-    background: color-mix(in srgb, var(--theme-primary, #1089d3) 6%, transparent);
-    border: 1px dashed color-mix(in srgb, var(--theme-primary, #1089d3) 30%, transparent);
+    gap: 7px;
+    padding: 3px 0;
+    margin: 0;
+    border: none;
+    background: none;
     color: var(--theme-primary, #1089d3);
     font-size: 11.5px;
     font-weight: 700;
     text-decoration: none;
-    transition: background 0.18s ease, border-color 0.18s ease;
+    transition: opacity 0.18s ease;
 }
-#titaPanel .tita-profile-link span { flex: 1; }
-#titaPanel .tita-profile-link i:last-child { font-size: 10px; opacity: 0.7; }
-#titaPanel .tita-profile-link:hover {
-    background: color-mix(in srgb, var(--theme-primary, #1089d3) 12%, transparent);
-    border-color: var(--theme-primary, #1089d3);
-}
+#titaPanel .tita-profile-link span { flex: 0 0 auto; }
+#titaPanel .tita-profile-link i:first-child { font-size: 11px; }
+#titaPanel .tita-profile-link i:last-child { font-size: 9px; opacity: 0.6; }
+#titaPanel .tita-profile-link:hover { opacity: 0.75; }
 
 /* ---------- pinned footer ---------- */
 #titaPanel .tita-footer {
     display: flex;
     gap: 10px;
     padding: 12px 18px 14px;
+    background: var(--theme-card, #fff);
     border-top: 1px solid color-mix(in srgb, var(--theme-primary, #1089d3) 10%, var(--theme-border, rgba(0, 0, 0, 0.06)));
-    background: color-mix(in srgb, var(--theme-primary, #1089d3) 4%, var(--theme-card, #fff));
     flex-shrink: 0;
 }
 #titaPanel .tita-footer .tita-save {
@@ -521,6 +563,13 @@
     #titaPanel .tita-field textarea { font-size: 16px; } /* stops iOS zoom-on-focus */
     #titaPanel .tita-field input[type="text"],
     #titaPanel .tita-field select { padding: 12px 14px; }
+    /* keep the note field borderless inside its card on phones too,
+       at 16px so iOS never zooms the whole sheet on focus */
+    #titaPanel .tita-field.tita-field--note input[type="text"] { padding: 6px 0; font-size: 16px; }
+}
+
+@media (max-width: 360px) {
+    #titaPanel .tita-grid { grid-template-columns: 1fr; gap: 0; }
 }
 
 @media (max-width: 380px) {

@@ -11,7 +11,7 @@
   "launch_handler": { "client_mode": "navigate-existing" },
   "orientation": "portrait-primary",
   "background_color": "#071322",
-  "theme_color": "#1089d3",
+  "theme_color": "#071322",
   "categories": ["social", "lifestyle", "productivity"],
   "prefer_related_applications": false,
   "icons": [

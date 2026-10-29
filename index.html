@@ -2608,7 +2608,7 @@
         ::-webkit-scrollbar-thumb { background: var(--theme-gradient); border-radius: 10px; }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="tita-panel.css?v=2.1.0" />
+    <link rel="stylesheet" href="tita-panel.css?v=2.2.0" />
     <link rel="stylesheet" href="launch.css?v=1.0.0" />
 </head>
 <body>
@@ -3021,13 +3021,11 @@
         </div>
 
         <div class="tita-body">
-            <div class="tita-greeting" id="titaGreeting">
-                Kumusta, <strong id="titaGreetName">ka-TIMAWA</strong>! Note, status at location lang ang kaya kong i-update. 😊
-            </div>
+            <p class="tita-hello" id="titaGreeting">Kumusta, <strong id="titaGreetName">ka-TIMAWA</strong>!</p>
 
-            <div class="tita-field">
+            <div class="tita-field tita-field--note">
                 <div class="tita-label-row">
-                    <label for="titaNote"><i class="fas fa-comment-dots"></i> Quick Note</label>
+                    <label for="titaNote"><i class="fas fa-comment-dots"></i> Quick note</label>
                     <span class="tita-counter"><span id="titaNoteCount">0</span>/60</span>
                 </div>
                 <div class="tita-note-editor">
@@ -3039,42 +3037,42 @@
                 <div class="tita-note-meta" id="titaNoteStatus" style="display:none;">
                     <i class="fas fa-clock"></i> <span></span>
                 </div>
-                <p class="tita-warning">
-                    <i class="fas fa-triangle-exclamation"></i>
-                    <span>Changing the note text or song deletes its existing replies.</span>
-                </p>
             </div>
 
-            <div class="tita-field">
-                <label for="titaStatus"><i class="fas fa-circle"></i> Status</label>
-                <select id="titaStatus">
-                    <option value="available">🟢 Available</option>
-                    <option value="busy">🔴 Busy</option>
-                    <option value="away">🟡 Away</option>
-                    <option value="dnd">🟣 Do Not Disturb</option>
-                </select>
+            <div class="tita-grid">
+                <div class="tita-field">
+                    <label for="titaStatus"><i class="fas fa-circle"></i> Status</label>
+                    <select id="titaStatus">
+                        <option value="available">🟢 Available</option>
+                        <option value="busy">🔴 Busy</option>
+                        <option value="away">🟡 Away</option>
+                        <option value="dnd">🟣 Do Not Disturb</option>
+                    </select>
+                </div>
+
+                <div class="tita-field" id="titaLocationField">
+                    <label for="titaLocationSelect"><i class="fas fa-map-marker-alt"></i> Location</label>
+                    <select id="titaLocationSelect" onchange="titaToggleCustomLocation()">
+                        <option value="">Select your location</option>
+                        <option value="Alabat, Quezon">📍 Alabat, Quezon</option>
+                        <option value="Perez, Quezon">📍 Perez, Quezon</option>
+                        <option value="Atimonan, Quezon">📍 Atimonan, Quezon</option>
+                        <option value="Lucena, Quezon">📍 Lucena, Quezon</option>
+                        <option value="Lucban, Quezon">📍 Lucban, Quezon</option>
+                        <option value="San Pedro, Laguna">📍 San Pedro, Laguna</option>
+                        <option value="Santa Cruz, Laguna">📍 Santa Cruz, Laguna</option>
+                        <option value="custom">✏️ Others (Customize)</option>
+                    </select>
+                    <input type="text" id="titaCustomLocation" class="tita-custom-loc" placeholder="Enter your location..." autocomplete="off" />
+                </div>
             </div>
 
-            <div class="tita-field" id="titaLocationField">
-                <label for="titaLocationSelect"><i class="fas fa-map-marker-alt"></i> Location</label>
-                <select id="titaLocationSelect" onchange="titaToggleCustomLocation()">
-                    <option value="">Select your location</option>
-                    <option value="Alabat, Quezon">📍 Alabat, Quezon</option>
-                    <option value="Perez, Quezon">📍 Perez, Quezon</option>
-                    <option value="Atimonan, Quezon">📍 Atimonan, Quezon</option>
-                    <option value="Lucena, Quezon">📍 Lucena, Quezon</option>
-                    <option value="Lucban, Quezon">📍 Lucban, Quezon</option>
-                    <option value="San Pedro, Laguna">📍 San Pedro, Laguna</option>
-                    <option value="Santa Cruz, Laguna">📍 Santa Cruz, Laguna</option>
-                    <option value="custom">✏️ Others (Customize)</option>
-                </select>
-                <input type="text" id="titaCustomLocation" class="tita-custom-loc" placeholder="Enter your location..." autocomplete="off" />
-            </div>
+            <p class="tita-fineprint"><i class="fas fa-circle-info"></i> Editing the note or song clears its replies.</p>
 
             <a class="tita-profile-link" href="profile.html">
                 <i class="fas fa-user-pen"></i>
-                <span>Name, bio, love life &amp; socials — edit in your profile</span>
-                <i class="fas fa-arrow-right"></i>
+                <span>Edit full profile</span>
+                <i class="fas fa-chevron-right"></i>
             </a>
 
             <div class="tita-status-msg" id="titaStatusMsg" role="status"></div>
@@ -3084,7 +3082,6 @@
             <button class="tita-save" id="titaSaveBtn" onclick="titaSaveProfile()">
                 <i class="fas fa-check"></i> Save changes
             </button>
-            <button class="tita-cancel" onclick="closeTitaPanel()">Close</button>
         </div>
     </div>
 
