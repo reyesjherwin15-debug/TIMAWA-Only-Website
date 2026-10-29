@@ -6462,7 +6462,11 @@ function startHighlightReply(commentId, authorName) {
 
         auth.onAuthStateChanged(user => updateNavigation(user));
 
+        // This page paints its own cached shell on a dead connection; pwa.js
+        // hands the shared offline card to every page that does not opt out.
+        window.TIMAWA_OFFLINE_HANDLED = true;
         let landingOfflineChoiceShown = false;
+        let offlineContentLoaded = false;
         window.addEventListener('offline', function() {
             if (landingOfflineChoiceShown || !document.getElementById('loadingOverlay')?.classList.contains('active')) return;
             landingOfflineChoiceShown = true;
@@ -8434,12 +8438,16 @@ function startHighlightReply(commentId, authorName) {
             showLoadingOverlay('Loading TIMAWA…');
 
             const continueOffline = () => {
+                // Drop the splash first: the page underneath must be usable even
+                // while the mode card is still on screen.
+                hideLoadingOverlay();
+                if (offlineContentLoaded) return;
+                offlineContentLoaded = true;
                 loadCarouselData('coffeeShops', 'coffeeTrack', 'coffeeDots', 'coffee');
                 loadCarouselData('favoritePlaces', 'placesTrack', 'placesDots', 'places');
                 loadCarouselData('thingsToDo', 'activitiesTrack', 'activitiesDots', 'activities');
                 loadMembersFromFirestore();
                 loadNotes();
-                hideLoadingOverlay();
             };
 
             // navigator.onLine still says true on Wi-Fi that has no internet, so
@@ -8451,6 +8459,9 @@ function startHighlightReply(commentId, authorName) {
 
             if (!reachable) {
                 landingOfflineChoiceShown = true;
+                // Paint the cached page and remove the splash right away, so the
+                // card sits on top of a browsable page instead of a spinner.
+                continueOffline();
                 // Picking a mode loads the last cached session immediately.
                 if (window.TIMAWA_PWA?.showOfflineChoice) {
                     window.TIMAWA_PWA.showOfflineChoice({ assumeOffline: true, onContinue: continueOffline });
@@ -8702,13 +8713,13 @@ function startHighlightReply(commentId, authorName) {
 
     <script src="stories-shared.js?v=1.11.1"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.2"></script>
+    <script src="stories.js?v=1.12.3"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="mobile-nav.js?v=1.2.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.2.0" defer></script>
+    <script src="pwa.js?v=1.3.0" defer></script>
 </body>
 </html>

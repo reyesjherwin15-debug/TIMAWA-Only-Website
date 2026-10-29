@@ -160,6 +160,43 @@
         return netState.online === false;
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Offline boot (every page)                                           */
+    /* ------------------------------------------------------------------ */
+
+    /* A page that opens without a working connection used to sit on its loading
+       overlay forever, because each page only cleared it after its own data
+       arrived. This runs once per page load, before anything can hang: if the
+       network is gone, the splash is removed and the same mode card used by the
+       home page is offered, so the member can move on to pages that are cached.
+
+       index.html and dashboard.html render their own cached shell and set
+       window.TIMAWA_OFFLINE_HANDLED, so they are skipped here. */
+    function offlineBootCheck() {
+        if (window.TIMAWA_OFFLINE_HANDLED) return;
+        if (/\/offline\.html$/i.test(location.pathname)) return;
+
+        const overlay = document.getElementById('loadingOverlay');
+        const reveal = () => {
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+                // Keep it down: some pages re-show the splash from their auth
+                // handler, which would put the spinner back over a dead link.
+                overlay.style.display = 'none';
+            }
+            try { window.dispatchEvent(new CustomEvent('timawa:offline-boot')); } catch (_) { /* ignore */ }
+            if (!document.getElementById('timawaModeChoice')) {
+                showOfflineChoice({ assumeOffline: true });
+            }
+        };
+
+        // navigator.onLine === false is instant; anything else needs the probe
+        // because Wi-Fi with no internet still reports "online".
+        if (navigator.onLine === false) { reveal(); return; }
+        probeNetwork().then((ok) => { if (!ok) reveal(); });
+    }
+
     async function showOfflineChoice(options) {
         options = options || {};
         let offline = options.assumeOffline === true;
@@ -1122,6 +1159,7 @@
         showConnectionChoice,
         probeNetwork,
         isOffline,
+        offlineBootCheck,
         promptInstall,
         showInstallBanner,
         showNotificationNudge: maybeShowPushNudge,
@@ -1140,9 +1178,10 @@
     // This script is deferred, so by the time it runs the overlay markup exists:
     // decorate it before the browser paints the generic spinner.
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => { decorateSplash(); boot(); });
+        document.addEventListener('DOMContentLoaded', () => { decorateSplash(); offlineBootCheck(); boot(); });
     } else {
         decorateSplash();
+        offlineBootCheck();
         boot();
     }
 })();

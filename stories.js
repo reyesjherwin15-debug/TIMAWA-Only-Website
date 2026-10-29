@@ -375,6 +375,17 @@
             const d = down; down = null; clearTimeout(d.timer);
             if (d.drag) springBack(); else if (d.held) endHold();
         });
+        // Mobile browsers can drop the frame's pointerup when the finger ends
+        // outside it (setPointerCapture fails silently). The hold / drag pause
+        // key then stayed set, freezing the clock. This runs after the frame's
+        // own handler, so normal taps are untouched.
+        const releaseStrayGesture = () => {
+            if (!down) return;
+            const d = down; down = null; clearTimeout(d.timer);
+            if (d.drag) springBack(); else if (d.held) endHold();
+        };
+        window.addEventListener('pointerup', releaseStrayGesture);
+        window.addEventListener('pointercancel', releaseStrayGesture);
 
         el.addEventListener('wheel', e => { if (!e.target.closest('.st-vlist,.st-caption')) e.preventDefault(); }, { passive: false });
         document.addEventListener('keydown', e => {
@@ -474,7 +485,12 @@
             V.q.frame.classList.remove('blank');
             if (!V.open) return;
             renderSlide();
-            if (V.animating) pause('anim');
+            if (V.animating) {
+                pause('anim');
+                // If the entry animation's finish event is dropped (backgrounded
+                // tab, cancelled animation) release it anyway.
+                setTimeout(() => { if (V.open) resume('anim'); }, 900);
+            }
         });
     }
     function openById(id) {
@@ -538,6 +554,19 @@
     }
     function pause(r) { V.paused.add(r); if (V.video) V.video.pause(); if (V.audio) V.audio.pause(); }
     function resume(r) { V.paused.delete(r); if (!V.paused.size && V.ready) { if (V.video) V.video.play().catch(() => {}); playMusic(); } V.last = performance.now(); }
+    // The clock is the only thing that advances to the next story, so a pause
+    // reason that stopped being true (input blurred, sheet closed, app visible
+    // again, entry animation finished without firing its event) left the viewer
+    // frozen forever. Re-check the real UI every frame and drop stale keys.
+    function releaseStalePauses() {
+        if (!V.paused.size) return;
+        const q = V.q; if (!q) return;
+        if (V.paused.has('typing') && document.activeElement !== q.input) V.paused.delete('typing');
+        if (V.paused.has('viewers') && q.vsheet.hidden) V.paused.delete('viewers');
+        if (V.paused.has('tray') && q.tray.hidden) V.paused.delete('tray');
+        if (V.paused.has('hidden') && !document.hidden) V.paused.delete('hidden');
+        if (V.paused.has('anim') && !V.animating) V.paused.delete('anim');
+    }
     function syncPauseIcon() { V.q.pauseB.innerHTML = `<i class="fas fa-${V.paused.has('user') ? 'play' : 'pause'}"></i>`; V.q.pauseB.setAttribute('aria-label', V.paused.has('user') ? 'Play' : 'Pause'); }
 
     function renderSlide() {
@@ -596,10 +625,16 @@
                 const im = new Image(); im.alt = s.caption || 'Story'; im.decoding = 'async';
                 const resized = S.cloudResize(s.mediaUrl, 960);
                 const thumb = S.safeMediaUrl(s.thumbUrl) || (resized === s.mediaUrl ? s.mediaUrl : resized);
+                // The thumb -> full-resolution swap reassigns im.src, which fires
+                // onload a second time. Without these one-shot guards that second
+                // load restarted the clock (and could re-swap itself), so the
+                // story sat frozen instead of advancing to the next one.
+                let swapped = thumb === s.mediaUrl, readyShown = false;
                 const showFullResolution = () => {
                     if (V.story !== s || !V.open) return;
-                    onReady(null);
-                    if (thumb !== s.mediaUrl) {
+                    if (!readyShown) { readyShown = true; onReady(null); }
+                    if (!swapped) {
+                        swapped = true;
                         const full = new Image(); full.decoding = 'async';
                         full.onload = () => { if (V.story === s && V.open) im.src = s.mediaUrl; };
                         full.src = s.mediaUrl;
@@ -633,7 +668,10 @@
     function onError() { V.q.load.hidden = true; V.q.err.hidden = false; }
     function onReady(v) {
         if (!V.open) return;
-        V.q.load.hidden = true; V.ready = true; V.el_ms = 0; V.last = performance.now();
+        const alreadyReady = V.ready;
+        V.q.load.hidden = true; V.ready = true;
+        if (alreadyReady) return;                  // a late second load must not restart the clock
+        V.el_ms = 0; V.last = performance.now();
         if (v) {
             v.muted = V.muteVid || V.userMuted;
             v.play().catch(() => { v.muted = true; syncMuteIcon(); v.play().catch(() => {}); });
@@ -647,15 +685,23 @@
         const s = V.story;
         const tick = t => {
             if (!V.open || V.story !== s) return;
-            const dt = t - V.last; V.last = t;
-            if (!V.paused.size && V.ready) {
-                if (V.video) V.el_ms = V.video.currentTime * 1000; else V.el_ms += dt;
-                if (V.audio) syncAudio(false);            // music position = story position (never drifts)
+            try {
+                const dt = t - V.last; V.last = t;
+                releaseStalePauses();
+                if (!V.paused.size && V.ready) {
+                    if (V.video) V.el_ms = V.video.currentTime * 1000; else V.el_ms += dt;
+                    if (V.audio) syncAudio(false);        // music position = story position (never drifts)
+                }
+                const p = Math.min(1, V.el_ms / (V.dur || CFG.IMAGE_MS));
+                if (seg) seg.style.transform = `scaleX(${p})`;
+                if (!V.video && p >= 1) { next(); return; }
+                if (V.video && V.el_ms >= S.MAX_SHOW_MS) { next(); return; }
+            } catch (err) {
+                // One bad frame used to stop requestAnimationFrame for good, which
+                // froze the story exactly like a missing duration. Keep ticking.
+                console.warn('story timer:', err && err.message ? err.message : err);
+                if (V.story !== s) return;
             }
-            const p = Math.min(1, V.el_ms / (V.dur || CFG.IMAGE_MS));
-            if (seg) seg.style.transform = `scaleX(${p})`;
-            if (!V.video && p >= 1) { next(); return; }
-            if (V.video && V.el_ms >= S.MAX_SHOW_MS) { next(); return; }
             V.raf = requestAnimationFrame(tick);
         };
         V.last = performance.now(); V.raf = requestAnimationFrame(tick);
@@ -977,6 +1023,7 @@
         const s = V.story;
         if (!s || s.ownerUid !== st.me.uid) return;
         pause('confirm');
+        setTimeout(() => { if (V.open) resume('confirm'); }, 30000);
         const ok = await S.confirm({ title: 'Delete this story?', message: 'It disappears for everyone right away. Replies already sent in chat will stay.', confirmLabel: 'Delete story', cancelLabel: 'Keep it', type: 'danger' });
         if (!ok) { resume('confirm'); return; }
         try {

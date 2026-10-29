@@ -4,7 +4,7 @@
   "description": "The barkada hub: highlights, activities, coffee spins, places and the shared calendar.",
   "lang": "en",
   "dir": "ltr",
-  "start_url": "./dashboard.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],

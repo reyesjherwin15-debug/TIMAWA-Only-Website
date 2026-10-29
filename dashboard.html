@@ -8153,6 +8153,37 @@
         let chatLastMessages = {};
         let chatConversationsUnsubscribe = null;
 
+        /* The conversation order is what puts members you have chatted with on
+           top. It is fetched with three queries, so the list used to render in
+           plain member order and then re-sort a second later, right after the
+           member tapped Chats. Keep the last summaries on the device and paint
+           that order straight away; the fresh fetch then just confirms it. */
+        const CHAT_SUMMARY_CACHE_PREFIX = 'timawa_chat_summary_';
+        let chatSummaryPrefetched = false;
+
+        function readChatSummaryCache(uid) {
+            if (!uid) return null;
+            try {
+                const raw = localStorage.getItem(CHAT_SUMMARY_CACHE_PREFIX + uid);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                return parsed && typeof parsed === 'object' ? parsed : null;
+            } catch (e) { return null; }
+        }
+
+        function writeChatSummaryCache(uid, summary) {
+            if (!uid || !summary) return;
+            try { localStorage.setItem(CHAT_SUMMARY_CACHE_PREFIX + uid, JSON.stringify(summary)); } catch (e) { /* quota */ }
+        }
+
+        // Warm the summaries while the member is still on the Members tab, so the
+        // Chats tab opens already ordered instead of re-sorting under the tap.
+        function maybePrefetchChatSummary() {
+            if (chatSummaryPrefetched || !chatFeatureEnabled || !currentUser) return;
+            chatSummaryPrefetched = true;
+            loadChatConversationsSummary();
+        }
+
         let newMsgSearchTerm = '';
         let newMsgModalOpen = false;
 
@@ -8466,14 +8497,36 @@
             hideLoadingOverlay(420);
         }
 
+        // Decided once, as early as possible: a dead (or crawling) connection must
+        // never leave the splash up while Firestore retries in the background.
+        async function dashboardNetworkDown() {
+            if (navigator.onLine === false) return true;
+            try {
+                if (window.TIMAWA_PWA?.probeNetwork) return !(await window.TIMAWA_PWA.probeNetwork());
+            } catch (_) { /* fall through to the local probe */ }
+            // pwa.js is deferred, so on the first frames it may not exist yet.
+            try {
+                let signal;
+                if (typeof AbortController === 'function') {
+                    const ctrl = new AbortController();
+                    signal = ctrl.signal;
+                    setTimeout(() => { try { ctrl.abort(); } catch (_) { /* ignore */ } }, 2500);
+                }
+                const res = await fetch('manifest.json?netcheck=' + Date.now(), { cache: 'no-store', signal });
+                return !(res && res.ok);
+            } catch (_) { return true; }
+        }
+
         function setupOfflineModeChoices() {
-            // Safety net: if auth has not resolved within a few seconds and the
-            // splash is still up with no connection, offer offline mode anyway.
-            setTimeout(function () {
-                const overlay = document.getElementById('loadingOverlay');
-                if (!overlay || !overlay.classList.contains('active')) return;
-                if (navigator.onLine === false) showOfflineChoice(true);
-            }, 5000);
+            offlineBootPromise = dashboardNetworkDown().catch(() => false);
+            offlineBootPromise.then((down) => {
+                if (!down) return;
+                offlineBoot = true;
+                // Paint the cached shell and drop the splash BEFORE asking, so the
+                // member can already move around the pages saved while online.
+                renderCachedDashboardContent();
+                showOfflineChoice(true);
+            });
             window.addEventListener('online', function () {
                 window.TIMAWA_PWA?.showConnectionChoice?.();
             });
@@ -8590,6 +8643,7 @@
                     const data = doc.exists ? (doc.data() || {}) : {};
                     chatFeatureEnabled = data.chatEnabled === true;
                     applyChatFeatureState();
+                    if (chatFeatureEnabled) maybePrefetchChatSummary();
                     if (chatFeatureEnabled && chatActiveTabIsSelected()) {
                         ensureChatListenersAttached();
                     } else if (!chatFeatureEnabled) {
@@ -8670,7 +8724,8 @@
                 if (sidebar) sidebar.classList.remove('hidden');
                 if (main) main.classList.remove('visible');
                 setChatFullscreen(true);
-                loadChatConversationsSummary();
+                // ensureChatListenersAttached() above already started the summary
+                // fetch; running it twice only re-sorted the list a second time.
                 const countLabel = document.getElementById('memberCountLabel');
                 if (countLabel) countLabel.style.display = 'none';
             } else if (tab === 'activity') {
@@ -9024,8 +9079,17 @@
                     clean[k] = rest;
                 });
 
+                // Only repaint when the order/preview actually changed. The
+                // cached summary usually matches the fresh one, and a redundant
+                // render is what made the list shuffle under the member's tap.
+                const fingerprint = (obj) => Object.keys(obj).sort().map(k => {
+                    const d = toJsDate(obj[k].createdAt);
+                    return k + '|' + (obj[k].text || '') + '|' + (d ? d.getTime() : 0);
+                }).join('~');
+                const unchanged = chatLastMessages && Object.keys(chatLastMessages).length && fingerprint(chatLastMessages) === fingerprint(clean);
                 chatLastMessages = clean;
-                renderChatUserList();
+                writeChatSummaryCache(myUid, clean);
+                if (!unchanged) renderChatUserList();
             }
 
             Promise.all([
@@ -14424,7 +14488,12 @@ function startReplyTo(commentId, authorName) {
         // ================================================================
         // ===== AUTH STATE =====
         // ================================================================
+        // This page paints its own cached shell on a dead connection; pwa.js
+        // hands the shared offline card to every page that does not opt out.
+        window.TIMAWA_OFFLINE_HANDLED = true;
         let offlineChoiceShown = false;
+        let offlineBoot = false;
+        let offlineBootPromise = null;
         async function showOfflineChoice(assumeOffline) {
             if (offlineChoiceShown) return;
             // navigator.onLine is true whenever an interface is up, even with no
@@ -14440,10 +14509,12 @@ function startReplyTo(commentId, authorName) {
                 if (sessionStorage.getItem('timawa.offline-choice-dismissed') === '1') { hideLoadingOverlay(); return; }
             } catch (e) { /* ignore */ }
             offlineChoiceShown = true;
+            // Get out of the way: the splash must not sit on top of the cached app.
+            hideLoadingOverlay();
             const continueOffline = () => {
                 try { sessionStorage.setItem('timawa.offline-mode', '1'); } catch (_) {}
                 hideLoadingOverlay();
-                if (currentUser) renderCachedDashboardContent();
+                renderCachedDashboardContent();
                 showToast('Offline mode: showing previously saved data where available.', 'info', 5000);
             };
             if (!window.TIMAWA_PWA?.showOfflineChoice) {
@@ -14456,23 +14527,41 @@ function startReplyTo(commentId, authorName) {
 
         function renderCachedDashboardContent() {
             restoreCollapseState();
+            // Runs before auth resolves when the app opens offline, so every
+            // section is called defensively — one failure must not stop the rest.
+            const run = (fn) => {
+                try {
+                    const out = fn();
+                    if (out && typeof out.catch === 'function') out.catch(() => {});
+                } catch (_) { /* ignore */ }
+            };
             Promise.resolve().then(() => {
-                loadHighlights().catch(() => {});
-                loadMembers().catch(() => {});
-                loadNotes();
-                loadChatFeatureFlag();
+                run(loadHighlights);
+                run(loadMembers);
+                run(loadNotes);
+                run(loadChatFeatureFlag);
             });
             hideLoadingOverlay();
         }
 
         auth.onAuthStateChanged(async (user) => {
             if (!user) {
+                // Offline, bouncing to index.html just replaces one cached shell
+                // with another; keep the one that is already painted.
+                if (offlineBoot || (offlineBootPromise && await offlineBootPromise)) return;
                 window.location.href = 'index.html';
                 return;
             }
 
             currentUser = user;
             titaCurrentUser = user;
+
+            // Order the chat list from the last session before anything paints.
+            const cachedChatSummary = readChatSummaryCache(user.uid);
+            if (cachedChatSummary) chatLastMessages = cachedChatSummary;
+            // The chat flag can resolve before auth does; in that case the flag
+            // handler's prefetch was skipped, so warm the summaries from here.
+            if (chatFeatureEnabled) maybePrefetchChatSummary();
 
             const cachedProfile = (() => {
                 try {
@@ -14495,11 +14584,9 @@ function startReplyTo(commentId, authorName) {
                 // paints first while network refreshes in the background.
                 renderCachedDashboardContent();
             }
-            // navigator.onLine lies on a Wi-Fi with no internet; probe for real
-            // so the offline card actually appears and the saved session paints.
-            const offlineAtBoot = navigator.onLine === false
-                ? true
-                : (window.TIMAWA_PWA?.probeNetwork ? !(await window.TIMAWA_PWA.probeNetwork()) : false);
+            // Reuse the single boot probe instead of hitting the network again.
+            const offlineAtBoot = offlineBoot ||
+                (offlineBootPromise ? await offlineBootPromise : navigator.onLine === false);
 
             if (offlineAtBoot && cachedProfile) {
                 currentUserData = titaUserData = cachedProfile;
@@ -16996,7 +17083,7 @@ function startReplyTo(commentId, authorName) {
 
     <script src="stories-shared.js?v=1.11.1"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.2"></script>
+    <script src="stories.js?v=1.12.3"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.0"></script>
@@ -17004,6 +17091,6 @@ function startReplyTo(commentId, authorName) {
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.2.0" defer></script>
+    <script src="pwa.js?v=1.3.0" defer></script>
 </body>
 </html>
