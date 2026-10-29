@@ -1339,18 +1339,6 @@
             background: var(--theme-primary-soft);
         }
 
-        /* ★ FIX: picker opens downward and sits above everything inside the modal */
-        .highlight-detail-modal .modal-content {
-            overflow-y: auto;
-            /* Don't clip child overlays horizontally */
-            overflow-x: visible;
-        }
-
-        .highlight-detail-modal .modal-body {
-            /* Don't clip the picker */
-            overflow: visible;
-        }
-
         .hl-detail-reactions {
             /* Establish a stacking context ABOVE the stats/comments that follow */
             position: relative;
@@ -4088,16 +4076,25 @@
             color: var(--theme-text-dim);
         }
 
+        /* Full-bleed panel: the detail view owns the whole window at every size. */
+        .highlight-detail-modal {
+            padding: 0;
+            align-items: stretch;
+            justify-content: stretch;
+        }
         .highlight-detail-modal .modal-content {
             background: var(--theme-card);
-            border-radius: 24px;
+            border-radius: 0;
             padding: 0;
-            max-width: 720px;
+            max-width: none;
             width: 100%;
-            max-height: 92vh;
-            overflow-y: auto;
-            overflow-x: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            height: 100vh;
+            height: 100dvh;
+            max-height: none;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: none;
             color: var(--theme-text);
             /* ★ Stack the modal above the backdrop so the inline picker is not clipped */
             position: relative;
@@ -4108,10 +4105,11 @@
             position: relative;
             z-index: 1; /* ★ below the reaction picker */
             width: 100%;
-            height: 360px;
+            flex: 0 0 auto;
+            height: clamp(220px, 38vh, 430px);
             background: linear-gradient(135deg, var(--theme-primary-soft) 0%, var(--theme-primary-soft-2) 100%);
             overflow: hidden;
-            border-radius: 24px 24px 0 0;
+            border-radius: 0;
         }
         .hl-detail-image-nav { position: absolute; top: 50%; z-index: 4; width: 42px; height: 42px; display: grid; place-items: center; transform: translateY(-50%); border: 0; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; cursor: pointer; }
         .hl-detail-image-nav[hidden] { display: none; }
@@ -4121,7 +4119,16 @@
             width: 100%; height: 100%; object-fit: cover; display: block;
         }
         .highlight-detail-modal .modal-header .hl-multi-badge { position: absolute; bottom: 14px; left: 14px; background: rgba(0,0,0,0.7); color: white; padding: 6px 14px; border-radius: 50px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-        .highlight-detail-modal .modal-body { padding: 26px 30px 30px; }
+        .highlight-detail-modal .modal-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            /* content stays a readable column while the scrollbar hugs the window */
+            padding: clamp(18px, 2.4vw, 30px) max(clamp(18px, 2.4vw, 30px), calc((100% - 900px) / 2));
+            padding-bottom: calc(clamp(18px, 2.4vw, 30px) + env(safe-area-inset-bottom, 0px));
+        }
         .highlight-detail-modal .hl-author-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
         .highlight-detail-modal .hl-author-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--theme-gradient); display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; font-weight: 700; overflow: hidden; flex-shrink: 0; }
         .highlight-detail-modal .hl-author-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -4136,12 +4143,13 @@
         .highlight-detail-modal .hl-stats .stat.urgent i { color: var(--theme-danger); }
 
         .highlight-detail-modal .hl-comments-wrap {
-            margin-bottom: 22px;
+            margin-bottom: 18px;
         }
         .highlight-detail-modal .hl-actions-row {
-            padding-top: 20px;
+            padding-top: 18px;
             border-top: 1px solid var(--theme-border-soft);
         }
+        .highlight-detail-modal .hl-detail-reactions { margin-bottom: 14px; }
 
         /* ★ Keep the sections that follow the reaction bar BELOW the picker */
         .highlight-detail-modal .hl-stats,
@@ -4161,7 +4169,7 @@
 
         .highlight-detail-modal .modal-close {
             position: absolute;
-            top: 16px;
+            top: calc(16px + env(safe-area-inset-top, 0px));
             right: 16px;
             width: 40px;
             height: 40px;
@@ -4569,22 +4577,30 @@
         }
 
         /* ===== NOTE MODAL ===== */
+        /* Full-bleed panel, same treatment as the highlight detail view. */
+        .note-modal {
+            padding: 0;
+            align-items: stretch;
+            justify-content: stretch;
+        }
         .note-modal .modal-content {
             background: var(--theme-card);
-            border-radius: 24px;
+            border-radius: 0;
             padding: 0;
-            max-width: 480px;
+            max-width: none;
             width: 100%;
-            max-height: 92vh;
+            height: 100vh;
+            height: 100dvh;
+            max-height: none;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 20px 60px color-mix(in srgb, var(--theme-primary) 28%, transparent);
+            box-shadow: none;
             color: var(--theme-text);
         }
         .note-modal .note-modal-header {
             background: var(--theme-gradient);
-            padding: 22px 24px 18px;
+            padding: calc(22px + env(safe-area-inset-top, 0px)) 24px 18px;
             text-align: center;
             position: relative;
             flex-shrink: 0;
@@ -4644,10 +4660,13 @@
             font-weight: 500;
         }
         .note-modal .note-modal-body {
-            padding: 22px 24px 24px;
+            padding: 22px max(24px, calc((100% - 760px) / 2)) calc(24px + env(safe-area-inset-bottom, 0px));
             text-align: center;
             overflow-y: auto;
-            flex: 1;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            flex: 1 1 auto;
+            min-height: 0;
         }
         .note-modal .note-modal-text {
             font-size: 18px;
@@ -4719,8 +4738,8 @@
         }
 
         .note-comments-list {
-            max-height: 280px;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
             padding-right: 4px;
             margin-bottom: 12px;
         }
@@ -4867,39 +4886,60 @@
             font-size: 12px; padding: 0 4px;
             font-family: inherit;
         }
+        /* One rounded composer: text on top, counter + send on a footer row,
+           so the placeholder always has the full width of the panel. */
         .note-comment-input-wrap .input-row {
-            display: flex; gap: 8px; align-items: flex-end;
-        }
-        .note-comment-input-wrap textarea {
-            flex: 1; min-width: 0; width: 100%; box-sizing: border-box;
-            min-height: 40px;
-            max-height: 100px;
-            padding: 10px 14px;
-            border-radius: 12px;
-            border: 1.5px solid var(--theme-border-input);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
             background: var(--theme-bg-soft);
-            font-size: 13px;
-            font-family: inherit;
-            color: var(--theme-text);
-            resize: none;
-            transition: all 0.2s ease;
-            line-height: 1.4;
+            border: 1.5px solid var(--theme-border-input);
+            border-radius: 16px;
+            padding: 10px 12px 8px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
-        .note-comment-input-wrap textarea:focus {
-            outline: none;
+        .note-comment-input-wrap .input-row:focus-within {
             border-color: var(--theme-primary);
             background: var(--theme-card);
             box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 10%, transparent);
         }
+        .note-comment-input-wrap textarea {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 40px;
+            max-height: 140px;
+            padding: 2px 0 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            font-size: 13.5px;
+            font-family: inherit;
+            color: var(--theme-text);
+            resize: none;
+            line-height: 1.5;
+        }
+        .note-comment-input-wrap textarea::placeholder { color: var(--theme-text-faint); opacity: 1; }
+        .note-comment-input-wrap textarea:focus {
+            outline: none;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+        .note-comment-input-wrap .composer-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
         .note-comment-input-wrap .send-btn {
-            width: 40px; height: 40px;
+            width: 34px; height: 34px;
             border-radius: 50%;
             border: none;
             background: var(--theme-gradient);
             color: white;
             cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.2s ease;
             flex-shrink: 0;
             box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-primary) 30%, transparent);
@@ -4916,9 +4956,10 @@
         .note-comment-input-wrap .char-count {
             font-size: 10px;
             color: var(--theme-text-faint);
-            text-align: right;
-            margin-top: 4px;
+            text-align: left;
+            margin: 0;
             font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
         .note-comment-input-wrap .char-count.warn { color: var(--theme-warn); }
         .note-comment-input-wrap .char-count.danger { color: var(--theme-danger); }
@@ -4963,8 +5004,8 @@
         }
 
         .highlight-comments-list {
-            max-height: 300px;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
             padding-right: 4px;
             margin-bottom: 12px;
         }
@@ -5057,7 +5098,7 @@
 
         .highlight-comments-empty {
             text-align: center;
-            padding: 22px 12px;
+            padding: 14px 12px;
             color: var(--theme-text-faint);
             font-size: 13px;
         }
@@ -5108,38 +5149,57 @@
             font-family: inherit;
         }
         .highlight-comment-input-wrap .input-row {
-            display: flex; gap: 8px; align-items: flex-end;
-        }
-        .highlight-comment-input-wrap textarea {
-            flex: 1; min-width: 0; width: 100%; box-sizing: border-box;
-            min-height: 40px;
-            max-height: 100px;
-            padding: 10px 14px;
-            border-radius: 12px;
-            border: 1.5px solid var(--theme-border-input);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
             background: var(--theme-bg-soft);
-            font-size: 13px;
-            font-family: inherit;
-            color: var(--theme-text);
-            resize: none;
-            transition: all 0.2s ease;
-            line-height: 1.4;
+            border: 1.5px solid var(--theme-border-input);
+            border-radius: 16px;
+            padding: 10px 12px 8px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
-        .highlight-comment-input-wrap textarea:focus {
-            outline: none;
+        .highlight-comment-input-wrap .input-row:focus-within {
             border-color: var(--theme-primary);
             background: var(--theme-card);
             box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 10%, transparent);
         }
+        .highlight-comment-input-wrap textarea {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 40px;
+            max-height: 140px;
+            padding: 2px 0 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            font-size: 13.5px;
+            font-family: inherit;
+            color: var(--theme-text);
+            resize: none;
+            line-height: 1.5;
+        }
+        .highlight-comment-input-wrap textarea::placeholder { color: var(--theme-text-faint); opacity: 1; }
+        .highlight-comment-input-wrap textarea:focus {
+            outline: none;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+        .highlight-comment-input-wrap .composer-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
         .highlight-comment-input-wrap .send-btn {
-            width: 40px; height: 40px;
+            width: 34px; height: 34px;
             border-radius: 50%;
             border: none;
             background: var(--theme-gradient);
             color: white;
             cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.2s ease;
             flex-shrink: 0;
             box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-primary) 30%, transparent);
@@ -5156,9 +5216,10 @@
         .highlight-comment-input-wrap .char-count {
             font-size: 10px;
             color: var(--theme-text-faint);
-            text-align: right;
-            margin-top: 4px;
+            text-align: left;
+            margin: 0;
             font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
         .highlight-comment-input-wrap .char-count.warn { color: var(--theme-warn); }
         .highlight-comment-input-wrap .char-count.danger { color: var(--theme-danger); }
@@ -5923,8 +5984,8 @@
                 padding: 10px 16px;
             }
 
-            .highlight-detail-modal .modal-header { height: 240px; }
-            .highlight-detail-modal .modal-body { padding: 18px 18px 22px; }
+            .highlight-detail-modal .modal-header { height: 34dvh; min-height: 180px; max-height: 300px; }
+            .highlight-detail-modal .modal-body { padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px)); }
 
             .member-detail-modal .member-avatar-circle { width: 110px; height: 110px; font-size: 42px; }
             .member-detail-modal .member-hero { padding: 32px 18px 22px; }
@@ -5942,15 +6003,14 @@
             .announcement-view-actions { flex-direction: column; }
             .announcement-view-actions button, .announcement-view-actions a { width: 100%; min-width: 0; }
 
-            .note-modal .modal-content { max-width: calc(100vw - 20px); }
-            .note-modal .note-modal-body { padding: 16px 16px 18px; }
-            .note-comments-list { max-height: 200px; }
+            .note-modal .note-modal-body { padding: 16px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
+            .note-comments-list { max-height: none; }
 
             .note-comment.reply-indent { margin-left: 16px; }
             .note-comment .comment-avatar { width: 28px; height: 28px; font-size: 11px; }
             .note-comment .comment-text { font-size: 12px; }
 
-            .highlight-comments-list { max-height: 200px; }
+            .highlight-comments-list { max-height: none; }
             .highlight-comment.reply-indent { margin-left: 16px; }
             .highlight-comment .comment-avatar { width: 28px; height: 28px; font-size: 11px; }
             .highlight-comment .comment-text { font-size: 12px; }
@@ -7088,7 +7148,7 @@
             opacity: 0.3;
         }
     </style>
-    <link rel="stylesheet" href="mobile-nav.css?v=1.1.0" />
+    <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.0.0" />
 </head>
 <body>
@@ -7170,15 +7230,11 @@
         </div>
 
         <ul class="nav-links" id="navLinks">
-            <li><a href="index.html#highlights">Highlights</a></li>
-            <li><a href="index.html#coffee-shops">Coffee</a></li>
-            <li><a href="index.html#favorite-places">Places</a></li>
-            <li><a href="index.html#things-to-do">Activities</a></li>
-            <li><a href="index.html#members-section">Members</a></li>
+            <li><a href="index.html"><i class="fas fa-house"></i> Home</a></li>
             <li><a href="calendar.html"><i class="fas fa-calendar-alt"></i> Calendar</a></li>
-            <li><a href="dashboard.html" class="active"><i class="fas fa-house"></i> Dashboard</a></li>
-            <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+            <li><a href="dashboard.html" class="active"><i class="fas fa-gauge-high"></i> Dashboard</a></li>
             <li><a href="squad-wheel.html"><i class="fas fa-dharmachakra"></i> Spin &amp; Poll</a></li>
+            <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
             <li class="announcement-li">
                 <div class="announcement-wrapper">
                     <button class="announcement-bell" id="announcementBell" onclick="toggleAnnouncementPopup(event, 'desktop')" aria-label="Announcements">
@@ -11519,12 +11575,14 @@
                             </button>
                         </div>
                         <div class="input-row">
-                            <textarea id="highlightCommentInput" placeholder="Write a comment... (type @ to mention)" maxlength="${HIGHLIGHT_COMMENT_MAX_LEN}" rows="1"></textarea>
-                            <button class="send-btn" id="highlightCommentSendBtn" onclick="postHighlightComment()" title="Send">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                            <textarea id="highlightCommentInput" placeholder="Write a comment…" maxlength="${HIGHLIGHT_COMMENT_MAX_LEN}" rows="1"></textarea>
+                            <div class="composer-foot">
+                                <span class="char-count" id="highlightCommentCharCount">0/${HIGHLIGHT_COMMENT_MAX_LEN}</span>
+                                <button class="send-btn" id="highlightCommentSendBtn" onclick="postHighlightComment()" title="Send">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="char-count" id="highlightCommentCharCount">0/${HIGHLIGHT_COMMENT_MAX_LEN}</div>
                     </div>
                 </div>
             `;
@@ -11837,7 +11895,7 @@ function startHighlightReply(commentId, authorName) {
             const banner = document.getElementById('highlightReplyingToBanner');
             if (banner) banner.classList.remove('show');
             const input = document.getElementById('highlightCommentInput');
-            if (input) input.placeholder = 'Write a comment... (type @ to mention)';
+            if (input) input.placeholder = 'Write a comment…';
         }
 
         async function postHighlightComment() {
@@ -12987,12 +13045,14 @@ function startHighlightReply(commentId, authorName) {
                             </button>
                         </div>
                         <div class="input-row">
-                            <textarea id="noteCommentInput" placeholder="Write a reply... (type @ to mention)" maxlength="${NOTE_COMMENT_MAX_LEN}" rows="1"></textarea>
-                            <button class="send-btn" id="noteCommentSendBtn" onclick="postNoteComment()" title="Send">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                            <textarea id="noteCommentInput" placeholder="Write a reply…" maxlength="${NOTE_COMMENT_MAX_LEN}" rows="1"></textarea>
+                            <div class="composer-foot">
+                                <span class="char-count" id="noteCommentCharCount">0/${NOTE_COMMENT_MAX_LEN}</span>
+                                <button class="send-btn" id="noteCommentSendBtn" onclick="postNoteComment()" title="Send">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="char-count" id="noteCommentCharCount">0/${NOTE_COMMENT_MAX_LEN}</div>
                     </div>
                 </div>
             `;
@@ -13384,7 +13444,7 @@ function startReplyTo(commentId, authorName) {
             const banner = document.getElementById('replyingToBanner');
             if (banner) banner.classList.remove('show');
             const input = document.getElementById('noteCommentInput');
-            if (input) input.placeholder = 'Write a reply... (type @ to mention)';
+            if (input) input.placeholder = 'Write a reply…';
         }
 
         async function postNoteComment() {
@@ -16815,7 +16875,7 @@ function startReplyTo(commentId, authorName) {
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.0"></script>
-    <script src="mobile-nav.js?v=1.1.0"></script>
+    <script src="mobile-nav.js?v=1.2.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>

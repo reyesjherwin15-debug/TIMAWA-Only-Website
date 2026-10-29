@@ -679,18 +679,20 @@
         /* ================================================================
            ===== NOTE MODAL WITH COMMENTS =====
            ================================================================ */
+        /* Full-bleed panels: notes and highlights own the whole window. */
+        .note-modal, .highlight-detail-modal { padding: 0; align-items: stretch; justify-content: stretch; }
         .note-modal .modal-content {
-            background: var(--theme-card); border-radius: 24px; padding: 0;
-            max-width: 480px; width: 100%;
-            max-height: 92vh;
+            background: var(--theme-card); border-radius: 0; padding: 0;
+            max-width: none; width: 100%;
+            height: 100vh; height: 100dvh; max-height: none;
             display: flex; flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 20px 60px color-mix(in srgb, var(--theme-primary) 28%, transparent);
+            box-shadow: none;
             color: var(--theme-text);
         }
         .note-modal .note-modal-header {
             background: var(--theme-gradient);
-            padding: 22px 24px 18px; text-align: center;
+            padding: calc(22px + env(safe-area-inset-top, 0px)) 24px 18px; text-align: center;
             position: relative; flex-shrink: 0;
         }
         .note-modal .note-modal-header .note-modal-close {
@@ -716,10 +718,13 @@
         .note-modal .note-modal-time { font-size: 11px; color: rgba(255,255,255,0.8); font-weight: 500; }
 
         .note-modal .note-modal-body {
-            padding: 22px 24px 24px;
+            padding: 22px max(24px, calc((100% - 760px) / 2)) calc(24px + env(safe-area-inset-bottom, 0px));
             text-align: center;
             overflow-y: auto;
-            flex: 1;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            flex: 1 1 auto;
+            min-height: 0;
         }
         .note-modal .note-modal-text {
             font-size: 18px; font-weight: 600; color: var(--theme-text);
@@ -765,8 +770,8 @@
         }
 
         .note-comments-list {
-            max-height: 280px;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
             padding-right: 4px;
             margin-bottom: 12px;
         }
@@ -916,32 +921,52 @@
             font-size: 12px; padding: 0 4px;
             font-family: inherit;
         }
+        /* One rounded composer: text on top, counter + send on a footer row. */
         .note-comment-input-wrap .input-row {
-            display: flex; gap: 8px; align-items: flex-end;
-        }
-        .note-comment-input-wrap textarea {
-            flex: 1;
-            min-height: 40px;
-            max-height: 100px;
-            padding: 10px 14px;
-            border-radius: 12px;
-            border: 1.5px solid var(--theme-border-input);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
             background: var(--theme-bg-soft);
-            font-size: 13px;
-            font-family: inherit;
-            color: var(--theme-text);
-            resize: none;
-            transition: all 0.2s ease;
-            line-height: 1.4;
+            border: 1.5px solid var(--theme-border-input);
+            border-radius: 16px;
+            padding: 10px 12px 8px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
-        .note-comment-input-wrap textarea:focus {
-            outline: none;
+        .note-comment-input-wrap .input-row:focus-within {
             border-color: var(--theme-primary);
             background: var(--theme-card);
             box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 10%, transparent);
         }
+        .note-comment-input-wrap textarea {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 40px;
+            max-height: 140px;
+            padding: 2px 0 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            font-size: 13.5px;
+            font-family: inherit;
+            color: var(--theme-text);
+            resize: none;
+            line-height: 1.5;
+        }
+        .note-comment-input-wrap textarea::placeholder { color: var(--theme-text-faint); opacity: 1; }
+        .note-comment-input-wrap textarea:focus {
+            outline: none;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+        .note-comment-input-wrap .composer-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
         .note-comment-input-wrap .send-btn {
-            width: 40px; height: 40px;
+            width: 34px; height: 34px;
             border-radius: 50%;
             border: none;
             background: var(--theme-gradient);
@@ -965,9 +990,10 @@
         .note-comment-input-wrap .char-count {
             font-size: 10px;
             color: var(--theme-text-faint);
-            text-align: right;
-            margin-top: 4px;
+            text-align: left;
+            margin: 0;
             font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
         .note-comment-input-wrap .char-count.warn { color: var(--theme-warn); }
         .note-comment-input-wrap .char-count.danger { color: var(--theme-danger); }
@@ -1143,11 +1169,11 @@
         }
 
         /* ===== HIGHLIGHT DETAIL / GALLERY MODALS ===== */
-        .highlight-detail-modal .modal-content { background: var(--theme-card); border-radius: 24px; padding: 0; max-width: 720px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25); color: var(--theme-text); }
-        .highlight-detail-modal .modal-header { position: relative; width: 100%; height: 360px; background: var(--theme-primary-soft); overflow: hidden; border-radius: 24px 24px 0 0; }
+        .highlight-detail-modal .modal-content { background: var(--theme-card); border-radius: 0; padding: 0; max-width: none; width: 100%; height: 100vh; height: 100dvh; max-height: none; display: flex; flex-direction: column; overflow: hidden; box-shadow: none; color: var(--theme-text); }
+        .highlight-detail-modal .modal-header { position: relative; width: 100%; flex: 0 0 auto; height: clamp(220px, 38vh, 430px); background: var(--theme-primary-soft); overflow: hidden; border-radius: 0; }
         .highlight-detail-modal .modal-header img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .highlight-detail-modal .modal-header .hl-multi-badge { position: absolute; bottom: 14px; left: 14px; background: rgba(0,0,0,0.7); color: white; padding: 6px 14px; border-radius: 50px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
-        .highlight-detail-modal .modal-body { padding: 26px 30px 30px; }
+        .highlight-detail-modal .modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: clamp(18px, 2.4vw, 30px) max(clamp(18px, 2.4vw, 30px), calc((100% - 900px) / 2)); padding-bottom: calc(clamp(18px, 2.4vw, 30px) + env(safe-area-inset-bottom, 0px)); }
         .highlight-detail-modal .hl-author-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
         .highlight-detail-modal .hl-author-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--theme-gradient); display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; font-weight: 700; overflow: hidden; flex-shrink: 0; }
         .highlight-detail-modal .hl-author-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -1162,10 +1188,10 @@
         .highlight-detail-modal .hl-stats .stat.urgent i { color: var(--theme-danger); }
 
         .highlight-detail-modal .hl-comments-wrap {
-            margin-bottom: 22px;
+            margin-bottom: 18px;
         }
         .highlight-detail-modal .hl-actions-row {
-            padding-top: 20px;
+            padding-top: 18px;
             border-top: 1px solid var(--theme-border-soft);
         }
 
@@ -1221,8 +1247,8 @@
             font-size: 11px; font-weight: 800;
         }
         .highlight-comments-list {
-            max-height: 300px;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
             padding-right: 4px;
             margin-bottom: 12px;
         }
@@ -1357,31 +1383,50 @@
             font-family: inherit;
         }
         .highlight-comment-input-wrap .input-row {
-            display: flex; gap: 8px; align-items: flex-end;
-        }
-        .highlight-comment-input-wrap textarea {
-            flex: 1;
-            min-height: 40px;
-            max-height: 100px;
-            padding: 10px 14px;
-            border-radius: 12px;
-            border: 1.5px solid var(--theme-border-input);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
             background: var(--theme-bg-soft);
-            font-size: 13px;
-            font-family: inherit;
-            color: var(--theme-text);
-            resize: none;
-            transition: all 0.2s ease;
-            line-height: 1.4;
+            border: 1.5px solid var(--theme-border-input);
+            border-radius: 16px;
+            padding: 10px 12px 8px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
-        .highlight-comment-input-wrap textarea:focus {
-            outline: none;
+        .highlight-comment-input-wrap .input-row:focus-within {
             border-color: var(--theme-primary);
             background: var(--theme-card);
             box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 10%, transparent);
         }
+        .highlight-comment-input-wrap textarea {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 40px;
+            max-height: 140px;
+            padding: 2px 0 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            font-size: 13.5px;
+            font-family: inherit;
+            color: var(--theme-text);
+            resize: none;
+            line-height: 1.5;
+        }
+        .highlight-comment-input-wrap textarea::placeholder { color: var(--theme-text-faint); opacity: 1; }
+        .highlight-comment-input-wrap textarea:focus {
+            outline: none;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+        .highlight-comment-input-wrap .composer-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
         .highlight-comment-input-wrap .send-btn {
-            width: 40px; height: 40px;
+            width: 34px; height: 34px;
             border-radius: 50%;
             border: none;
             background: var(--theme-gradient);
@@ -1405,9 +1450,10 @@
         .highlight-comment-input-wrap .char-count {
             font-size: 10px;
             color: var(--theme-text-faint);
-            text-align: right;
-            margin-top: 4px;
+            text-align: left;
+            margin: 0;
             font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
         .highlight-comment-input-wrap .char-count.warn { color: var(--theme-warn); }
         .highlight-comment-input-wrap .char-count.danger { color: var(--theme-danger); }
@@ -2376,8 +2422,8 @@
             .member-modal .member-modal-header .member-modal-initials { font-size: 72px; }
             .member-modal .member-modal-body { padding: 20px 22px 24px; }
             .member-modal .member-modal-body .member-modal-meta-grid { grid-template-columns: 1fr; }
-            .highlight-detail-modal .modal-header { height: 260px; }
-            .highlight-detail-modal .modal-body { padding: 20px 22px 24px; }
+            .highlight-detail-modal .modal-header { height: 36dvh; min-height: 190px; max-height: 320px; }
+            .highlight-detail-modal .modal-body { padding: 18px 18px calc(20px + env(safe-area-inset-bottom, 0px)); }
             .carousel-item .item-actions { opacity: 1; }
             .highlights-carousel-item .image-container .hl-actions { opacity: 1; }
             .member-card .avatar-container .member-actions { opacity: 1; }
@@ -2399,11 +2445,10 @@
             .member-note-bubble .note-text-preview { max-width: 130px; }
             .member-note-bubble i { font-size: 12px; }
 
-            .note-modal .modal-content { max-width: calc(100vw - 24px); }
-            .note-modal .note-modal-body { padding: 18px 20px 20px; }
-            .note-comments-list { max-height: 220px; }
+            .note-modal .note-modal-body { padding: 18px 18px calc(20px + env(safe-area-inset-bottom, 0px)); }
+            .note-comments-list { max-height: none; }
 
-            .highlight-comments-list { max-height: 220px; }
+            .highlight-comments-list { max-height: none; }
             .highlight-comment.reply-indent { margin-left: 18px; }
             .highlight-comment .comment-avatar { width: 28px; height: 28px; font-size: 11px; }
             .highlight-comment .comment-text { font-size: 12px; }
@@ -2439,8 +2484,8 @@
             .member-modal .member-modal-header .member-modal-initials { font-size: 64px; }
             .member-modal .member-modal-body { padding: 18px; }
             .member-modal .member-modal-actions { flex-direction: column; }
-            .highlight-detail-modal .modal-header { height: 220px; }
-            .highlight-detail-modal .modal-body { padding: 18px; }
+            .highlight-detail-modal .modal-header { height: 32dvh; min-height: 170px; }
+            .highlight-detail-modal .modal-body { padding: 16px; }
             .highlight-detail-modal .modal-actions { flex-direction: column; }
             .gallery-modal .gallery-header { padding: 14px; flex-direction: column; align-items: stretch; }
             .gallery-modal .gallery-header-right { justify-content: space-between; }
@@ -2486,7 +2531,7 @@
         ::-webkit-scrollbar-track { background: var(--theme-border-soft); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: var(--theme-gradient); border-radius: 10px; }
     </style>
-    <link rel="stylesheet" href="mobile-nav.css?v=1.1.0" />
+    <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.0.0" />
 </head>
 <body>
@@ -2568,11 +2613,7 @@
         </div>
 
         <ul class="nav-links" id="navLinks">
-            <li><a href="#highlights">Highlights</a></li>
-            <li><a href="#coffee-shops">Coffee</a></li>
-            <li><a href="#favorite-places">Places</a></li>
-            <li><a href="#things-to-do">Activities</a></li>
-            <li><a href="#members-section">Members</a></li>
+            <li><a href="index.html" class="active"><i class="fas fa-house"></i> Home</a></li>
             <li class="auth-links-wrapper" id="authLinks"></li>
         </ul>
     </nav>
@@ -4197,12 +4238,14 @@
                             </button>
                         </div>
                         <div class="input-row">
-                            <textarea id="noteCommentInput" placeholder="Write a reply... (type @ to mention)" maxlength="${NOTE_COMMENT_MAX_LEN}" rows="1"></textarea>
-                            <button class="send-btn" id="noteCommentSendBtn" onclick="postNoteComment()" title="Send">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                            <textarea id="noteCommentInput" placeholder="Write a reply…" maxlength="${NOTE_COMMENT_MAX_LEN}" rows="1"></textarea>
+                            <div class="composer-foot">
+                                <span class="char-count" id="noteCommentCharCount">0/${NOTE_COMMENT_MAX_LEN}</span>
+                                <button class="send-btn" id="noteCommentSendBtn" onclick="postNoteComment()" title="Send">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="char-count" id="noteCommentCharCount">0/${NOTE_COMMENT_MAX_LEN}</div>
                     </div>
                 </div>
             `;
@@ -4742,7 +4785,7 @@ function startReplyTo(commentId, authorName) {
             if (banner) banner.classList.remove('show');
             const input = document.getElementById('noteCommentInput');
             if (input) {
-                input.placeholder = 'Write a reply... (type @ to mention)';
+                input.placeholder = 'Write a reply…';
             }
         }
 
@@ -5085,12 +5128,14 @@ function startReplyTo(commentId, authorName) {
                             </button>
                         </div>
                         <div class="input-row">
-                            <textarea id="highlightCommentInput" placeholder="Write a comment... (type @ to mention)" maxlength="${HIGHLIGHT_COMMENT_MAX_LEN}" rows="1"></textarea>
-                            <button class="send-btn" id="highlightCommentSendBtn" onclick="postHighlightComment()" title="Send">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                            <textarea id="highlightCommentInput" placeholder="Write a comment…" maxlength="${HIGHLIGHT_COMMENT_MAX_LEN}" rows="1"></textarea>
+                            <div class="composer-foot">
+                                <span class="char-count" id="highlightCommentCharCount">0/${HIGHLIGHT_COMMENT_MAX_LEN}</span>
+                                <button class="send-btn" id="highlightCommentSendBtn" onclick="postHighlightComment()" title="Send">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="char-count" id="highlightCommentCharCount">0/${HIGHLIGHT_COMMENT_MAX_LEN}</div>
                     </div>
                 </div>
             `;
@@ -5403,7 +5448,7 @@ function startHighlightReply(commentId, authorName) {
             const banner = document.getElementById('highlightReplyingToBanner');
             if (banner) banner.classList.remove('show');
             const input = document.getElementById('highlightCommentInput');
-            if (input) input.placeholder = 'Write a comment... (type @ to mention)';
+            if (input) input.placeholder = 'Write a comment…';
         }
 
         async function postHighlightComment() {
@@ -8647,7 +8692,7 @@ function startHighlightReply(commentId, authorName) {
     <script src="stories.js?v=1.12.2"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
-    <script src="mobile-nav.js?v=1.1.0"></script>
+    <script src="mobile-nav.js?v=1.2.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>

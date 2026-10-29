@@ -90,17 +90,6 @@
         return (node.textContent || '').replace(/\s+/g, ' ').trim();
     }
 
-    function omitMobileSectionLink(node) {
-        var href = node && node.tagName === 'A' ? (node.getAttribute('href') || '') : '';
-        var label = cleanText(node);
-        var isLandingPage = /index\.html/i.test(location.pathname) || location.pathname === '/' || location.pathname === '';
-        var isRequestedLandingSection = /#(?:highlights|coffee-shops|favorite-places|things-to-do|members-section)(?:$|[?&])/i.test(href) ||
-            /^(highlights|coffee(?: shops?)?|places|activities|things to do|members)$/i.test(label);
-        // Keep these section shortcuts on other pages; omit them from the
-        // landing-page drawer where the user asked for a shorter menu.
-        return !!(isLandingPage && isRequestedLandingSection);
-    }
-
     /* ---------- build rows from the page's own list ---------- */
     function collectLinks() {
         var rows = [];
@@ -112,7 +101,6 @@
             var direct = li.querySelectorAll(':scope > a, :scope > button');
             if (direct.length) {
                 Array.prototype.forEach.call(direct, function (el) {
-                    if (omitMobileSectionLink(el)) return;
                     rows.push({ el: el, active: el.classList.contains('active') || li.classList.contains('active') });
                 });
                 return;
@@ -121,7 +109,7 @@
             // generic container: grab its anchors/buttons but skip the bell
             var nested = li.querySelectorAll('a, button');
             Array.prototype.forEach.call(nested, function (el) {
-                if (el.closest('.announcement-wrapper') || omitMobileSectionLink(el)) return;
+                if (el.closest('.announcement-wrapper')) return;
                 rows.push({ el: el, active: el.classList.contains('active') || li.classList.contains('active') });
             });
         });

@@ -364,9 +364,10 @@ body.mnav-on.mnav-open [id*="assistant"] { display: none !important; }
     body.mnav-on select:focus,
     body.mnav-on [contenteditable="true"]:focus { scroll-margin-block: 18px 38vh; }
     .note-comment-input-wrap, .highlight-comment-input-wrap { gap: 10px; }
-    .note-comment-input-wrap .input-row, .highlight-comment-input-wrap .input-row { align-items: flex-end; }
-    .note-comment-input-wrap textarea, .highlight-comment-input-wrap textarea { min-width: 0; min-height: 46px; max-height: 28vh; padding: 11px 12px; font-size: 16px; line-height: 1.4; }
-    .note-comment-input-wrap .send-btn, .highlight-comment-input-wrap .send-btn { width: 44px; height: 44px; }
+    /* composer is a column card now: text on top, counter + send underneath */
+    .note-comment-input-wrap .input-row, .highlight-comment-input-wrap .input-row { align-items: stretch; padding: 10px 12px 8px; }
+    .note-comment-input-wrap textarea, .highlight-comment-input-wrap textarea { min-width: 0; min-height: 44px; max-height: 28vh; padding: 2px 0 0; font-size: 16px; line-height: 1.45; }
+    .note-comment-input-wrap .send-btn, .highlight-comment-input-wrap .send-btn { width: 38px; height: 38px; }
     .note-modal .note-modal-body, .highlight-detail-modal .modal-body { scroll-padding-bottom: 40vh; }
 }
 
