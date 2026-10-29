@@ -438,3 +438,29 @@
         animation: none;
     }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Mobile keyboards                                                           */
+/* -------------------------------------------------------------------------- */
+/* iOS Safari zooms the whole page when a focused control is under 16px. That  */
+/* zoom is what left the chat composer (and other small fields) pushed under   */
+/* the software keyboard. 16px on touch screens stops the zoom; the field size */
+/* difference is a pixel or two and the layout is unchanged.                   */
+@media (max-width: 768px), (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]),
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}
+
+/* Keep the text cursor just above the keyboard, not under it, on any control
+   that lives in a fixed sheet. Layout-level protection comes from the viewport
+   meta (`interactive-widget=resizes-content`); this is the safe-area padding. */
+@media (max-width: 768px) {
+    .chat-input-wrap,
+    .st-sheet .st-sh-b,
+    #titaPanel .tita-body {
+        scroll-padding-bottom: calc(var(--kb-inset, 0px) + 16px);
+    }
+}

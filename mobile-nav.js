@@ -13,6 +13,109 @@
 (function () {
     'use strict';
 
+    /* ==================================================================
+       MOBILE KEYBOARD GUARD
+       ------------------------------------------------------------------
+       Declared before the nav check below, so it also runs on a page
+       without a burger menu. Every focused control is kept above the
+       software keyboard:
+         • Android: the viewport meta now carries
+           `interactive-widget=resizes-content`, so the layout viewport
+           shrinks; this layer follows visualViewport and publishes
+           --kb-height / --kb-inset for fixed sheets.
+         • iOS: the layout viewport does NOT shrink, so the focused field
+           is scrolled above the keyboard inside whichever box scrolls
+           (modal body, chat body, composer sheet).
+       A field that is already fully visible is never moved.
+       ================================================================== */
+    var KB_MOBILE_Q = '(max-width: 768px)';
+    var KB_FIELDS = 'input, textarea, select, [contenteditable="true"]';
+
+    function kbIsMobile() {
+        try { return window.matchMedia(KB_MOBILE_Q).matches; } catch (e) { return window.innerWidth <= 768; }
+    }
+
+    function kbSync() {
+        var vv = window.visualViewport;
+        if (!vv) return;
+        var root = document.documentElement;
+        var visible = Math.round(vv.height);
+        var offset = Math.round(vv.offsetTop);
+        root.style.setProperty('--mnav-visual-height', visible + 'px');
+        root.style.setProperty('--mnav-visual-offset', offset + 'px');
+        // The part of the screen that is not behind the keyboard.
+        root.style.setProperty('--kb-height', visible + 'px');
+        // How tall the keyboard is, measured against the layout viewport.
+        var inset = Math.max(0, Math.round(window.innerHeight - (offset + visible)));
+        root.style.setProperty('--kb-inset', inset + 'px');
+        if (document.body) document.body.classList.toggle('kb-open', inset > 120);
+    }
+
+    function kbScroller(el) {
+        for (var n = el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+            var s = getComputedStyle(n);
+            if (/(auto|scroll)/.test(s.overflowY) && n.scrollHeight > n.clientHeight + 2) return n;
+        }
+        return null;
+    }
+
+    function kbReveal(field) {
+        if (!field || !field.isConnected || document.activeElement !== field) return;
+        var vv = window.visualViewport;
+        var top = vv ? vv.offsetTop : 0;
+        var bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+        var rect = field.getBoundingClientRect();
+        var pad = 14;
+        if (rect.bottom <= bottom - pad && rect.top >= top + pad) return;   // already visible
+
+        var scroller = kbScroller(field);
+        if (scroller) {
+            var sr = scroller.getBoundingClientRect();
+            // The scroller itself may run under the keyboard: only the part
+            // above it counts as visible.
+            var visBottom = Math.min(sr.bottom, bottom) - pad;
+            var visTop = Math.max(sr.top, top) + pad;
+            if (rect.bottom > visBottom) scroller.scrollTop += rect.bottom - visBottom;
+            else if (rect.top < visTop) scroller.scrollTop -= visTop - rect.top;
+            return;
+        }
+
+        // Page-level scroll, but never for a field inside a fixed sheet:
+        // scrolling the page would not move it and would jump the app behind.
+        for (var n2 = field; n2 && n2 !== document.body; n2 = n2.parentElement) {
+            if (getComputedStyle(n2).position === 'fixed') return;
+        }
+        var delta = rect.bottom > bottom - pad
+            ? rect.bottom - bottom + pad
+            : (rect.top < top + pad ? rect.top - top - pad : 0);
+        if (delta) window.scrollBy(0, delta);
+    }
+
+    function kbFocus(target) {
+        if (!kbIsMobile() || !target || !target.matches || !target.matches(KB_FIELDS)) return;
+        if (target.type === 'checkbox' || target.type === 'radio') return;
+        kbSync();
+        // The keyboard slides in over ~250ms: check before and after it lands.
+        setTimeout(function () { kbSync(); kbReveal(target); }, 120);
+        setTimeout(function () { kbSync(); kbReveal(target); }, 360);
+    }
+
+    var kbLastField = null;
+    document.addEventListener('focusin', function (e) {
+        kbLastField = e.target;
+        kbFocus(e.target);
+    });
+    if (window.visualViewport) {
+        var kbResizeTimer = null;
+        window.visualViewport.addEventListener('resize', function () {
+            kbSync();
+            if (kbResizeTimer) clearTimeout(kbResizeTimer);
+            kbResizeTimer = setTimeout(function () { kbReveal(kbLastField); kbResizeTimer = null; }, 90);
+        });
+        window.visualViewport.addEventListener('scroll', kbSync);
+        kbSync();
+    }
+
     var nav = document.getElementById('navbar') || document.querySelector('.navbar');
     if (!nav) return;
 
@@ -241,34 +344,6 @@
 
     if (isMobile()) document.body.classList.add('mnav-on');
     window.addEventListener('load', function () { if (isMobile()) document.body.classList.add('mnav-on'); });
-    // Keep focused controls above the mobile software keyboard (including iOS
-    // visual-viewport changes inside fixed modals and the fullscreen chat).
-    function syncVisualViewport() {
-        var vv = window.visualViewport;
-        if (!vv) return;
-        document.documentElement.style.setProperty('--mnav-visual-height', Math.round(vv.height) + 'px');
-        document.documentElement.style.setProperty('--mnav-visual-offset', Math.round(vv.offsetTop) + 'px');
-    }
-    function keepFocusedFieldVisible(target) {
-        if (!target || !isMobile() || !target.matches('input, textarea, select, [contenteditable="true"]')) return;
-        syncVisualViewport();
-        setTimeout(function () {
-            if (!target.isConnected || document.activeElement !== target) return;
-            var vv = window.visualViewport;
-            var bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-            var rect = target.getBoundingClientRect();
-            if (rect.bottom > bottom - 14 || rect.top < (vv ? vv.offsetTop : 0) + 8) {
-                try { target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); }
-                catch (e) { target.scrollIntoView(false); }
-            }
-        }, 90);
-    }
-    document.addEventListener('focusin', function (e) { keepFocusedFieldVisible(e.target); });
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', function () { syncVisualViewport(); keepFocusedFieldVisible(document.activeElement); });
-        window.visualViewport.addEventListener('scroll', function () { syncVisualViewport(); });
-        syncVisualViewport();
-    }
     // Assistant and its backdrop are siblings of the drawer, so place them below
     // the menu instead of mutating their inline styles permanently.
     function syncAssistantLayer() {

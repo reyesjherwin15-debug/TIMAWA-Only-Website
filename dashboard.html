@@ -32,7 +32,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <!-- ═══ PWA: installable app + activity notifications ═══ -->
     <meta name="theme-color" content="#1089d3" />
     <link rel="manifest" href="manifest.json" />
@@ -42,7 +42,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
-    <link rel="stylesheet" href="pwa.css?v=1.1.0" />
+    <link rel="stylesheet" href="pwa.css?v=1.2.0" />
     <title>TIMAWA - Dashboard</title>
 
     <!-- Firebase SDKs -->
@@ -56,7 +56,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.11.3" />
+    <link rel="stylesheet" href="stories.css?v=1.11.4" />
     <script src="theme.js"></script>
 
     <!-- Cloudinary Upload Widget -->
@@ -7328,8 +7328,22 @@
         }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="tita-panel.css?v=2.2.0" />
+    <link rel="stylesheet" href="tita-panel.css?v=2.3.0" />
     <link rel="stylesheet" href="launch.css?v=1.0.0" />
+    <style>
+        /* Keyboard-aware full-bleed sheets.
+           iOS does not shrink the layout viewport for the software keyboard, so
+           a 100dvh note/highlight panel runs underneath it and buries the
+           comment composer. --kb-height is the visible height, published by
+           mobile-nav.js from the visual viewport. */
+        @media (max-width: 768px) {
+            .note-modal .modal-content,
+            .highlight-detail-modal .modal-content {
+                height: min(100dvh, var(--kb-height, 100dvh));
+                max-height: min(100dvh, var(--kb-height, 100dvh));
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
@@ -17560,7 +17574,7 @@ function startReplyTo(commentId, authorName) {
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.1"></script>
-    <script src="mobile-nav.js?v=1.2.0"></script>
+    <script src="mobile-nav.js?v=1.3.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
