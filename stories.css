@@ -718,6 +718,28 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 }
 .st-comp.pv .st-tools { display: none; }
 
+/* Typing mode: the tool row and the formatting panel are gone, so the story
+   gets the whole screen and the text is readable while it is being written.
+   Done sits on the canvas; a tap anywhere else does the same thing. */
+.st-comp.editing .st-tools { display: none; }
+.st-edit-done {
+    position: absolute; left: 50%; top: 12px; z-index: 9;
+    transform: translateX(-50%);
+    display: inline-flex; align-items: center; gap: 7px;
+    min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px;
+    background: rgba(9, 16, 30, .66); color: #fff;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    font: inherit; font-size: 13.5px; font-weight: 800; letter-spacing: .2px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .32), inset 0 0 0 1px rgba(255, 255, 255, .16);
+    cursor: pointer; touch-action: manipulation;
+    animation: stDoneIn .18s cubic-bezier(.22, .9, .28, 1);
+}
+.st-edit-done[hidden] { display: none; }
+.st-edit-done:active { transform: translateX(-50%) scale(.95); }
+.st-edit-done i { font-size: 11px; }
+@keyframes stDoneIn { from { opacity: 0; transform: translateX(-50%) translateY(-6px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .st-edit-done { animation: none; } }
+
 /* Bottom bar: compact, primary action with a soft glow */
 .st-comp .st-bb {
     padding: 8px 14px;

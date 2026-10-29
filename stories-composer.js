@@ -23,7 +23,10 @@
         mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
         mSel: false, dragS: null,
         query: '', spq: '', changing: false,
-        hist: [], preview: false, xhr: null, busy: false, results: [], msg: '', searching: false, playing: '', drag: null, lastTap: null, tl: null
+        hist: [], preview: false, xhr: null, busy: false, results: [], msg: '', searching: false, playing: '', drag: null, lastTap: null, tl: null,
+        // Text being typed into right now. While this is set the formatting
+        // panel is away so the story fills the screen.
+        editing: null, sheetBeforeEdit: null
     };
     let PALETTE = ['#ffffff', '#111111', '#ffd23f', '#ff5a6e', '#4ade80', '#38bdf8', '#c084fc'];
     // Music sticker tints. White is the classic look; the rest match the app's
@@ -84,6 +87,7 @@
                             <div class="st-scrim-t" hidden></div><div class="st-scrim-b" hidden></div>
               <div class="st-song" hidden></div>
               <div class="st-capv" hidden></div>
+              <button class="st-edit-done" type="button" data-k="editDone" hidden><i class="fas fa-check"></i> Done</button>
               <div class="st-pv" hidden style="position:absolute;left:12px;right:12px;bottom:12px;z-index:4;color:#fff;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
             </div></div>
           </div>
@@ -93,7 +97,7 @@
         document.body.appendChild(root);
         q = { head: $('.st-ch'), stage: $('.st-cstage'), mw: $('.st-media-wrap'), bg: $('.st-bgblur'), tx: $('.st-texts'), tools: $('.st-tools'), sheet: $('.st-sheet'),
               sht: $('.st-sh-h b'), col: $('[data-k=collapse]'), shb: $('.st-sh-b'), file: $('input[type=file]'), bar: $('.st-bar'), barI: $('.st-bar i'), pub: $('[data-k=publish]'),
-              pv: $('.st-pv'), msk: $('.st-msticker'), song: $('.st-song'), capv: $('.st-capv'), sT: $('.st-scrim-t'), sB: $('.st-scrim-b'), prevB: $('[data-k=preview]') };
+              pv: $('.st-pv'), msk: $('.st-msticker'), song: $('.st-song'), capv: $('.st-capv'),              sT: $('.st-scrim-t'), sB: $('.st-scrim-b'), prevB: $('[data-k=preview]'), done: $('[data-k=editDone]') };
         S.observeStage(q.stage);
         if ('ResizeObserver' in window) new ResizeObserver(measure).observe(q.sheet);
 
@@ -182,8 +186,10 @@
             mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
             mSel: false, dragS: null,
             query: '', spq: '', changing: false,
-            hist: [], preview: false, busy: false, results: [], msg: '', searching: false, playing: '', tl: null
+            hist: [], preview: false, busy: false, results: [], msg: '', searching: false, playing: '', tl: null,
+            editing: null, sheetBeforeEdit: null
         });
+        if (root) { root.classList.remove('editing', 'sheet'); if (q.done) q.done.hidden = true; }
     }
     function dirty() { return !!(hasMedia() || M.texts.length || M.track || M.spotify); }
     let closing = false;
@@ -314,6 +320,7 @@
         renderSticker();
         q.stage.classList.toggle('pv', M.preview);
         if (root) root.classList.toggle('pv', M.preview);
+        renderEditDone();
         q.sT.hidden = q.sB.hidden = q.pv.hidden = !M.preview;
         q.tx.style.pointerEvents = M.preview ? 'none' : '';
         if (!M.preview) { q.pv.innerHTML = ''; return; }
@@ -508,8 +515,42 @@
         q.tx.querySelectorAll('.st-t').forEach(el => el.classList.toggle('sel', el.dataset.id === id));
         if (M.sheet === 'text') renderSheet();      // keep an open panel in step with the selection; never open one
     }
+    // Typing is its own mode: the formatting panel steps aside so the story is
+    // not squeezed into a strip (and, on a phone, so the text is not pushed
+    // under the keyboard). A Done pill floats over the story until the member
+    // taps it or taps anywhere outside the text being edited.
+    function renderEditDone() {
+        const on = !!M.editing && !M.preview;
+        if (q.done) q.done.hidden = !on;
+        if (root) root.classList.toggle('editing', on);
+    }
+
+    function finishEdit() {
+        const id = M.editing;
+        if (!id) return;
+        M.editing = null;
+        renderEditDone();
+        const el = q.tx.querySelector(`[data-id="${id}"]`);
+        if (el && el.isContentEditable) {
+            // Commit first (works even when blur never arrives), then let go.
+            if (typeof el.__stCommit === 'function') el.__stCommit();
+            else el.blur();
+        }
+        if (find(id) && !M.preview) {                  // put the formatting back
+            M.sheet = M.sheetBeforeEdit || 'text';
+            M.sheetBeforeEdit = null;
+            renderSheet();
+        } else M.sheetBeforeEdit = null;
+    }
+
     function edit(id, selectAll) {
         const el = q.tx.querySelector(`[data-id="${id}"]`); if (!el) return;
+        // Collapse the open panel first: it owned most of the stage, which is
+        // exactly what made the preview too small to read while typing.
+        if (M.sheet) { M.sheetBeforeEdit = M.sheet; M.sheet = null; }
+        M.editing = id;
+        renderSheet();
+        renderEditDone();
         el.setAttribute('contenteditable', 'true'); el.setAttribute('role', 'textbox'); el.setAttribute('aria-label', 'Story text'); el.focus();
         const r = document.createRange(); r.selectNodeContents(el); if (!selectAll) r.collapse(false);
         const s = getSelection(); s.removeAllRanges(); s.addRange(r);
@@ -519,6 +560,7 @@
             detectTextMention(el);
         };
         const onKey = e => {
+            if (e.key === 'Escape') { e.preventDefault(); finishEdit(); return; }
             if (!textMentionOpen || textMentionEl !== el) return;
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
@@ -532,18 +574,25 @@
             }
         };
         const onPaste = e => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData.getData('text/plain') || '').slice(0, MAX_TEXT_LEN)); };
-        const onBlur = () => {
-            el.removeEventListener('input', onIn); el.removeEventListener('paste', onPaste); el.removeEventListener('blur', onBlur);
+        // Committing cannot depend on the blur event: Done sets the state to idle
+        // before the field lets go, and a dismissed keyboard on iOS does not
+        // always deliver blur. Run the same save from both entry points.
+        const commit = () => {
+            if (!el.isContentEditable) return;
+            el.removeEventListener('input', onIn); el.removeEventListener('paste', onPaste); el.removeEventListener('blur', commit);
             el.removeEventListener('keydown', onKey);
+            el.__stCommit = null;
             closeTextMentions();
             el.removeAttribute('contenteditable'); el.removeAttribute('role');
             const v = el.innerText.replace(/\u00a0/g, ' ').trim().slice(0, MAX_TEXT_LEN);
-            if (!find(id)) return;
-            if (!v) { M.texts = M.texts.filter(x => x.id !== id); if (M.sel === id) M.sel = null; renderTexts(); renderSheet(); pushHist(); return; }
+            if (!find(id)) { if (M.editing === id) finishEdit(); return; }
+            if (!v) { M.texts = M.texts.filter(x => x.id !== id); if (M.sel === id) M.sel = null; renderTexts(); renderSheet(); pushHist(); if (M.editing === id) finishEdit(); return; }
             if (v !== t.text) { t.text = v; pushHist(); }
             el.textContent = t.text;
+            if (M.editing === id) finishEdit();
         };
-        el.addEventListener('input', onIn); el.addEventListener('paste', onPaste); el.addEventListener('blur', onBlur);
+        el.__stCommit = commit;
+        el.addEventListener('input', onIn); el.addEventListener('paste', onPaste); el.addEventListener('blur', commit);
         el.addEventListener('keydown', onKey);
     }
 
@@ -552,6 +601,10 @@
         const st = q.stage;
         st.addEventListener('pointerdown', e => {
             if (M.preview || e.target.closest('.st-tools')) return;
+            if (e.target.closest('.st-edit-done')) return;   // the pill's own click
+            // Any tap outside the text being typed into ends editing and opens
+            // the formatting again — one step, no hunting for a button.
+            if (M.editing) { finishEdit(); e.preventDefault(); return; }
             if (e.target.closest('.st-mwrap')) return;   // sticker session handles it
             const el = e.target.closest('.st-t');
             if (!el) {
@@ -855,6 +908,7 @@
         switch (k) {
             case 'close': tryClose(); break;
             case 'done': closeSheet(); break;
+            case 'editDone': finishEdit(); break;
             case 'collapse': M.shCollapsed = !M.shCollapsed; renderSheet(); break;
             case 'tool': M.sheet === v ? closeSheet() : openSheet(v); break;
             case 'preview': setPreview(!M.preview); break;
