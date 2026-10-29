@@ -10099,8 +10099,12 @@
                 }
 
                 const isMine = msg.senderUid === myUid;
-                const authorName = msg.senderName || 'Someone';
-                const authorPhoto = msg.senderPhoto || '';
+                // Current profile first: a member who changes their photo or name
+                // must look the same in old messages as in new ones. The stored
+                // senderPhoto is only a fallback for people no longer in the list.
+                const liveProfile = msg.senderUid ? userProfileCache[msg.senderUid] : null;
+                const authorName = (liveProfile && (liveProfile.displayName || liveProfile.email)) || msg.senderName || 'Someone';
+                const authorPhoto = (liveProfile && liveProfile.photoURL) || msg.senderPhoto || '';
                 const initials = authorName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
                 const avatarContent = authorPhoto
@@ -10150,9 +10154,9 @@
 
                 html += `
                     <div class="chat-msg ${isMine ? 'mine' : ''}" data-msg-id="${escapeAttr(msg.id)}">
-                        <div class="chat-msg-avatar">${avatarContent}</div>
+                        <div class="chat-msg-avatar" data-avatar-uid="${escapeAttr(msg.senderUid || '')}">${avatarContent}</div>
                         <div class="chat-msg-bubble-wrap">
-                            ${showAuthor ? `<div class="chat-msg-author">${escapeHtml(authorName)}</div>` : ''}
+                            ${showAuthor ? `<div class="chat-msg-author" data-author-uid="${escapeAttr(msg.senderUid || '')}">${escapeHtml(authorName)}</div>` : ''}
                             ${replyPreviewHtml}
                             ${(window.Stories && typeof window.Stories.renderChatRef === 'function') ? window.Stories.renderChatRef(msg) : ''}
                             <div class="chat-msg-bubble">${textHtml}</div>
@@ -14546,6 +14550,7 @@ function startReplyTo(commentId, authorName) {
 
         auth.onAuthStateChanged(async (user) => {
             if (!user) {
+                detachMembersListener();
                 // Offline, bouncing to index.html just replaces one cached shell
                 // with another; keep the one that is already painted.
                 if (offlineBoot || (offlineBootPromise && await offlineBootPromise)) return;
@@ -16204,38 +16209,73 @@ function startReplyTo(commentId, authorName) {
         // ================================================================
         // ===== LOAD MEMBERS =====
         // ================================================================
+        let membersUnsubscribe = null;
+        let membersListenerUid = null;
+
+        function detachMembersListener() {
+            if (membersUnsubscribe) { try { membersUnsubscribe(); } catch (e) { /* ignore */ } }
+            membersUnsubscribe = null;
+            membersListenerUid = null;
+        }
+
+        // Repaint the open conversation's identity chrome in place — a photo or
+        // name change must never jump the message history to the bottom.
+        function refreshOpenChatIdentity() {
+            if (!activeChatUid) return;
+            renderChatHeader();
+            const body = document.getElementById('chatBody');
+            if (!body) return;
+            body.querySelectorAll('.chat-msg-avatar[data-avatar-uid]').forEach(box => {
+                const live = box.dataset.avatarUid ? userProfileCache[box.dataset.avatarUid] : null;
+                if (!live) return;
+                const name = live.displayName || live.email || 'Member';
+                const photo = live.photoURL || '';
+                const img = box.querySelector('img');
+                if (photo) {
+                    const src = cloudinaryAvatar(photo, 80);
+                    if (img) { img.src = src; img.alt = name; }
+                    else box.innerHTML = `<img src="${src}" alt="${escapeAttr(name)}" loading="lazy" />`;
+                } else if (img) {
+                    box.innerHTML = escapeHtml(name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2));
+                }
+            });
+            body.querySelectorAll('.chat-msg-author[data-author-uid]').forEach(el => {
+                const live = userProfileCache[el.dataset.authorUid];
+                const name = live && (live.displayName || live.email);
+                if (name) el.textContent = name;
+            });
+        }
+
+        // A live listener, not a one-shot get: a member who edits their profile
+        // photo must show the new one everywhere without reloading the page.
         async function loadMembers() {
-            const grid = document.getElementById('membersGrid');
+            const uid = currentUser ? currentUser.uid : 'guest';
+            if (membersUnsubscribe && membersListenerUid === uid) return;
+            detachMembersListener();
+            membersListenerUid = uid;
             try {
-                const snapshot = await db.collection('users')
+                membersUnsubscribe = db.collection('users')
                     .orderBy('displayName', 'asc')
                     .limit(MEMBERS_LIMIT)
-                    .get();
+                    .onSnapshot(snapshot => {
+                        const countEl = document.getElementById('memberCountLabel');
+                        if (countEl) countEl.textContent = `(${snapshot.size})`;
 
-                const count = snapshot.size;
-                document.getElementById('memberCountLabel').textContent = `(${count})`;
+                        let identityChanged = false;
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            const prev = userProfileCache[doc.id];
+                            if (prev && (prev.photoURL !== data.photoURL || prev.displayName !== data.displayName)) identityChanged = true;
+                            userProfileCache[doc.id] = { id: doc.id, ...data };
+                        });
 
-                if (snapshot.empty) {
-                    grid.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-users"></i>
-                            <h3>No Members Yet</h3>
-                            <p>Be the first to join!</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    userProfileCache[doc.id] = { id: doc.id, ...data };
-                });
-
-                renderMembersGridFromCache();
-
-                if (chatFeatureEnabled && chatActiveTabIsSelected()) {
-                    renderChatUserList();
-                }
+                        renderMembersGridFromCache();
+                        if (chatFeatureEnabled && chatActiveTabIsSelected()) renderChatUserList();
+                        if (identityChanged) refreshOpenChatIdentity();
+                    }, error => {
+                        console.error('Members listener error:', error);
+                        renderMembersGridFromCache();      // keep whatever is cached
+                    });
             } catch (error) { console.error('Error loading members:', error); }
         }
 
