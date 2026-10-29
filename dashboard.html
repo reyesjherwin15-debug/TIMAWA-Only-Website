@@ -3828,24 +3828,146 @@
             flex-shrink: 0;
         }
 
+        /* ================================================================
+           POPUP ACTION BAR — modern tile buttons
+           One language for every popup: a soft tinted tile, a single
+           gradient tile for the main action, and a quiet close under it.
+           ================================================================ */
         .modal-actions {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             margin-top: 20px;
             flex-wrap: wrap;
         }
 
         .modal-actions button {
-            flex: 1;
-            min-width: 140px;
-            padding: 12px;
-            border-radius: 12px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            flex: 1 1 auto;
+            min-width: 136px;
+            min-height: 48px;
+            padding: 0 18px;
+            border: 1px solid transparent;
+            border-radius: 14px;
             font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 650;
+            cursor: pointer;
+            transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1), background 0.22s ease, color 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .modal-actions button:active { transform: scale(0.975); }
+
+        .modal-actions button:focus-visible {
+            outline: 2px solid color-mix(in srgb, var(--theme-primary) 55%, transparent);
+            outline-offset: 2px;
+        }
+
+        /* Grid layout: one even row on desktop, 2 columns on phones */
+        .modal-actions.act-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+            gap: 10px;
+            margin-top: 0;
+        }
+
+        .modal-actions .act-btn {
+            background: color-mix(in srgb, var(--theme-primary) 7%, var(--theme-card));
+            border-color: color-mix(in srgb, var(--theme-primary) 16%, var(--theme-border-soft));
+            color: var(--theme-text-muted);
+        }
+
+        .modal-actions .act-btn i {
+            font-size: 13.5px;
+            color: var(--theme-primary);
+            transition: transform 0.22s ease;
+        }
+
+        .modal-actions .act-btn:hover {
+            background: color-mix(in srgb, var(--theme-primary) 12%, var(--theme-card));
+            border-color: color-mix(in srgb, var(--theme-primary) 34%, var(--theme-border-soft));
+            color: var(--theme-text);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-primary) 14%, transparent);
+        }
+
+        .modal-actions .act-btn:hover i { transform: scale(1.1); }
+
+        .modal-actions .act-btn--primary {
+            background: var(--theme-gradient);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-primary) 26%, transparent);
+        }
+
+        .modal-actions .act-btn--primary i { color: #fff; }
+
+        .modal-actions .act-btn--primary:hover {
+            color: #fff;
+            box-shadow: 0 12px 28px color-mix(in srgb, var(--theme-primary) 34%, transparent);
+        }
+
+        .modal-actions .act-btn--primary:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .modal-actions .act-btn--danger {
+            background: color-mix(in srgb, var(--theme-danger) 9%, var(--theme-card));
+            border-color: color-mix(in srgb, var(--theme-danger) 24%, transparent);
+            color: var(--theme-danger);
+        }
+
+        .modal-actions .act-btn--danger i { color: var(--theme-danger); }
+
+        .modal-actions .act-btn--danger:hover {
+            background: color-mix(in srgb, var(--theme-danger) 15%, var(--theme-card));
+            border-color: color-mix(in srgb, var(--theme-danger) 42%, transparent);
+            color: var(--theme-danger);
+            box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-danger) 18%, transparent);
+        }
+
+        /* Quiet dismiss, so a busy popup keeps exactly one row of real actions */
+        .act-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            width: 100%;
+            min-height: 42px;
+            margin-top: 8px;
+            padding: 0 14px;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            background: transparent;
+            color: var(--theme-text-dim);
+            font-family: inherit;
+            font-size: 12.5px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            transition: background 0.22s ease, color 0.22s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .act-close:hover {
+            background: var(--theme-bg-soft);
+            color: var(--theme-text-muted);
+        }
+
+        .act-close:active { transform: scale(0.99); }
+
+        @media (max-width: 768px) {
+            .modal-actions.act-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+            .modal-actions.act-bar .act-btn { min-width: 0; padding: 0 10px; font-size: 12.5px; gap: 7px; }
+            /* An odd tile count never leaves a lonely half-width button */
+            .modal-actions.act-bar > .act-btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+            .act-close { min-height: 40px; margin-top: 6px; }
         }
 
         .modal-actions .btn-primary {
@@ -3855,13 +3977,15 @@
         }
 
         .modal-actions .btn-primary:hover {
-            transform: scale(1.02);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 22px color-mix(in srgb, var(--theme-primary) 34%, transparent);
         }
 
         .modal-actions .btn-primary:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
+            box-shadow: none;
         }
 
         .modal-actions .btn-secondary {
@@ -3879,7 +4003,7 @@
         }
 
         .modal-actions .btn-danger:hover {
-            background: #fecaca;
+            background: color-mix(in srgb, var(--theme-danger) 22%, var(--theme-card));
         }
 
         .spinner {
@@ -4561,55 +4685,9 @@
             border-color: var(--theme-primary);
         }
 
+        /* Layout now comes from .modal-actions.act-bar */
         .member-detail-modal .member-modal-actions {
-            display: flex;
-            gap: 10px;
             margin-top: 22px;
-            flex-wrap: wrap;
-        }
-
-        .member-detail-modal .member-modal-actions button {
-            flex: 1;
-            min-width: 130px;
-            padding: 12px 16px;
-            border-radius: 14px;
-            border: none;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-family: inherit;
-        }
-
-        .member-detail-modal .member-modal-actions .btn-primary {
-            background: var(--theme-gradient);
-            color: white;
-            box-shadow: 0 4px 15px color-mix(in srgb, var(--theme-primary) 30%, transparent);
-        }
-
-        .member-detail-modal .member-modal-actions .btn-primary:hover {
-            transform: scale(1.02);
-            box-shadow: 0 6px 25px color-mix(in srgb, var(--theme-primary) 40%, transparent);
-        }
-
-        .member-detail-modal .member-modal-actions .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .member-detail-modal .member-modal-actions .btn-secondary {
-            background: var(--theme-bg-soft);
-            color: var(--theme-text-muted);
-        }
-
-        .member-detail-modal .member-modal-actions .btn-secondary:hover {
-            background: var(--theme-primary-soft);
         }
 
         .member-detail-modal .member-modal-close {
@@ -7602,21 +7680,21 @@
                 </div>
 
                 <div class="hl-actions-row">
-                    <div class="modal-actions" id="hlDetailActions">
-                        <button class="btn-primary" id="hlDetailDownloadBtn" onclick="downloadCurrentHighlightDetail()">
-                            <i class="fas fa-download"></i> Download
+                    <div class="modal-actions act-bar" id="hlDetailActions">
+                        <button class="act-btn act-btn--primary" id="hlDetailDownloadBtn" onclick="downloadCurrentHighlightDetail()">
+                            <i class="fas fa-download"></i> <span>Download</span>
                         </button>
-                        <button class="btn-primary" id="hlDetailFullViewBtn" onclick="fullViewCurrentHighlightDetail()" style="background: linear-gradient(45deg, #8b5cf6 0%, #a78bfa 100%);">
-                            <i class="fas fa-search-plus"></i> View Full
+                        <button class="act-btn" id="hlDetailFullViewBtn" onclick="fullViewCurrentHighlightDetail()">
+                            <i class="fas fa-expand"></i> <span>View full</span>
                         </button>
-                        <button class="btn-primary" id="hlDetailViewAllBtn" onclick="viewAllFromHighlightDetail()" style="display:none; background: linear-gradient(45deg, #f5576c 0%, #f093fb 100%);">
-                            <i class="fas fa-expand"></i> View All Photos
+                        <button class="act-btn" id="hlDetailViewAllBtn" onclick="viewAllFromHighlightDetail()" style="display:none;">
+                            <i class="fas fa-images"></i> <span>View all photos</span>
                         </button>
-                        <button class="btn-danger" id="hlDetailDeleteBtn" onclick="deleteCurrentHighlightDetail()">
-                            <i class="fas fa-trash"></i> Delete
+                        <button class="act-btn act-btn--danger" id="hlDetailDeleteBtn" onclick="deleteCurrentHighlightDetail()">
+                            <i class="fas fa-trash-can"></i> <span>Delete</span>
                         </button>
-                        <button class="btn-secondary" onclick="closeHighlightDetail()"><i class="fas fa-times"></i> Close</button>
                     </div>
+                    <button type="button" class="act-close" onclick="closeHighlightDetail()"><i class="fas fa-xmark"></i> Close</button>
                 </div>
             </div>
         </div>
@@ -7682,17 +7760,15 @@
                     <div class="member-socials-wrap" id="memberDetailSocials"></div>
                 </div>
 
-                <div class="member-modal-actions">
-                    <button class="btn-primary" id="memberDetailChatBtn" onclick="startChatWithCurrentMember()">
-                        <i class="fas fa-comments"></i> Message
+                <div class="member-modal-actions modal-actions act-bar">
+                    <button class="act-btn act-btn--primary" id="memberDetailChatBtn" onclick="startChatWithCurrentMember()">
+                        <i class="fas fa-comments"></i> <span>Message</span>
                     </button>
-                    <button class="btn-primary" id="memberDetailDownloadBtn" onclick="downloadCurrentMemberDetail()">
-                        <i class="fas fa-download"></i> Download Avatar
-                    </button>
-                    <button class="btn-secondary" onclick="closeMemberDetail()">
-                        <i class="fas fa-times"></i> Close
+                    <button class="act-btn" id="memberDetailDownloadBtn" onclick="downloadCurrentMemberDetail()">
+                        <i class="fas fa-download"></i> <span>Download avatar</span>
                     </button>
                 </div>
+                <button type="button" class="act-close" onclick="closeMemberDetail()"><i class="fas fa-xmark"></i> Close</button>
             </div>
         </div>
     </div>
