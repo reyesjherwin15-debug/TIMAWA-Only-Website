@@ -45,6 +45,26 @@
         return n;
     }
 
+    // admins: remove visitor cards whose member no longer exists. The homepage a
+    // visitor sees is built from publicProfiles, not users — so deleting a member
+    // used to leave their card on the public site while signed-in members no
+    // longer saw them.
+    async function prune(users) {
+        const live = new Set((users || []).map(u => (u && (u.id || u.uid)) || '').filter(Boolean));
+        if (!live.size) return 0;                 // never wipe every card from an empty/failed list
+        let removed = 0;
+        const snap = await db.collection('publicProfiles').get();
+        let batch = db.batch(), pending = 0;
+        for (const doc of snap.docs) {
+            if (live.has(doc.id)) continue;
+            batch.delete(doc.ref);
+            pending++; removed++;
+            if (pending === 400) { await batch.commit(); batch = db.batch(); pending = 0; }
+        }
+        if (pending) await batch.commit();
+        return removed;
+    }
+
     let unsub = null;
     auth.onAuthStateChanged(user => {
         if (unsub) { unsub(); unsub = null; }
@@ -54,5 +74,5 @@
             () => { /* not allowed / offline: nothing to do */ });
     });
 
-    window.PublicProfile = { writeCard, backfill, payloadOf };
+    window.PublicProfile = { writeCard, backfill, prune, payloadOf };
 })();

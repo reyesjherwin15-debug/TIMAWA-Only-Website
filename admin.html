@@ -2340,7 +2340,7 @@
                         <span class="count" id="usersCount">0 users</span>
                         <button class="batch-toggle-btn" onclick="toggleBatchMode('users')"><i class="fas fa-check-square"></i> Select</button>
                         <button class="btn-secondary" onclick="loadAppUsers(true)"><i class="fas fa-sync"></i> Refresh</button>
-                        <button class="btn-secondary" onclick="publishMemberCards(true)" title="Publish name, bio, occupation, interests and photo of every member for visitors"><i class="fas fa-bullhorn"></i> Publish member cards</button>
+                        <button class="btn-secondary" onclick="publishMemberCards(true)" title="Publish member cards for visitors and remove cards of members who no longer exist"><i class="fas fa-arrows-rotate"></i> Sync visitor cards</button>
                     </div>
                 </div>
                 <div class="batch-toolbar" id="batchToolbar-users">
@@ -3835,6 +3835,13 @@
                     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Deleting...'; }
 
                     try {
+                        // Users: also drop the card visitors see.
+                        if (tab === 'users') {
+                            for (const id of ids) {
+                                try { await db.collection('publicProfiles').doc(id).delete(); } catch (e) { /* ignore */ }
+                            }
+                        }
+
                         // Highlights: queue their photos before the records go.
                         if (tab === 'highlights') {
                             for (const id of ids) {
@@ -6514,17 +6521,36 @@
                 });
         }
 
-        // visitors see a small public card per member (publicProfiles). Writes the ones that are missing / changed.
+        // Visitors see a small public card per member (`publicProfiles`), while
+        // signed-in members list `users`. So the cards must be kept in step both
+        // ways: publish the missing/changed ones AND drop cards whose member is
+        // gone — otherwise a deleted member keeps showing on the visitor homepage.
         let _publishingCards = false;
         async function publishMemberCards(manual) {
             if (_publishingCards || !window.PublicProfile || !allAppUsers.length) return;
             _publishingCards = true;
             try {
-                const n = await PublicProfile.backfill(allAppUsers);
-                if (manual) showToast(n ? `Published ${n} member card${n !== 1 ? 's' : ''} for visitors.` : 'All member cards are already up to date.', 'success');
+                const published = await PublicProfile.backfill(allAppUsers);
+                // Never prune from a truncated member list — the rest would look
+                // like deleted members and their cards would be removed.
+                const listComplete = allAppUsers.length < APP_USERS_LIMIT;
+                const removed = (PublicProfile.prune && listComplete)
+                    ? await PublicProfile.prune(allAppUsers) : 0;
+                if (!listComplete) console.warn('Skipped stale-card prune: the member list reached APP_USERS_LIMIT.');
+                if (removed) console.info(`Removed ${removed} visitor card(s) for deleted members.`);
+                if (manual) {
+                    if (published || removed) {
+                        const bits = [];
+                        if (published) bits.push(`${published} published`);
+                        if (removed) bits.push(`${removed} removed`);
+                        showToast(`Visitor cards synced: ${bits.join(', ')}.`, 'success');
+                    } else {
+                        showToast('Every visitor card already matches the member list.', 'success');
+                    }
+                }
             } catch (e) {
                 console.warn('publishMemberCards', e);
-                if (manual) showToast('Could not publish member cards: ' + (e.message || e.code), 'error');
+                if (manual) showToast('Could not sync member cards: ' + (e.message || e.code), 'error');
             } finally { _publishingCards = false; }
         }
 
@@ -6705,13 +6731,23 @@
             const name = user?.displayName || user?.email || 'this user';
             showConfirm({
                 title: 'Delete this user profile?',
-                message: `Delete "${name}" from the app? This removes their Firestore profile. Their Firebase Auth account (login) will remain and will need to be deleted separately from the Firebase Console if desired.`,
+                message: `Delete "${name}" from the app? This removes their Firestore profile and their visitor card, so they disappear from the public homepage too. Their Firebase Auth account (login) will remain and will need to be deleted separately from the Firebase Console if desired.`,
                 confirmLabel: 'Delete',
                 type: 'danger',
                 onConfirm: async () => {
                     try {
                         await db.collection('users').doc(userId).delete();
-                        showToast('User profile deleted.', 'success');
+                        // The visitor homepage renders publicProfiles, not users:
+                        // without this the deleted member stays on the public site.
+                        try {
+                            await db.collection('publicProfiles').doc(userId).delete();
+                        } catch (e) { console.warn('Could not remove the visitor card:', e.code || e.message); }
+                        // Their uploaded avatar should not sit in Cloudinary forever.
+                        try {
+                            const avatarIds = collectMediaIds([], [user?.photoURL || '']);
+                            if (avatarIds.length) await queueCloudinaryCleanup(avatarIds, { source: 'profile', sourceId: userId });
+                        } catch (e) { /* ignore */ }
+                        showToast('User profile deleted and removed from the visitor homepage.', 'success');
                     } catch (error) {
                         console.error('Error deleting user:', error);
                         showToast('Error deleting user: ' + error.message, 'error');
@@ -7135,7 +7171,7 @@
     <script src="stories-shared.js?v=1.11.1"></script>
     <script src="notes-music.js?v=1.2.0"></script>
     <script src="stories.js?v=1.12.5"></script>
-    <script src="public-profile.js?v=1.2.0"></script>
+    <script src="public-profile.js?v=1.2.1"></script>
     <script src="mobile-nav.js?v=1.2.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
