@@ -671,21 +671,42 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 .st-comp .st-btn.danger { box-shadow: none; border: 1px solid rgba(220, 38, 38, .16); }
 
 /* Stage: softer surround, tighter radius */
+/* Always a column: the tools row sits above the canvas on every width, and the
+   option sheet floats over the bottom right on desktop (never a static side rail). */
+.st-comp .st-cbody { flex-direction: column; }
+
 .st-comp .st-stagewrap { padding: 8px; background: transparent; }
 .st-comp .st-cstage { border-radius: 20px; box-shadow: 0 18px 50px rgba(8, 12, 24, .28), inset 0 0 0 1px rgba(255, 255, 255, .06); }
 
-/* Tool dock: one rounded column instead of floating circles */
+/* Tools: a slim labelled row ABOVE the canvas, so no control ever sits
+   on top of the story you are editing (the Instagram arrangement). */
 .st-comp .st-tools {
-    left: 8px; top: 8px; gap: 2px; padding: 4px; border-radius: 16px;
-    background: rgba(12, 14, 20, .42);
-    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .12);
+    position: static; left: auto; top: auto; z-index: auto;
+    flex-direction: row; justify-content: center; align-items: stretch;
+    gap: 4px; padding: 6px 10px 2px; border-radius: 0;
+    background: transparent; box-shadow: none;
+    overflow-x: auto; scrollbar-width: none;
 }
-.st-comp .st-tool { width: 40px; height: 40px; border-radius: 12px; background: transparent; box-shadow: none; font-size: 15px; transition: background .16s ease; }
-.st-comp .st-tool:hover { transform: none; background: rgba(255, 255, 255, .14); }
-.st-comp .st-tool.on { background: var(--theme-gradient, #1089d3); box-shadow: 0 4px 14px color-mix(in srgb, var(--theme-primary, #1089d3) 45%, transparent); }
-.st-comp .st-tool .dot { top: 6px; right: 6px; width: 8px; height: 8px; border-width: 1.5px; }
-.st-comp .st-tool-lab { left: 48px; font-size: 11px; padding: 3px 7px; border-radius: 7px; }
+.st-comp .st-tools::-webkit-scrollbar { display: none; }
+.st-comp .st-tool {
+    position: relative; width: auto; min-width: 58px; height: 46px; padding: 0 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    border-radius: 12px; background: transparent; color: var(--theme-text-muted, #555);
+    font-size: 15px; box-shadow: none;
+    transition: background .16s ease, color .16s ease;
+}
+.st-comp .st-tool:hover { transform: none; background: var(--theme-bg-soft, #f1f5f9); color: var(--theme-text, #1a1a2e); }
+.st-comp .st-tool.on {
+    background: var(--theme-primary-soft, #e0f2fe); color: var(--theme-primary, #1089d3);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-primary, #1089d3) 26%, transparent);
+}
+.st-comp .st-tool .dot { top: 7px; right: 9px; width: 7px; height: 7px; border-width: 1.5px; }
+.st-comp .st-tool .st-tool-lab {
+    position: static; left: auto; top: auto; transform: none; opacity: 1;
+    background: transparent; color: inherit; padding: 0; border-radius: 0;
+    font-size: 9.5px; font-weight: 700; letter-spacing: .02em;
+}
+.st-comp.pv .st-tools { display: none; }
 
 /* Bottom bar: compact, primary action with a soft glow */
 .st-comp .st-bb {
@@ -737,3 +758,26 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 @media (prefers-reduced-motion: reduce) {
     .st-comp .st-btn, .st-comp .st-chip { transition: none !important; }
 }
+
+/* ================================================================
+   Mentions inside the composer
+   The caption picker used to be absolutely positioned above the field,
+   where the sheet clipped it. It now flows under the field, and the
+   story-text picker floats next to the text being edited.
+   ================================================================ */
+.st-comp .st-mention-list {
+    position: static; left: auto; right: auto; bottom: auto;
+    margin: 6px 0 0; max-height: min(200px, 34vh); overflow-y: auto;
+    border-radius: 12px; box-shadow: 0 10px 26px rgba(8, 12, 24, .16);
+}
+.st-comp .st-sh-b:has(.st-caption-field .st-mention-list.show) { padding-bottom: 14px; }
+
+/* Scoped + !important on the offsets: the global .mention-dropdown rule in the
+   page stylesheet pins it with bottom:100%, which collapsed this box to 0 height. */
+.st-comp .st-text-mention {
+    position: fixed; z-index: 30; width: 260px;
+    top: auto; bottom: auto; left: auto; right: auto;
+    max-height: min(210px, 40vh); overflow-y: auto;
+    border-radius: 14px; box-shadow: 0 14px 36px rgba(8, 12, 24, .28);
+}
+.st-comp .st-text-mention.show { display: block; }

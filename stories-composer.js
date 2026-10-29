@@ -75,12 +75,12 @@
             <button class="st-btn ghost sm" type="button" data-k="preview"><i class="fas fa-eye"></i> Preview</button>
           </div>
           <div class="st-cbody">
+            <div class="st-tools" role="toolbar" aria-label="Story tools"></div>
             <div class="st-stagewrap"><div class="st-cstage">
               <div class="st-bgblur"></div><div class="st-media-wrap"></div><div class="st-texts"></div><div class="st-msticker"></div>
                             <div class="st-scrim-t" hidden></div><div class="st-scrim-b" hidden></div>
               <div class="st-song" hidden></div>
               <div class="st-capv" hidden></div>
-              <div class="st-tools" role="toolbar" aria-label="Story tools"></div>
               <div class="st-pv" hidden style="position:absolute;left:12px;right:12px;bottom:12px;z-index:4;color:#fff;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
             </div></div>
           </div>
@@ -95,6 +95,21 @@
         if ('ResizeObserver' in window) new ResizeObserver(measure).observe(q.sheet);
 
         root.addEventListener('click', onClick);
+        // Story-text mention picker. Keep the caret where it is on press, then
+        // insert on click — otherwise the editable blurs and the list closes
+        // before the tap lands.
+        root.addEventListener('pointerdown', e => {
+            if (e.target.closest && e.target.closest('.st-text-mention [data-text-mention-idx]')) e.preventDefault();
+        }, true);
+        root.addEventListener('mousedown', e => {
+            if (e.target.closest && e.target.closest('.st-text-mention [data-text-mention-idx]')) e.preventDefault();
+        }, true);
+        root.addEventListener('click', e => {
+            const opt = e.target.closest && e.target.closest('.st-text-mention [data-text-mention-idx]');
+            if (!opt) return;
+            const user = textMentionCandidates[Number(opt.dataset.textMentionIdx)];
+            if (user) { e.preventDefault(); insertTextMention(user); }
+        });
         q.shb.addEventListener('input', onInput);
         q.shb.addEventListener('keydown', e => {
             const input = e.target;
@@ -295,6 +310,7 @@
     function renderPv() {
         renderSticker();
         q.stage.classList.toggle('pv', M.preview);
+        if (root) root.classList.toggle('pv', M.preview);
         q.sT.hidden = q.sB.hidden = q.pv.hidden = !M.preview;
         q.tx.style.pointerEvents = M.preview ? 'none' : '';
         if (!M.preview) { q.pv.innerHTML = ''; return; }
@@ -497,10 +513,28 @@
         const r = document.createRange(); r.selectNodeContents(el); if (!selectAll) r.collapse(false);
         const s = getSelection(); s.removeAllRanges(); s.addRange(r);
         const t = find(id);
-        const onIn = () => { if (el.innerText.length > MAX_TEXT_LEN) { el.innerText = el.innerText.slice(0, MAX_TEXT_LEN); } };
+        const onIn = () => {
+            if (el.innerText.length > MAX_TEXT_LEN) { el.innerText = el.innerText.slice(0, MAX_TEXT_LEN); }
+            detectTextMention(el);
+        };
+        const onKey = e => {
+            if (!textMentionOpen || textMentionEl !== el) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                textMentionIndex = (textMentionIndex + (e.key === 'ArrowDown' ? 1 : -1) + textMentionCandidates.length) % textMentionCandidates.length;
+                renderTextMentions(el);
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+                const user = textMentionCandidates[textMentionIndex];
+                if (user) { e.preventDefault(); insertTextMention(user); }
+            } else if (e.key === 'Escape') {
+                e.preventDefault(); e.stopPropagation(); closeTextMentions();
+            }
+        };
         const onPaste = e => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData.getData('text/plain') || '').slice(0, MAX_TEXT_LEN)); };
         const onBlur = () => {
             el.removeEventListener('input', onIn); el.removeEventListener('paste', onPaste); el.removeEventListener('blur', onBlur);
+            el.removeEventListener('keydown', onKey);
+            closeTextMentions();
             el.removeAttribute('contenteditable'); el.removeAttribute('role');
             const v = el.innerText.replace(/\u00a0/g, ' ').trim().slice(0, MAX_TEXT_LEN);
             if (!find(id)) return;
@@ -509,6 +543,7 @@
             el.textContent = t.text;
         };
         el.addEventListener('input', onIn); el.addEventListener('paste', onPaste); el.addEventListener('blur', onBlur);
+        el.addEventListener('keydown', onKey);
     }
 
     // ---------------- text interaction (unchanged) ----------------
@@ -935,12 +970,17 @@
         if (!box) {
             box = document.createElement('div'); box.className = 'mention-dropdown st-mention-list';
             const field = input.parentElement;
-            field.appendChild(box);
+            // After the input, inside the field: the list then lives in the
+            // panel's scroll flow instead of being absolute-positioned above
+            // the field, where the sheet used to clip it out of view.
+            const hint = field.querySelector('.st-hint');
+            if (hint) field.insertBefore(box, hint); else field.appendChild(box);
         }
         if (!captionMentionOpen) { box.classList.remove('show'); return; }
         box.innerHTML = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
             (captionMentionCandidates.length ? captionMentionCandidates.map((u, i) => `<button type="button" class="mention-option ${i === captionMentionIndex ? 'active' : ''}" data-mention-idx="${i}"><span class="mention-info"><span class="mention-name">${S.esc(u.name)}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('') : '<div class="mention-dropdown-empty">No members found</div>');
         box.classList.add('show');
+        try { box.scrollIntoView({ block: 'nearest' }); } catch (err) { /* ignore */ }
     }
 
     function selectCaptionMention(input, user) {
@@ -957,6 +997,113 @@
         captionMentionOpen = false;
         renderCaptionMentions(input);
         renderTools(); renderCaption(); input.focus();
+    }
+
+    /* ---------------- @mentions inside story text ---------------- */
+    /* On-screen text is contenteditable, so it needs its own picker. The list
+       is fixed-positioned next to the text being edited, above the option
+       panel, and the chosen member is inserted at the caret. */
+    let textMentionEl = null;
+    let textMentionOpen = false;
+    let textMentionCandidates = [];
+    let textMentionIndex = 0;
+    let textMentionBox = null;
+
+    function caretTextBefore(el) {
+        try {
+            const sel = getSelection();
+            if (!sel || !sel.rangeCount) return '';
+            const range = sel.getRangeAt(0);
+            if (!el.contains(range.startContainer)) return '';
+            const pre = range.cloneRange();
+            pre.selectNodeContents(el);
+            pre.setEnd(range.startContainer, range.startOffset);
+            return pre.toString();
+        } catch (err) { return ''; }
+    }
+
+    function closeTextMentions() {
+        textMentionOpen = false;
+        textMentionEl = null;
+        textMentionCandidates = [];
+        if (textMentionBox) { textMentionBox.classList.remove('show'); textMentionBox.innerHTML = ''; }
+    }
+
+    function renderTextMentions(el) {
+        if (!root || !textMentionOpen || !el) return;
+        if (!textMentionBox) {
+            textMentionBox = document.createElement('div');
+            textMentionBox.className = 'mention-dropdown st-text-mention';
+            root.appendChild(textMentionBox);
+        }
+        textMentionBox.innerHTML = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
+            (textMentionCandidates.length
+                ? textMentionCandidates.map((u, i) => `<button type="button" class="mention-option ${i === textMentionIndex ? 'active' : ''}" data-text-mention-idx="${i}"><span class="mention-info"><span class="mention-name">${S.esc(u.name)}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('')
+                : '<div class="mention-dropdown-empty">No members found</div>');
+        textMentionBox.classList.add('show');
+
+        // Sit just under the text being edited; flip above when out of room.
+        const rect = el.getBoundingClientRect();
+        const h = Math.min(210, textMentionBox.offsetHeight || 120);
+        const top = (rect.bottom + 8 + h > window.innerHeight - 8 && rect.top - 8 - h > 8)
+            ? rect.top - 8 - h
+            : rect.bottom + 8;
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - 268));
+        textMentionBox.style.left = Math.round(left) + 'px';
+        textMentionBox.style.top = Math.round(Math.max(8, top)) + 'px';
+    }
+
+    function detectTextMention(el) {
+        const before = caretTextBefore(el);
+        const m = before.match(/@([\w\s.'-]{0,30})$/);
+        if (!m) { closeTextMentions(); return; }
+        const needle = m[1].trim().toLowerCase();
+        textMentionEl = el;
+        getMentionDirectory().then(users => {
+            if (!el.isConnected || document.activeElement !== el || textMentionEl !== el) return;
+            const still = caretTextBefore(el).match(/@([\w\s.'-]{0,30})$/);
+            if (!still) { closeTextMentions(); return; }
+            const q2 = still[1].trim().toLowerCase();
+            textMentionCandidates = users.filter(u => !q2 || u.name.toLowerCase().includes(q2)).slice(0, 6);
+            textMentionIndex = 0;
+            textMentionOpen = true;
+            renderTextMentions(el);
+            void needle;
+        }).catch(() => closeTextMentions());
+    }
+
+    function insertTextMention(user) {
+        const el = textMentionEl;
+        if (!el || !user) { closeTextMentions(); return; }
+        const before = caretTextBefore(el);
+        const m = before.match(/@([\w\s.'-]{0,30})$/);
+        if (!m) { closeTextMentions(); return; }
+        const start = before.length - m[0].length;
+        const rest = (el.innerText || '').slice(before.length);
+        const inserted = '@' + user.name.replace(/\s+/g, ' ') + ' ';
+        el.innerText = before.slice(0, start) + inserted + rest;
+
+        // Put the caret after the inserted name.
+        try {
+            const target = start + inserted.length;
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            let acc = 0, node, spot = null;
+            while ((node = walker.nextNode())) {
+                const len = node.nodeValue.length;
+                if (acc + len >= target) { spot = { node, off: target - acc }; break; }
+                acc += len;
+            }
+            const sel = getSelection();
+            const range = document.createRange();
+            if (spot) range.setStart(spot.node, spot.off);
+            else range.selectNodeContents(el);
+            range.collapse(true);
+            sel.removeAllRanges(); sel.addRange(range);
+        } catch (err) { /* caret is cosmetic */ }
+
+        const t = find(el.dataset.id);
+        if (t) { t.text = (el.innerText || '').slice(0, MAX_TEXT_LEN); pushHist(); }
+        closeTextMentions();
     }
 
     async function resolveStoryMentions(text) {
@@ -976,6 +1123,38 @@
         });
         found.delete(C.me.uid);
         return Array.from(found);
+    }
+
+    /* A new story is activity the squad can be alerted about, the same way a
+       new highlight is. Broadcast (no targetUid), consumed by the dispatcher. */
+    async function notifyNewStory(storyId, doc) {
+        try {
+            const name = C.me && C.me.name ? C.me.name : 'A member';
+            const caption = String((doc && doc.caption) || '').trim();
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            await C.db.collection('announcements').add({
+                type: 'story',
+                pushPending: true,
+                pushContext: 'story',
+                actorUid: C.me.uid,          // never push someone their own story
+                pushUrl: `index.html?story=${encodeURIComponent(storyId)}`,
+                title: `✨ ${name} shared a new story`,
+                message: caption ? `"${caption.slice(0, 80)}"` : 'Tap to watch it before it disappears.',
+                icon: '✨',
+                priority: 'info',
+                link: 'index.html',
+                linkLabel: 'View Story',
+                targetUid: '',
+                referenceId: `story_${storyId}`,
+                readBy: [],
+                createdBy: 'system',
+                createdByName: 'System',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                expiresAt
+            });
+        } catch (err) {
+            console.warn('notifyNewStory error:', err);
+        }
     }
 
     async function notifyStoryMentions(caption, storyId) {
@@ -1092,8 +1271,11 @@
             try { await ref.set(doc); }
             catch (we) { await discardUploads(ups); throw we; }
             // Mention notifications run after the story exists, and never block
-            // the publish (they swallow their own errors).
-            notifyStoryMentions(doc.caption, ref.id);
+            // the publish (they swallow their own errors). Mentions typed into
+            // the on-screen text count too, not just the caption.
+            const mentionText = [doc.caption, ...(doc.textOverlays || []).map(t => t.text)].filter(Boolean).join(' ');
+            notifyStoryMentions(mentionText, ref.id);
+            notifyNewStory(ref.id, doc);
             try { const s = await ref.get({ source: 'server' }); const c = s.data().createdAt; if (c && c.toMillis) C.onPublished(c.toMillis() - Date.now()); } catch (e) {}
             q.barI.style.width = '100%';
             C.toast('Story shared! It will disappear in 24 hours.', 'success');

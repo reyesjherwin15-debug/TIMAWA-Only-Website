@@ -412,12 +412,19 @@
                 let target = null;
                 try { target = new URL(data.url, location.href); } catch (err) { target = null; }
 
-                // Same page already open: switch screens in place. A reload here
-                // would replay the whole boot and the tap would look stuck on
-                // whatever page happened to be visible.
+                // Same page AND same query string: only the fragment changes, so
+                // the app can switch screens without a reload. A different query
+                // (?story=<id>) needs a real navigation, or the page would
+                // acknowledge a tap it cannot open.
                 const sameDoc = !!(target && target.origin === location.origin &&
-                    target.pathname === location.pathname);
-                if (data.probe && sameDoc) {
+                    target.pathname === location.pathname &&
+                    target.search === location.search);
+
+                if (data.probe) {
+                    if (!sameDoc) {
+                        if (port) { try { port.postMessage({ handled: false }); } catch (err) { /* ignore */ } }
+                        return;                     // let the worker navigate
+                    }
                     try {
                         const nextHash = target.hash || '';
                         if (nextHash && nextHash !== location.hash) location.hash = nextHash;

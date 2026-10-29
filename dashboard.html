@@ -56,7 +56,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.11.1" />
+    <link rel="stylesheet" href="stories.css?v=1.11.2" />
     <script src="theme.js"></script>
 
     <!-- Cloudinary Upload Widget -->
@@ -8678,6 +8678,9 @@
         let modalBackState = false;
         let ignoredModalBackEvents = 0;
         let modalBackStateId = null;
+        // A back press must close ONE layer. Records when a modal consumed the
+        // event so the chat handler below can leave it alone.
+        let modalConsumedBackAt = 0;
         function pushModalBackState(id, close) {
             if (modalBackStates.has(id)) return;
             modalBackStates.set(id, close);
@@ -8706,6 +8709,7 @@
             if (activeId) {
                 const close = modalBackStates.get(activeId);
                 modalBackStates.delete(activeId);
+                modalConsumedBackAt = performance.now();
                 close();
             }
             modalBackStateId = Array.from(modalBackStates.keys()).reverse()[0] || null;
@@ -9257,12 +9261,32 @@
         let _fullscreenScrollY = 0;
         let _chatFullscreenHistory = false;
         let ignoredChatBackEvents = 0;
+        // The conversation a back press just closed. A queued hashchange can
+        // still arrive carrying the old hash; this stops it reopening the chat.
+        let suppressedChatTarget = '';
+        let suppressChatDeepLinkUntil = 0;
+        // Notification target read before the last tab is restored.
+        let bootDeepLinkTarget = '';
         window.addEventListener('popstate', function () {
+            // An entry may still carry `#chat_<uid>` — that is the URL the
+            // notification opened us with. Strip it before the hash listener
+            // runs, or the hashchange reopens the conversation and Back never
+            // gets out of the chat. Runs even for a pop this page triggered
+            // itself, so no stale hash survives a close.
+            stripChatDeepLinkFromUrl();
+
             if (ignoredChatBackEvents > 0) { ignoredChatBackEvents--; return; }
+            // A modal on top of the chat already handled this back press.
+            if (modalConsumedBackAt && performance.now() - modalConsumedBackAt < 50) return;
+
             if (!_chatFullscreenHistory) return;
             _chatFullscreenHistory = false;
+
             const container = document.getElementById('chatContainerEl');
             if (container?.classList.contains('fullscreen-chat')) {
+                suppressedChatTarget = activeChatIsGroup ? 'group' : (activeChatUid || '');
+                suppressChatDeepLinkUntil = performance.now() + 700;
+
                 activeChatUid = null;
                 activeChatIsGroup = false;
                 chatMessages = [];
@@ -9334,7 +9358,14 @@
                 body.style.top = `-${_fullscreenScrollY}px`;
                 body.classList.add('chat-fullscreen-active');
                 if (!_chatFullscreenHistory) {
-                    try { history.pushState({ timawaChatFullscreen: true }, ''); _chatFullscreenHistory = true; } catch (e) { /* ignore */ }
+                    // Push an explicitly clean URL. An empty URL inherits the
+                    // current one — hash included — which is how `#chat_<uid>`
+                    // ended up on the entry underneath and Back looped in the chat.
+                    try {
+                        history.pushState({ timawaChatFullscreen: true }, '',
+                            window.location.pathname + window.location.search);
+                        _chatFullscreenHistory = true;
+                    } catch (e) { /* ignore */ }
                 }
             } else {
                 if (wasFullscreen) {
@@ -9800,6 +9831,23 @@
         // link that only changes the hash still opens the conversation.
         const CHAT_DEEP_LINK_HASH = '#chat_';
 
+        // Read a chat notification target as soon as the script runs and take
+        // the hash off the URL immediately. Every pushState copies the current
+        // URL, so a restore tab, a modal or the chat itself would copy
+        // `#chat_<uid>` onto the next entry — and Back would pop to an entry
+        // whose hash reopens the conversation, trapping the member in the chat.
+        (function captureBootDeepLink() {
+            try {
+                const hash = window.location.hash || '';
+                if (hash.indexOf(CHAT_DEEP_LINK_HASH) !== 0) return;
+                const target = hash.slice(CHAT_DEEP_LINK_HASH.length);
+                if (!target) return;
+                bootDeepLinkTarget = target;
+                window.history.replaceState(window.history.state, '',
+                    window.location.pathname + window.location.search);
+            } catch (err) { /* ignore */ }
+        })();
+
         function readChatDeepLink() {
             try {
                 const hash = window.location.hash || '';
@@ -9820,6 +9868,20 @@
             } catch (err) { /* ignore */ }
         }
 
+        // Remove `#chat_<uid>` from the current entry without navigating. The
+        // back button needs this so the hash listener that runs right after
+        // cannot reopen the chat, and boot needs it before restoring the last
+        // tab: a pushState copies the current URL, so the hash would move onto
+        // the new entry and stay on the one Back returns to.
+        function stripChatDeepLinkFromUrl() {
+            try {
+                if ((window.location.hash || '').indexOf(CHAT_DEEP_LINK_HASH) !== 0) return false;
+                window.history.replaceState(window.history.state, '',
+                    window.location.pathname + window.location.search);
+                return true;
+            } catch (err) { return false; }
+        }
+
         // Open a conversation that a notification pointed at. The chats tab is
         // selected first so the sheet animates up over the chat list instead of
         // over the member grid — closing it then lands on Members, as usual.
@@ -9838,9 +9900,19 @@
         function handleChatDeepLink() {
             const target = readChatDeepLink();
             if (!target) return false;
-            if (!openChatDeepLink(target)) return false;
+            // Back just closed this exact conversation: a hashchange queued
+            // before the URL was cleaned must not reopen it.
+            if (suppressedChatTarget && target === suppressedChatTarget &&
+                performance.now() < suppressChatDeepLinkUntil) {
+                consumeDeepLink();
+                return true;
+            }
+            suppressedChatTarget = '';
+            // Consume BEFORE opening. Opening pushes a fullscreen history entry;
+            // if the hash stayed on the entry underneath, the back button would
+            // pop to it, fire hashchange and reopen the same chat — the loop.
             consumeDeepLink();
-            return true;
+            return openChatDeepLink(target);
         }
 
         // Cold path: called once, after the tab, members and feature flag are
@@ -9848,8 +9920,12 @@
         // in the conversation instead of flashing the dashboard first.
         async function openPendingDeepLink() {
             if (navigator.onLine === false) return false;
-            const chatTarget = readChatDeepLink();
-            if (chatTarget) {
+            // Captured (and stripped off the URL) before the last tab was
+            // restored — see the boot sequence.
+            const chatTarget = bootDeepLinkTarget || readChatDeepLink();
+            bootDeepLinkTarget = '';
+            // Never open a conversation with yourself.
+            if (chatTarget && chatTarget !== currentUser?.uid) {
                 if (!chatFeatureEnabled) {
                     // Give the settings snapshot a moment; never hang the boot.
                     await Promise.race([
@@ -9857,9 +9933,11 @@
                         new Promise((resolve) => setTimeout(resolve, 1800))
                     ]);
                 }
-                const opened = openChatDeepLink(chatTarget);
+                // Strip the hash from this entry first, then open: the entry we
+                // return to on back must not carry #chat_<uid>, or hashchange
+                // reopens the conversation and the back button never gets out.
                 consumeDeepLink();
-                return opened;
+                return openChatDeepLink(chatTarget);
             }
 
             try {
@@ -17313,6 +17391,6 @@ function startReplyTo(commentId, authorName) {
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.3.1" defer></script>
+    <script src="pwa.js?v=1.3.2" defer></script>
 </body>
 </html>
