@@ -1462,6 +1462,9 @@
         .image-upload-area .remove-image:hover {
             background: #dc2626; transform: scale(1.05);
         }
+        .admin-upload-progress { width: 100%; height: 7px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: var(--admin-border-input); }
+        .admin-upload-progress[hidden] { display: none; }
+        .admin-upload-progress span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--admin-gradient); transition: width .12s linear; }
 
         .modal-actions {
             display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap;
@@ -2562,6 +2565,7 @@
                         <button type="button" class="remove-image" id="removeImageBtn" style="display:none;" onclick="removeImage(event)"><i class="fas fa-times"></i> Remove</button>
                     </div>
                     <input type="file" id="imageInput" accept="image/*" style="display:none;" onchange="handleImageUpload(event)" />
+                    <div id="itemUploadProgress" class="admin-upload-progress" role="progressbar" aria-label="Item image upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><span id="itemUploadProgressFill"></span></div>
                     <span style="font-size:11px;color:var(--admin-text-dim);">Upload a custom image for this item</span>
                 </div>
 
@@ -2722,6 +2726,7 @@
                         <button type="button" class="remove-image" id="userRemoveImageBtn" style="display:none;" onclick="removeUserImage(event)"><i class="fas fa-times"></i> Remove</button>
                     </div>
                     <input type="file" id="userImageInput" accept="image/*" style="display:none;" onchange="handleUserImageUpload(event)" />
+                    <div id="userUploadProgress" class="admin-upload-progress" role="progressbar" aria-label="Profile image upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><span id="userUploadProgressFill"></span></div>
                     <span style="font-size:11px;color:var(--admin-text-dim);">Leave blank to keep the current photo</span>
                 </div>
 
@@ -3836,6 +3841,10 @@
             document.getElementById('imagePlaceholder').style.display = 'block';
             document.getElementById('removeImageBtn').style.display = 'none';
             document.getElementById('imageInput').value = '';
+            const progress = document.getElementById('itemUploadProgress');
+            const fill = document.getElementById('itemUploadProgressFill');
+            if (progress) { progress.hidden = true; progress.setAttribute('aria-valuenow', '0'); }
+            if (fill) fill.style.width = '0%';
         }
 
         function handleUserImageUpload(event) {
@@ -3864,9 +3873,13 @@
             document.getElementById('userImagePlaceholder').style.display = 'block';
             document.getElementById('userRemoveImageBtn').style.display = 'none';
             document.getElementById('userImageInput').value = '';
+            const progress = document.getElementById('userUploadProgress');
+            const fill = document.getElementById('userUploadProgressFill');
+            if (progress) { progress.hidden = true; progress.setAttribute('aria-valuenow', '0'); }
+            if (fill) fill.style.width = '0%';
         }
 
-        async function uploadToCloudinary(file, folder = 't-imawa/items') {
+        async function uploadToCloudinary(file, folder = 't-imawa/items', onProgress) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
@@ -3880,6 +3893,9 @@
                         const response = JSON.parse(xhr.responseText);
                         resolve(response.secure_url);
                     } else reject(new Error('Upload failed: ' + xhr.statusText));
+                };
+                xhr.upload.onprogress = function(event) {
+                    if (event.lengthComputable && typeof onProgress === 'function') onProgress(Math.round(event.loaded / event.total * 100));
                 };
                 xhr.onerror = function() { reject(new Error('Network error')); };
                 xhr.send(formData);
@@ -6289,6 +6305,10 @@
             document.getElementById('imagePlaceholder').style.display = 'block';
             document.getElementById('removeImageBtn').style.display = 'none';
             document.getElementById('imageInput').value = '';
+            const progress = document.getElementById('itemUploadProgress');
+            const fill = document.getElementById('itemUploadProgressFill');
+            if (progress) { progress.hidden = true; progress.setAttribute('aria-valuenow', '0'); }
+            if (fill) fill.style.width = '0%';
         }
 
         async function saveItem() {
@@ -6302,7 +6322,12 @@
                 let imageUrl = document.getElementById('existingImageUrl').value || '';
                 if (selectedImageFile) {
                     try {
-                        imageUrl = await uploadToCloudinary(selectedImageFile);
+                        const progress = document.getElementById('itemUploadProgress');
+                        const fill = document.getElementById('itemUploadProgressFill');
+                        imageUrl = await uploadToCloudinary(selectedImageFile, 't-imawa/items', percent => {
+                            if (progress && fill) { progress.hidden = false; progress.setAttribute('aria-valuenow', String(percent)); fill.style.width = percent + '%'; }
+                            submitBtn.innerHTML = `<span class="spinner"></span> Uploading ${percent}%`;
+                        });
                     } catch (uploadError) {
                         showToast('Error uploading image: ' + uploadError.message, 'error');
                         submitBtn.disabled = false;
@@ -6507,6 +6532,10 @@
             document.getElementById('userImagePlaceholder').style.display = 'block';
             document.getElementById('userRemoveImageBtn').style.display = 'none';
             document.getElementById('userImageInput').value = '';
+            const progress = document.getElementById('userUploadProgress');
+            const fill = document.getElementById('userUploadProgressFill');
+            if (progress) { progress.hidden = true; progress.setAttribute('aria-valuenow', '0'); }
+            if (fill) fill.style.width = '0%';
         }
 
         async function saveUserChanges() {
@@ -6526,7 +6555,12 @@
                 let photoURL = document.getElementById('editUserExistingPhoto').value || '';
                 if (selectedUserImageFile) {
                     try {
-                        photoURL = await uploadToCloudinary(selectedUserImageFile, 't-imawa/profiles');
+                        const progress = document.getElementById('userUploadProgress');
+                        const fill = document.getElementById('userUploadProgressFill');
+                        photoURL = await uploadToCloudinary(selectedUserImageFile, 't-imawa/profiles', percent => {
+                            if (progress && fill) { progress.hidden = false; progress.setAttribute('aria-valuenow', String(percent)); fill.style.width = percent + '%'; }
+                            btn.innerHTML = `<span class="spinner"></span> Uploading ${percent}%`;
+                        });
                     } catch (uploadErr) {
                         showToast('Error uploading avatar: ' + uploadErr.message, 'error');
                         btn.disabled = false;

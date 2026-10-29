@@ -88,6 +88,76 @@
         log(message);
     }
 
+    function renderChoice(title, message, choices) {
+        const old = document.getElementById('timawaModeChoice');
+        if (old) old.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'timawaModeChoice';
+        overlay.className = 'pwa-mode-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'timawaModeTitle');
+        const card = document.createElement('section');
+        card.className = 'pwa-mode-card';
+        const heading = document.createElement('h2'); heading.id = 'timawaModeTitle'; heading.textContent = title;
+        const copy = document.createElement('p'); copy.textContent = message;
+        const actions = document.createElement('div'); actions.className = 'pwa-mode-actions';
+        choices.forEach(choice => {
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = choice.secondary ? 'secondary' : '';
+            button.textContent = choice.label;
+            button.addEventListener('click', () => { overlay.remove(); choice.run(); });
+            actions.appendChild(button);
+        });
+        card.append(heading, copy, actions); overlay.appendChild(card); document.body.appendChild(overlay);
+        const first = actions.querySelector('button'); if (first) first.focus({ preventScroll: true });
+        return overlay;
+    }
+
+    function showOfflineChoice(options) {
+        options = options || {};
+        if (navigator.onLine) {
+            if (typeof options.onContinue === 'function') options.onContinue();
+            return false;
+        }
+        renderChoice('No internet connection', 'Would you like to continue offline? Previously visited pages and Firestore data may be available from this device’s cache.', [
+            { label: 'Continue offline', run: () => { try { sessionStorage.setItem('timawa.offline-mode', '1'); sessionStorage.removeItem('timawa.offline-choice-dismissed'); } catch (_) {} if (options.onContinue) options.onContinue(); } },
+            { label: 'Wait for connection', secondary: true, run: () => { try { sessionStorage.setItem('timawa.offline-choice-dismissed', '1'); } catch (_) {} if (options.onContinue) options.onContinue(); } }
+        ]);
+        return true;
+    }
+
+    function showConnectionChoice() {
+        try { if (sessionStorage.getItem('timawa.online-choice-dismissed') === '1') return false; } catch (_) { /* storage unavailable */ }
+        const wasOffline = (() => { try { return sessionStorage.getItem('timawa.offline-mode') === '1'; } catch (_) { return false; } })();
+        if (!wasOffline) return false;
+        renderChoice('Connection restored', 'TIMAWA is back online. Switch to online mode and refresh your saved activity now?', [
+            { label: 'Switch to online', run: () => { try { sessionStorage.removeItem('timawa.offline-mode'); sessionStorage.removeItem('timawa.online-choice-dismissed'); } catch (_) {} location.reload(); } },
+            { label: 'Stay here', secondary: true, run: () => { try { sessionStorage.setItem('timawa.online-choice-dismissed', '1'); } catch (_) {} } }
+        ]);
+        return true;
+    }
+
+    const PUSH_NUDGE_KEY = 'timawa.push.nudge-dismissed-at';
+    function maybeShowPushNudge(user) {
+        if (!user || IS_IOS_TAB || !pushSupported() || !configured() || Notification.permission !== 'default') return;
+        let dismissedAt = 0;
+        try { dismissedAt = Number(localStorage.getItem(PUSH_NUDGE_KEY) || 0); } catch (_) {}
+        if (dismissedAt && Date.now() - dismissedAt < 14 * 86400000) return;
+        if (sessionStorage.getItem('timawa.push.nudge-shown') === '1') return;
+        const button = document.getElementById('pwaNotifToggle');
+        if (button) return; // Profile has a persistent, non-modal opt-in card.
+        try { sessionStorage.setItem('timawa.push.nudge-shown', '1'); } catch (_) {}
+        renderChoice('Stay in the loop', 'Allow TIMAWA notifications to receive member messages, mentions, and other activity alerts. You can change this later in your profile.', [
+            { label: 'Enable notifications', run: () => enablePush() },
+            { label: 'Not now', secondary: true, run: () => { try { localStorage.setItem(PUSH_NUDGE_KEY, String(Date.now())); } catch (_) {} } }
+        ]);
+    }
+
+    function markPushNudgeDismissed() {
+        try { localStorage.setItem(PUSH_NUDGE_KEY, String(Date.now())); } catch (_) {}
+    }
+
     function currentUser() {
         try {
             if (typeof auth !== 'undefined' && auth && auth.currentUser) return auth.currentUser;
@@ -326,6 +396,7 @@
         }
 
         try { localStorage.removeItem(CONFIG.optOutKey); } catch (_) { /* ignore */ }
+        markPushNudgeDismissed();
 
         // Must be requested straight from the click, before any await.
         let permission = Notification.permission;
@@ -445,9 +516,7 @@
 
     /* ------------------------------------------------------------------ */
     /* Notification card (profile.html)                                    */
-    /* ------------------------------------------------------------------ */
-
-    async function renderNotificationCard() {
+    /* ------------------------------------------------------------------ */        async function renderNotificationCard() {
         const button = document.getElementById('pwaNotifToggle');
         if (!button) return;
 
@@ -895,12 +964,17 @@
             renderInstallCard();
             syncSilently();
         });
+        window.addEventListener('online', () => {
+            try { sessionStorage.removeItem('timawa.online-choice-dismissed'); } catch (_) {}
+            showConnectionChoice();
+        });
 
         try {
             if (typeof auth !== 'undefined' && auth && auth.onAuthStateChanged) {
-                auth.onAuthStateChanged(() => {
+                auth.onAuthStateChanged((user) => {
                     renderNotificationCard();
                     syncSilently();
+                    maybeShowPushNudge(user);
                 });
             }
         } catch (_) { /* page without auth */ }
@@ -913,6 +987,8 @@
         enablePush,
         disablePush,
         pushState,
+        showOfflineChoice,
+        showConnectionChoice,
         promptInstall,
         showInstallBanner,
         clearNotifications,

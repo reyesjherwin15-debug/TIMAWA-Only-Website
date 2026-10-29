@@ -822,6 +822,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .wizard-step.active .wizard-step-label { color: #fff; opacity: 1; }
 .wizard-step.done .wizard-step-label { color: rgba(255, 255, 255, 0.94); }
 .wizard-step:not(.active):not(.done) .wizard-step-label { opacity: 0.68; }
+.wizard-progress-track { position: relative; z-index: 1; height: 4px; margin: 10px 2px 0; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.24); }
+.wizard-progress-track span { display: block; width: 20%; height: 100%; border-radius: inherit; background: #fff; transition: width .35s ease; }
 .wizard-progress-text {
     position: relative;
     z-index: 1;
@@ -1694,6 +1696,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
                 </div>
 
                 <div class="wizard-progress-text" id="wizardProgressText">Step 1 of 5 — Profile Picture</div>
+                <div class="wizard-progress-track" aria-hidden="true"><span id="wizardProgressFill"></span></div>
             </div>
 
             <!-- WIZARD BODY -->
@@ -1714,6 +1717,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
                         <div class="panel-photo-grid">
                             <div class="avatar-upload-section" id="avatarSection">
+                                <div id="signupPhotoProgress" hidden style="max-width:180px;margin:10px auto;">
+                                    <div id="signupPhotoProgressBar" role="progressbar" aria-label="Profile photo upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="height:6px;overflow:hidden;border-radius:999px;background:var(--theme-border-soft,#e5e7eb);"><span id="signupPhotoProgressFill" style="display:block;width:0;height:100%;background:var(--theme-gradient);transition:width .12s linear;"></span></div>
+                                    <small id="signupPhotoProgressText" style="display:block;margin-top:5px;color:var(--theme-text-muted);">Uploading: 0%</small>
+                                </div>
                                 <label class="avatar-upload" for="signupPhoto">
                                     <span id="avatarPlaceholder"><i class="fas fa-user"></i></span>
                                     <img id="avatarPreview" style="display:none;" alt="Profile preview" />
@@ -1967,6 +1974,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
                                            oninput="checkVerificationCode()" />
                                     <div class="verification-status" id="verificationStatus"></div>
                                 </div>
+                                <div class="signup-notification-optin" style="margin-top:14px;padding:14px 16px;border:1px solid var(--theme-border);border-radius:14px;background:var(--theme-bg-soft);text-align:left;">
+                                    <strong style="display:block;color:var(--theme-text);font-size:13px;"><i class="fas fa-bell" style="color:var(--theme-primary);"></i> Get member activity alerts (optional)</strong>
+                                    <p style="margin:5px 0 10px;color:var(--theme-text-muted);font-size:12px;line-height:1.45;">Choose to allow notifications for messages, mentions, and squad activity. You can enable them later in your profile.</p>
+                                    <button type="button" class="theme-change-btn" id="signupNotifOptIn" onclick="requestSignupPushPermission()"><i class="fas fa-bell"></i> <span>Enable notifications</span></button>
+                                    <small id="signupNotifStatus" role="status" style="display:block;margin-top:7px;color:var(--theme-text-muted);"></small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2047,6 +2060,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
             if (progressText) {
                 progressText.textContent = `Step ${currentWizardStep} of ${WIZARD_TOTAL_STEPS} — ${WIZARD_STEP_TITLES[currentWizardStep - 1]}`;
             }
+            const progressFill = document.getElementById('wizardProgressFill');
+            if (progressFill) progressFill.style.width = `${(currentWizardStep / WIZARD_TOTAL_STEPS) * 100}%`;
 
             const backBtn = document.getElementById('wizardBackBtn');
             const nextBtn = document.getElementById('wizardNextBtn');
@@ -2617,7 +2632,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
             });
         }
 
-        async function uploadToCloudinary(file) {
+        async function uploadToCloudinary(file, onProgress) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
@@ -2625,6 +2640,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`);
+                xhr.upload.onprogress = function(event) {
+                    if (event.lengthComputable && typeof onProgress === 'function') onProgress(event.loaded / event.total);
+                };
                 xhr.onload = function() {
                     if (xhr.status === 200) {
                         const response = JSON.parse(xhr.responseText);
@@ -2763,12 +2781,59 @@ button, input, select, textarea { font: inherit; color: inherit; }
         // ================================================================
         // SIGNUP SUBMISSION
         // ================================================================
+        async function requestSignupPushPermission() {
+            const button = document.getElementById('signupNotifOptIn');
+            const status = document.getElementById('signupNotifStatus');
+            if (!button || !status) return;
+            if (!('Notification' in window) || !window.isSecureContext) {
+                status.textContent = 'Notifications are not available in this browser or connection. You can check again from your profile later.';
+                return;
+            }
+            if (Notification.permission === 'granted') {
+                try { sessionStorage.setItem('timawa.signup.push-opt-in', '1'); } catch (e) {}
+                status.textContent = 'Notifications allowed. We will finish connecting this device after your account is created.';
+                button.disabled = true;
+                return;
+            }
+            if (Notification.permission === 'denied') {
+                status.textContent = 'Notifications are blocked in browser settings. You can change this later in your profile or device settings.';
+                button.disabled = true;
+                return;
+            }
+            button.disabled = true;
+            const label = button.querySelector('span');
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    try { sessionStorage.setItem('timawa.signup.push-opt-in', '1'); } catch (e) {}
+                    status.textContent = 'Notifications allowed. We will finish connecting this device after your account is created.';
+                    if (label) label.textContent = 'Notifications allowed';
+                } else {
+                    status.textContent = permission === 'denied'
+                        ? 'No problem — notifications are off. You can enable them later in your profile or device settings.'
+                        : 'No problem — notifications were not enabled. You can change this later in your profile.';
+                    if (permission === 'denied' && label) label.textContent = 'Permission blocked';
+                }
+            } catch (error) {
+                status.textContent = 'Could not request permission here. You can enable notifications later in your profile.';
+            } finally {
+                if (Notification.permission === 'default') button.disabled = false;
+            }
+        }
+
         async function submitSignup() {
             const result = validatePanel(5);
             if (result.count > 0) return;
 
             const btn = document.getElementById('wizardSubmitBtn');
             const originalHtml = btn.innerHTML;
+            const photoProgress = document.getElementById('signupPhotoProgress');
+            const photoProgressBar = document.getElementById('signupPhotoProgressBar');
+            const photoProgressFill = document.getElementById('signupPhotoProgressFill');
+            const photoProgressText = document.getElementById('signupPhotoProgressText');
+            if (photoProgress) photoProgress.hidden = true;
+            if (photoProgressBar) photoProgressBar.setAttribute('aria-valuenow', '0');
+            if (photoProgressFill) photoProgressFill.style.width = '0%';
             btn.disabled = true;
             btn.innerHTML = '<span class="loading-spinner"></span> Creating account...';
 
@@ -2790,14 +2855,26 @@ button, input, select, textarea { font: inherit; color: inherit; }
             try {
                 let photoURL = '';
                 try {
-                    photoURL = await uploadToCloudinary(selectedAvatarFile);
+                    photoURL = await uploadToCloudinary(selectedAvatarFile, ratio => {
+                        const progress = document.getElementById('signupPhotoProgress');
+                        const bar = document.getElementById('signupPhotoProgressBar');
+                        const fill = document.getElementById('signupPhotoProgressFill');
+                        const text = document.getElementById('signupPhotoProgressText');
+                        const percent = Math.round(ratio * 100);
+                        if (progress) progress.hidden = false;
+                        if (bar) bar.setAttribute('aria-valuenow', String(percent));
+                        if (fill) fill.style.width = percent + '%';
+                        if (text) text.textContent = `Uploading: ${percent}%`;
+                    });
                 } catch (uploadErr) {
                     console.error('Avatar upload error:', uploadErr);
                     showErrorBanner('Failed to upload profile picture: ' + uploadErr.message);
+                    if (photoProgress) photoProgress.hidden = true;
                     btn.disabled = false;
                     btn.innerHTML = originalHtml;
                     return;
                 }
+                if (photoProgressText) photoProgressText.textContent = 'Photo uploaded';
 
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
@@ -2830,6 +2907,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
                 }
 
                 try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(selectedTheme)); } catch (e) {}
+                let signupPushOptIn = false;
+                try {
+                    signupPushOptIn = sessionStorage.getItem('timawa.signup.push-opt-in') === '1';
+                    sessionStorage.removeItem('timawa.signup.push-opt-in');
+                } catch (e) {}
+                if (signupPushOptIn && window.TIMAWA_PWA?.enablePush) {
+                    try {
+                        const pushResult = await window.TIMAWA_PWA.enablePush();
+                        if (!pushResult?.ok) console.info('Signup completed without push enrollment:', pushResult?.reason || 'not available');
+                    } catch (pushError) { console.warn('Could not finish signup push enrollment:', pushError); }
+                }
                 try {
                     if ('BroadcastChannel' in window) {
                         const bc = new BroadcastChannel('timawa_theme_sync');

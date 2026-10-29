@@ -68,7 +68,7 @@ body.mnav-open .navbar .mobile-toggle {
 .mnav-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 1390;
+    z-index: 2600;
     background: rgba(9, 11, 22, 0.48);
     -webkit-backdrop-filter: blur(6px) saturate(120%);
     backdrop-filter: blur(6px) saturate(120%);
@@ -102,7 +102,7 @@ body.mnav-open .navbar .mobile-toggle {
        indicator. Both resolve to 0 on screens without them. */
     bottom: 10px;
     bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    z-index: 1400;
+    z-index: 2601;
     width: min(86vw, 340px);
     display: flex;
     flex-direction: column;
@@ -334,8 +334,41 @@ body.mnav-open .mnav-item {
 
 body.mnav-lock { overflow: hidden; }
 
-/* keep the mobile bell reachable while the drawer is open */
-body.mnav-on.mnav-open .navbar { z-index: 1410; }
+/* The drawer/backdrop must cover floating assistants and content completely;
+   only the navbar toggle remains above it as the close control. */
+body.mnav-on.mnav-open .navbar { z-index: 2602; }
+body.mnav-on.mnav-open .mnav-backdrop { z-index: 2600; }
+body.mnav-on.mnav-open .mnav-drawer { z-index: 2601; }
+body.mnav-on.mnav-open .tita-launcher,
+body.mnav-on.mnav-open .tita-panel,
+body.mnav-on.mnav-open .tita-overlay,
+body.mnav-on.mnav-open .ai-assistant,
+body.mnav-on.mnav-open [id*="assistant"],
+body.mnav-on.mnav-open [class*="assistant"] { visibility: hidden !important; pointer-events: none !important; z-index: 1 !important; }
+body.mnav-on.mnav-open .navbar-mobile-bell { visibility: hidden; }
+body.mnav-on.mnav-open .navbar .nav-links,
+body.mnav-on.mnav-open .navbar .navbar-content { z-index: 2602; }
+body.mnav-on.mnav-open .mnav-drawer,
+body.mnav-on.mnav-open .mnav-backdrop,
+body.mnav-on.mnav-open .navbar { isolation: isolate; }
+body.mnav-on.mnav-open .tita-launcher,
+body.mnav-on.mnav-open .tita-panel,
+body.mnav-on.mnav-open .tita-overlay,
+body.mnav-on.mnav-open [class*="assistant"],
+body.mnav-on.mnav-open [id*="assistant"] { display: none !important; }
+
+@media (max-width: 768px) {
+    :root { scroll-padding-bottom: 45vh; }
+    body.mnav-on input:focus,
+    body.mnav-on textarea:focus,
+    body.mnav-on select:focus,
+    body.mnav-on [contenteditable="true"]:focus { scroll-margin-block: 18px 38vh; }
+    .note-comment-input-wrap, .highlight-comment-input-wrap { gap: 10px; }
+    .note-comment-input-wrap .input-row, .highlight-comment-input-wrap .input-row { align-items: flex-end; }
+    .note-comment-input-wrap textarea, .highlight-comment-input-wrap textarea { min-width: 0; min-height: 46px; max-height: 28vh; padding: 11px 12px; font-size: 16px; line-height: 1.4; }
+    .note-comment-input-wrap .send-btn, .highlight-comment-input-wrap .send-btn { width: 44px; height: 44px; }
+    .note-modal .note-modal-body, .highlight-detail-modal .modal-body { scroll-padding-bottom: 40vh; }
+}
 
 @media (max-width: 768px) {
     /* the original inline list is only a data source once the drawer exists */

@@ -90,6 +90,17 @@
         return (node.textContent || '').replace(/\s+/g, ' ').trim();
     }
 
+    function omitMobileSectionLink(node) {
+        var href = node && node.tagName === 'A' ? (node.getAttribute('href') || '') : '';
+        var label = cleanText(node);
+        var isLandingPage = /index\.html/i.test(location.pathname) || location.pathname === '/' || location.pathname === '';
+        var isRequestedLandingSection = /#(?:highlights|coffee-shops|favorite-places|things-to-do|members-section)(?:$|[?&])/i.test(href) ||
+            /^(highlights|coffee(?: shops?)?|places|activities|things to do|members)$/i.test(label);
+        // Keep these section shortcuts on other pages; omit them from the
+        // landing-page drawer where the user asked for a shorter menu.
+        return !!(isLandingPage && isRequestedLandingSection);
+    }
+
     /* ---------- build rows from the page's own list ---------- */
     function collectLinks() {
         var rows = [];
@@ -101,6 +112,7 @@
             var direct = li.querySelectorAll(':scope > a, :scope > button');
             if (direct.length) {
                 Array.prototype.forEach.call(direct, function (el) {
+                    if (omitMobileSectionLink(el)) return;
                     rows.push({ el: el, active: el.classList.contains('active') || li.classList.contains('active') });
                 });
                 return;
@@ -109,7 +121,7 @@
             // generic container: grab its anchors/buttons but skip the bell
             var nested = li.querySelectorAll('a, button');
             Array.prototype.forEach.call(nested, function (el) {
-                if (el.closest('.announcement-wrapper')) return;
+                if (el.closest('.announcement-wrapper') || omitMobileSectionLink(el)) return;
                 rows.push({ el: el, active: el.classList.contains('active') || li.classList.contains('active') });
             });
         });
@@ -181,6 +193,8 @@
         build();
         document.body.classList.add('mnav-on', 'mnav-open', 'mnav-lock');
         drawer.setAttribute('aria-hidden', 'false');
+        drawer.style.zIndex = '2601';
+        backdrop.style.zIndex = '2600';
         backdrop.classList.add('show');
         toggle.setAttribute('aria-expanded', 'true');
         toggle.setAttribute('aria-label', 'Close menu');
@@ -239,4 +253,38 @@
 
     if (isMobile()) document.body.classList.add('mnav-on');
     window.addEventListener('load', function () { if (isMobile()) document.body.classList.add('mnav-on'); });
+    // Keep focused controls above the mobile software keyboard (including iOS
+    // visual-viewport changes inside fixed modals and the fullscreen chat).
+    function syncVisualViewport() {
+        var vv = window.visualViewport;
+        if (!vv) return;
+        document.documentElement.style.setProperty('--mnav-visual-height', Math.round(vv.height) + 'px');
+        document.documentElement.style.setProperty('--mnav-visual-offset', Math.round(vv.offsetTop) + 'px');
+    }
+    function keepFocusedFieldVisible(target) {
+        if (!target || !isMobile() || !target.matches('input, textarea, select, [contenteditable="true"]')) return;
+        syncVisualViewport();
+        setTimeout(function () {
+            if (!target.isConnected || document.activeElement !== target) return;
+            var vv = window.visualViewport;
+            var bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+            var rect = target.getBoundingClientRect();
+            if (rect.bottom > bottom - 14 || rect.top < (vv ? vv.offsetTop : 0) + 8) {
+                try { target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); }
+                catch (e) { target.scrollIntoView(false); }
+            }
+        }, 90);
+    }
+    document.addEventListener('focusin', function (e) { keepFocusedFieldVisible(e.target); });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', function () { syncVisualViewport(); keepFocusedFieldVisible(document.activeElement); });
+        window.visualViewport.addEventListener('scroll', function () { syncVisualViewport(); });
+        syncVisualViewport();
+    }
+    // Assistant and its backdrop are siblings of the drawer, so place them below
+    // the menu instead of mutating their inline styles permanently.
+    function syncAssistantLayer() {
+        document.body.classList.toggle('mnav-open', isOpen());
+    }
+    new MutationObserver(syncAssistantLayer).observe(document.body, { childList: true, subtree: true });
 })();

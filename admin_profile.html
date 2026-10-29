@@ -1289,6 +1289,10 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                     </div>
                 </div>
 
+                <div id="adminPhotoUploadProgress" hidden role="progressbar" aria-label="Profile photo upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="margin:0 0 14px;">
+                    <div style="height:8px;overflow:hidden;border-radius:999px;background:var(--admin-border,#e5e7eb);"><span id="adminPhotoUploadFill" style="display:block;width:0;height:100%;border-radius:inherit;background:var(--admin-primary,#7c3aed);transition:width .12s linear;"></span></div>
+                    <span id="adminPhotoUploadText" style="display:block;margin-top:6px;font-size:12px;color:var(--admin-text-muted,#555);">Uploading photo: 0%</span>
+                </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary" id="saveBtn">
                         <i class="fas fa-save"></i> Save Profile
@@ -2252,7 +2256,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
         }
 
         // ===== UPLOAD TO CLOUDINARY =====
-        async function uploadToCloudinary(file) {
+        async function uploadToCloudinary(file, onProgress) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
@@ -2261,6 +2265,9 @@ personal details, socials, appearance/theme picker, then Save / Reset.
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`);
+                xhr.upload.onprogress = function(event) {
+                    if (event.lengthComputable && typeof onProgress === 'function') onProgress(event.loaded / event.total);
+                };
                 xhr.onload = function() {
                     if (xhr.status === 200) {
                         const response = JSON.parse(xhr.responseText);
@@ -2594,7 +2601,15 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                 if (selectedFile) {
                     try {
                         showToast('Uploading to Cloudinary...', 'info');
-                        photoURL = await uploadToCloudinary(selectedFile);
+                        photoURL = await uploadToCloudinary(selectedFile, ratio => {
+                            const progress = document.getElementById('adminPhotoUploadProgress');
+                            const fill = document.getElementById('adminPhotoUploadFill');
+                            const text = document.getElementById('adminPhotoUploadText');
+                            const percent = Math.round(ratio * 100);
+                            if (progress) { progress.hidden = false; progress.setAttribute('aria-valuenow', String(percent)); }
+                            if (fill) fill.style.width = percent + '%';
+                            if (text) text.textContent = `Uploading photo: ${percent}%`;
+                        });
                     } catch (uploadError) {
                         console.error('Upload error:', uploadError);
                         showToast('Error uploading photo: ' + uploadError.message, 'error');
@@ -2657,6 +2672,10 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                 console.error('Save error:', error);
                 showToast('Error saving profile: ' + error.message, 'error');
             } finally {
+                const progress = document.getElementById('adminPhotoUploadProgress');
+                if (progress) { progress.hidden = true; progress.setAttribute('aria-valuenow', '0'); }
+                const fill = document.getElementById('adminPhotoUploadFill');
+                if (fill) fill.style.width = '0%';
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Profile';
             }

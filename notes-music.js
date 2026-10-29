@@ -216,7 +216,14 @@
     const expMs = n => { const e = n && n.expireAt; if (!e) return 0; if (e.toMillis) return e.toMillis(); if (e.seconds) return e.seconds * 1000; const t = new Date(e).getTime(); return isNaN(t) ? 0 : t; };
     const isActive = n => hasContent(n) && expMs(n) > Date.now();
     const isReplacing = () => replacing;
-    const canEditSong = () => replacing || !isActive(liveNote);
+    // Editing text or choosing/removing a song updates the active note directly;
+    // Replace remains only for an intentional fresh 24-hour timer.
+    const canEditSong = () => true;
+    function syncLiveDraft() {
+        if (replacing) return;
+        const input = document.getElementById('titaNote');
+        if (input && liveNote) liveNote = { ...liveNote, text: input.value.trim().slice(0, 60) };
+    }
     function renderReplace() {
         const host = document.getElementById('titaNoteReplaceRow'); if (!host) return;
         injectStyles();
@@ -251,11 +258,11 @@
 
     // ------------------------------------------------------------ draft (the song being attached in Tita Tima)
     let draft = null;
-    const setDraft = m => { draft = clean(m); renderRow(); };
+    const setDraft = m => { draft = clean(m); syncLiveDraft(); renderRow(); };
     const syncDraft = m => { if (ov) return; setDraft(m); };      // live snapshot: never overwrite a song that is being picked
     const getDraft = () => draft;
     function getDraftForSave() {
-        const src = canEditSong() ? draft : clean(liveNote && liveNote.music);     // locked: the live note keeps the song it has
+        const src = canEditSong() ? draft : clean(liveNote && liveNote.music);
         if (!src) return null;
         return { provider: 'itunes', trackId: src.trackId, title: src.title, artist: src.artist, thumbnail: src.thumbnail || '', previewUrl: src.previewUrl, previewSec: src.previewSec, startSec: 0, clipSec: src.previewSec };
     }
@@ -263,12 +270,11 @@
         const host = document.getElementById('titaNoteMusicRow'); if (!host) return;
         injectStyles();
         host.className = 'nm-row';
-        const locked = !canEditSong();      // a live note's song can't be edited (or added) until Replace is tapped
-        if (!draft) { host.innerHTML = locked ? '' : '<button type="button" class="nm-add" data-nm="open"><span class="nm-addic"><i class="fas fa-music"></i></span><span>Add a song</span><small>optional</small></button>'; return; }
+        if (!draft) { host.innerHTML = '<button type="button" class="nm-add" data-nm="open"><span class="nm-addic"><i class="fas fa-music"></i></span><span>Add a song</span><small>optional</small></button>'; return; }
         const art = S().safeImgUrl(draft.thumbnail);
         host.innerHTML = `<div class="nm-chip">${art ? `<img class="nm-art" src="${esc(art)}" alt="">` : '<span class="nm-ph"><i class="fas fa-music"></i></span>'}
             <div class="nm-meta"><b>${esc(draft.title)}</b><small>${esc(draft.artist || 'Song')} · ${fmt(draft.previewSec)}</small></div>
-            ${locked ? '' : '<button type="button" class="nm-ib" data-nm="open" aria-label="Change song"><i class="fas fa-pen"></i></button><button type="button" class="nm-ib danger" data-nm="remove" aria-label="Remove song"><i class="fas fa-xmark"></i></button>'}</div>`;
+            <button type="button" class="nm-ib" data-nm="open" aria-label="Change song"><i class="fas fa-pen"></i></button><button type="button" class="nm-ib danger" data-nm="remove" aria-label="Remove song"><i class="fas fa-xmark"></i></button></div>`;
     }
 
     // ------------------------------------------------------------ picker panel

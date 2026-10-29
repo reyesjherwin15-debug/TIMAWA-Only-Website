@@ -154,6 +154,9 @@
         try { id = new URLSearchParams(location.search).get('story'); } catch (e) { /* ignore */ }
         if (!id) return;
         try { const u = new URL(location.href); u.searchParams.delete('story'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); } catch (e) { /* ignore */ }
+        if (st.me && window.TIMAWA_PWA?.clearNotifications) {
+            window.TIMAWA_PWA.clearNotifications(`mention:story_${id}`);
+        }
         setTimeout(() => openById(id), 400);
     }
     function stopListener() { if (st.unsub) { st.unsub(); st.unsub = null; } }
@@ -308,6 +311,7 @@
                 pauseB: $('[data-a=pause]'), muteB: $('[data-a=mute]'), delB: $('[data-a=delete]'),
                 bd: $('.st-bd'), own: $('.st-own'), vc: $('.st-vc'), vl: $('.st-vl'), vsheet: $('.st-vsheet'), vlist: $('.st-vlist') };
         S.observeStage(V.q.frame);
+        wireViewerSheetDrag();
 
         $('.st-prev').onclick = prev; $('.st-next').onclick = next;
         el.addEventListener('click', e => {
@@ -336,6 +340,7 @@
         const fr = V.q.frame;
         fr.addEventListener('pointerdown', e => {
             if (V.anim || !V.open) return;
+            if (e.target.closest('.st-vlist')) return;
             if (e.target.closest('button,input,a,iframe,.st-ui,.st-tray')) return;
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             down = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), held: false, drag: false, dy: 0 };
@@ -588,9 +593,23 @@
                 q.mw.innerHTML = S.collageHtml(collage, s.layout);
                 waitImages(q.mw.querySelectorAll('img'), s);
             } else {
-                const im = new Image(); im.alt = s.caption || 'Story';
-                im.onload = () => onReady(null); im.onerror = onError;
-                im.src = s.mediaUrl; q.mw.appendChild(im);
+                const im = new Image(); im.alt = s.caption || 'Story'; im.decoding = 'async';
+                const resized = S.cloudResize(s.mediaUrl, 960);
+                const thumb = S.safeMediaUrl(s.thumbUrl) || (resized === s.mediaUrl ? s.mediaUrl : resized);
+                const showFullResolution = () => {
+                    if (V.story !== s || !V.open) return;
+                    onReady(null);
+                    if (thumb !== s.mediaUrl) {
+                        const full = new Image(); full.decoding = 'async';
+                        full.onload = () => { if (V.story === s && V.open) im.src = s.mediaUrl; };
+                        full.src = s.mediaUrl;
+                    }
+                };
+                im.onload = showFullResolution; im.onerror = () => {
+                    if (thumb !== s.mediaUrl) { im.onload = null; im.onerror = onError; im.src = s.mediaUrl; }
+                    else onError();
+                };
+                im.src = thumb; q.mw.appendChild(im);
                 const b = new Image(); b.src = S.cloudResize(s.mediaUrl, 64); b.alt = ''; q.bg.appendChild(b);       // soft backdrop shows when the photo is shrunk / moved
             }
         }
@@ -791,12 +810,75 @@
         const open = typeof force === 'boolean' ? force : V.q.vsheet.hidden;
         if (open === !V.q.vsheet.hidden) return;
         V.q.vsheet.hidden = !open;
+        V.q.vsheet.classList.remove('expanded');
+        V.q.vsheet.style.setProperty('--st-viewer-drag', '0px');
         open ? pause('viewers') : resume('viewers');
+    }
+    function wireViewerSheetDrag() {
+        const sheet = V.q.vsheet;
+        let startY = 0, deltaY = 0, dragging = false, pointerId = null;
+        const start = e => {
+            if (sheet.hidden || e.pointerType === 'mouse' && e.button !== 0) return;
+            const atTop = V.q.vlist.scrollTop <= 0;
+            const onHandle = e.target.closest('.st-vh');
+            if (!atTop && !onHandle) return;
+            startY = e.clientY; deltaY = 0; dragging = true; pointerId = e.pointerId;
+            sheet.classList.add('dragging');
+            try { sheet.setPointerCapture(e.pointerId); } catch (_) {}
+        };
+        const move = e => {
+            if (!dragging || e.pointerId !== pointerId) return;
+            deltaY = e.clientY - startY;
+            sheet.style.setProperty('--st-viewer-drag', `${Math.max(-180, Math.min(deltaY, 260))}px`);
+            if (deltaY < -45) sheet.classList.add('expanded');
+            if (e.cancelable) e.preventDefault();
+        };
+        const end = e => {
+            if (!dragging || (e && e.pointerId !== pointerId)) return;
+            dragging = false; pointerId = null; sheet.classList.remove('dragging');
+            const shouldClose = deltaY > 90;
+            if (deltaY < -45) sheet.classList.add('expanded');
+            sheet.style.setProperty('--st-viewer-drag', shouldClose ? '100%' : '0px');
+            if (shouldClose) setTimeout(() => toggleViewers(false), 160);
+        };
+        sheet.addEventListener('pointerdown', start);
+        sheet.addEventListener('pointermove', move);
+        sheet.addEventListener('pointerup', end);
+        sheet.addEventListener('pointercancel', end);
+        sheet.addEventListener('touchstart', e => {
+            const touch = e.changedTouches[0];
+            if (!touch || sheet.hidden || (V.q.vlist.scrollTop > 0 && !e.target.closest('.st-vh'))) return;
+            startY = touch.clientY; deltaY = 0; dragging = true; pointerId = 'touch';
+            sheet.classList.add('dragging');
+        }, { passive: true });
+        sheet.addEventListener('touchmove', e => {
+            if (!dragging || pointerId !== 'touch') return;
+            const touch = e.changedTouches[0];
+            if (!touch) return;
+            deltaY = touch.clientY - startY;
+            sheet.style.setProperty('--st-viewer-drag', `${Math.max(-180, Math.min(deltaY, 260))}px`);
+            if (deltaY < -45) sheet.classList.add('expanded');
+            if (e.cancelable) e.preventDefault();
+        }, { passive: false });
+        sheet.addEventListener('touchend', () => {
+            if (!dragging || pointerId !== 'touch') return;
+            dragging = false; pointerId = null; sheet.classList.remove('dragging');
+            const shouldClose = deltaY > 90;
+            if (deltaY < -45) sheet.classList.add('expanded');
+            sheet.style.setProperty('--st-viewer-drag', shouldClose ? '100%' : '0px');
+            if (shouldClose) setTimeout(() => toggleViewers(false), 160);
+        }, { passive: true });
+        sheet.addEventListener('touchcancel', () => {
+            if (pointerId !== 'touch') return;
+            dragging = false; pointerId = null; sheet.classList.remove('dragging');
+            sheet.style.setProperty('--st-viewer-drag', '0px');
+        }, { passive: true });
     }
     function renderSummary() {
         const m = new Map(); let mineE = null;
         V.reactions.forEach(r => { m.set(r.emoji, (m.get(r.emoji) || 0) + 1); if (st.me && r.uid === st.me.uid) mineE = r.emoji; });
         V.mineEmoji = mineE;
+        V.q.sum.setAttribute('aria-label', [...m.entries()].map(([emoji, count]) => `${count} ${emoji} reactions`).join(', ') || 'No reactions');
         if (V.story && st.me && V.story.ownerUid === st.me.uid) renderViewers();
         V.q.sum.innerHTML = [...m.entries()].map(([e, c]) => `<span class="${e === mineE ? 'mine' : ''}" title="${S.esc(V.reactions.filter(r => r.emoji === e).map(r => r.name || 'Member').join(', '))}">${S.esc(e)} ${c}</span>`).join('');
         V.q.heart.innerHTML = mineE ? `<span>${S.esc(mineE)}</span>` : '<i class="far fa-heart"></i>';

@@ -2912,7 +2912,10 @@
                     <label for="titaNote"><i class="fas fa-comment-dots"></i> Quick Note</label>
                     <span class="tita-counter"><span id="titaNoteCount">0</span>/60</span>
                 </div>
-                <input type="text" id="titaNote" placeholder="Coffee later? ☕" maxlength="60" autocomplete="off" />
+                <div class="tita-note-editor">
+                    <div class="mention-dropdown" id="titaNoteMentionDropdown"></div>
+                    <input type="text" id="titaNote" placeholder="Coffee later? ☕ (type @ to mention)" maxlength="60" autocomplete="off" />
+                </div>
                 <div id="titaNoteMusicRow"></div>
                 <div id="titaNoteReplaceRow"></div>
                 <div class="tita-note-meta" id="titaNoteStatus" style="display:none;">
@@ -3005,6 +3008,11 @@
         const HIGHLIGHT_COMMENT_MAX_LEN = 200;
         const MENTION_MAX_RESULTS = 6;
         const MENTION_REGEX = /@([\w\s.'-]{0,30})$/;
+        let noteMentionCandidates = [];
+        let noteMentionOpen = false;
+        let noteMentionIndex = 0;
+        let noteMentionAnchorStart = -1;
+        const notePendingMentions = new Map();
 
         const COMMENT_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
         const COMMENT_CLEANUP_INITIAL_DELAY_MS = 8000;
@@ -3826,7 +3834,8 @@
                 await db.collection('announcements').add({
                     type: 'reaction',
                     pushPending: true,
-                    pushContext: 'reaction_' + referenceId,
+                    pushContext: `reaction:highlight_${highlightId}`,
+                    pushUrl: `index.html#highlights`,
                     title: `${emoji} ${reactorName} reacted to your highlight`,
                     message: messageText,
                     icon: emoji,
@@ -4446,7 +4455,7 @@
             if (!noteText || !titaCurrentUser) return;
             let uids = [];
             try {
-                uids = resolveMentions(noteText).filter(uid => uid && uid !== titaCurrentUser.uid);
+                uids = resolveMentions(noteText, notePendingMentions).filter(uid => uid && uid !== titaCurrentUser.uid);
             } catch (e) {
                 return;
             }
@@ -4460,6 +4469,8 @@
                     const ref = db.collection('announcements').doc();
                     batch.set(ref, {
                         type: 'mention',
+                        pushPending: true,
+                        pushContext: `mention:note_${titaCurrentUser.uid}`,
                         title: `📣 ${noteOwnerName} mentioned you in their note`,
                         message: `"${snippet}"`,
                         icon: '📣',
@@ -4472,9 +4483,7 @@
                         createdBy: 'system',
                         createdByName: 'System',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        expiresAt,
-                        pushPending: true,
-                        pushContext: 'mention'
+                        expiresAt
                     });
                 });
                 await batch.commit();
@@ -4839,7 +4848,7 @@ function startReplyTo(commentId, authorName) {
                         notifications.push({
                             type: 'mention',
                             pushPending: true,
-                            pushContext: 'mention',
+                            pushContext: `mention:note_${noteUid}`,
                             title: `@ ${replierName} mentioned you`,
                             message: `In ${noteOwnerName}'s note: "${noteSnippet}"\n\n"${replySnippet}"`,
                             icon: '📣', priority: 'info',
@@ -5592,7 +5601,7 @@ function startHighlightReply(commentId, authorName) {
                         notifications.push({
                             type: 'mention',
                             pushPending: true,
-                            pushContext: 'mention',
+                            pushContext: `mention:highlight_${highlightId}`,
                             title: `📣 ${commenterName} mentioned you`,
                             message: captionSnippet
                                 ? `On ${highlightOwnerName}'s highlight: "${captionSnippet}"\n\n"${commentSnippet}"`
@@ -6235,7 +6244,7 @@ function startHighlightReply(commentId, authorName) {
                 await db.collection('announcements').add({
                     type: 'highlight',
                     pushPending: true,
-                    pushContext: 'highlight',
+                    pushContext: 'highlight:new',
                     title: titleText,
                     message: photoCount === 1
                         ? `${author} just shared a new moment with the squad.`
@@ -6408,6 +6417,23 @@ function startHighlightReply(commentId, authorName) {
 
         auth.onAuthStateChanged(user => updateNavigation(user));
 
+        let landingOfflineChoiceShown = false;
+        window.addEventListener('offline', function() {
+            if (landingOfflineChoiceShown || !document.getElementById('loadingOverlay')?.classList.contains('active')) return;
+            landingOfflineChoiceShown = true;
+            const continueOffline = () => {
+                loadCarouselData('coffeeShops', 'coffeeTrack', 'coffeeDots', 'coffee');
+                loadCarouselData('favoritePlaces', 'placesTrack', 'placesDots', 'places');
+                loadCarouselData('thingsToDo', 'activitiesTrack', 'activitiesDots', 'activities');
+                loadMembersFromFirestore();
+                loadNotes();
+                hideLoadingOverlay();
+            };
+            if (window.TIMAWA_PWA?.showOfflineChoice) window.TIMAWA_PWA.showOfflineChoice({ onContinue: continueOffline });
+            else continueOffline();
+        });
+        window.addEventListener('online', function() { window.TIMAWA_PWA?.showConnectionChoice?.(); });
+
         async function logout() {
             showConfirm({
                 title: 'Sign out?',
@@ -6534,13 +6560,28 @@ function startHighlightReply(commentId, authorName) {
             currentFullViewUrl = fullViewImages[fullViewIndex];
 
             const img = document.getElementById('fullViewImage');
+            const nextUrl = currentFullViewUrl;
+            const previewUrl = cloudinaryThumb(nextUrl, 1600);
             img.classList.add('swapping');
-
-            setTimeout(() => {
-                img.src = currentFullViewUrl;
+            img.onload = () => {
+                if (currentFullViewUrl !== nextUrl) return;
                 img.classList.remove('swapping');
                 updateFullViewUI();
-            }, 150);
+                if (previewUrl !== nextUrl) {
+                    const fullImage = new Image();
+                    fullImage.onload = () => {
+                        if (currentFullViewUrl === nextUrl) img.src = nextUrl;
+                    };
+                    fullImage.src = nextUrl;
+                }
+            };
+            img.onerror = () => {
+                if (currentFullViewUrl === nextUrl) {
+                    img.classList.remove('swapping');
+                    updateFullViewUI();
+                }
+            };
+            img.src = previewUrl;
 
             // Update download filename based on context
             if (fullViewContext === 'gallery') {
@@ -7978,14 +8019,15 @@ function startHighlightReply(commentId, authorName) {
             const noteCount = document.getElementById('titaNoteCount');
             const noteStatus = document.getElementById('titaNoteStatus');
 
+            const noteInputActive = !!noteInput && document.activeElement === noteInput;
+            if (noteInput && !noteInputActive) noteInput.value = note?.text || '';
+            if (noteCount) noteCount.textContent = String((noteInputActive ? noteInput.value : note?.text || '').length);
             if (window.NoteMusic) {
                 NoteMusic.setDraft(note ? note.music : null);
                 NoteMusic.setReplaceNote(note);
             }
 
             if (note && window.NoteMusic && NoteMusic.hasContent(note)) {
-                if (noteInput) noteInput.value = note.text || '';
-                if (noteCount) noteCount.textContent = (note.text || '').length;
 
                 const expireAt = note.expireAt
                     ? (note.expireAt.seconds ? new Date(note.expireAt.seconds * 1000) : new Date(note.expireAt))
@@ -7998,8 +8040,8 @@ function startHighlightReply(commentId, authorName) {
                     noteStatus.style.display = 'none';
                 }
             } else {
-                if (noteInput) noteInput.value = '';
-                if (noteCount) noteCount.textContent = '0';
+                if (noteInput && !noteInputActive) noteInput.value = '';
+                if (noteCount && !noteInputActive) noteCount.textContent = '0';
                 if (noteStatus) noteStatus.style.display = 'none';
             }
 
@@ -8016,8 +8058,86 @@ function startHighlightReply(commentId, authorName) {
             if (noteInput) {
                 noteInput.addEventListener('input', function() {
                     document.getElementById('titaNoteCount').textContent = this.value.length;
+                    detectNoteMention(this);
                 });
+                noteInput.addEventListener('keydown', handleNoteMentionKeydown);
+                noteInput.addEventListener('blur', () => setTimeout(closeNoteMention, 180));
             }
+        });
+
+        function detectNoteMention(input) {
+            const cursor = input.selectionStart || 0;
+            const match = input.value.slice(0, cursor).match(MENTION_REGEX);
+            const dropdown = document.getElementById('titaNoteMentionDropdown');
+            if (!match || !dropdown) { closeNoteMention(); return; }
+            const query = match[1].trim().toLowerCase();
+            const myUid = titaCurrentUser && titaCurrentUser.uid;
+            noteMentionCandidates = Object.values(userProfileCache)
+                .filter(u => (u.id || u.uid) && (u.id || u.uid) !== myUid && (u.displayName || u.email))
+                .filter(u => !query || (u.displayName || u.email || '').toLowerCase().includes(query))
+                .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''))
+                .slice(0, MENTION_MAX_RESULTS);
+            noteMentionIndex = 0;
+            noteMentionAnchorStart = cursor - match[0].length;
+            noteMentionOpen = true;
+            dropdown.innerHTML = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
+                (noteMentionCandidates.length ? noteMentionCandidates.map((u, i) => {
+                    const name = u.displayName || u.email || 'Member';
+                    const initials = name.split(' ').map(x => x[0]).join('').toUpperCase().slice(0, 2);
+                    const avatar = u.photoURL ? `<img src="${cloudinaryAvatar(u.photoURL, 80)}" alt="${escapeAttr(name)}" loading="lazy">` : escapeHtml(initials);
+                    return `<button type="button" class="mention-option ${i === noteMentionIndex ? 'active' : ''}" data-note-mention="${i}"><span class="mention-avatar">${avatar}</span><span class="mention-info"><span class="mention-name">${escapeHtml(name)}</span><span class="mention-hint">Tap to mention</span></span></button>`;
+                }).join('') : '<div class="mention-dropdown-empty">No members found</div>');
+            dropdown.classList.add('show');
+        }
+
+        function renderNoteMentionSelection() {
+            const dropdown = document.getElementById('titaNoteMentionDropdown');
+            if (!dropdown) return;
+            dropdown.querySelectorAll('.mention-option').forEach((el, i) => el.classList.toggle('active', i === noteMentionIndex));
+            const active = dropdown.querySelector('.mention-option.active');
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        }
+
+        function handleNoteMentionKeydown(e) {
+            if (!noteMentionOpen) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                noteMentionIndex = (noteMentionIndex + (e.key === 'ArrowDown' ? 1 : -1) + noteMentionCandidates.length) % noteMentionCandidates.length;
+                renderNoteMentionSelection();
+            } else if ((e.key === 'Enter' || e.key === 'Tab') && noteMentionCandidates[noteMentionIndex]) {
+                e.preventDefault(); insertNoteMention(noteMentionIndex);
+            } else if (e.key === 'Escape') { e.preventDefault(); closeNoteMention(); }
+        }
+
+        function insertNoteMention(index) {
+            const input = document.getElementById('titaNote');
+            const user = noteMentionCandidates[index];
+            if (!input || !user) return;
+            const uid = user.id || user.uid;
+            const name = user.displayName || user.email || 'Member';
+            const cursor = input.selectionStart || 0;
+            const start = noteMentionAnchorStart >= 0 ? noteMentionAnchorStart : cursor;
+            const inserted = `@${name} `;
+            input.value = input.value.slice(0, start) + inserted + input.value.slice(cursor);
+            if (uid) notePendingMentions.set(name.toLowerCase(), { uid, name });
+            const next = start + inserted.length;
+            input.setSelectionRange(next, next);
+            document.getElementById('titaNoteCount').textContent = input.value.length;
+            closeNoteMention();
+            input.focus();
+        }
+
+        function closeNoteMention() {
+            const dropdown = document.getElementById('titaNoteMentionDropdown');
+            if (dropdown) dropdown.classList.remove('show');
+            noteMentionOpen = false;
+            noteMentionCandidates = [];
+            noteMentionAnchorStart = -1;
+        }
+
+        document.addEventListener('click', function(e) {
+            const option = e.target.closest('[data-note-mention]');
+            if (option) insertNoteMention(Number(option.dataset.noteMention));
         });
 
         function titaToggleCustomLocation() {
@@ -8093,18 +8213,18 @@ function startHighlightReply(commentId, authorName) {
                 const oldText = existingNote?.text || '';
                 const noteMusic = NoteMusic.getDraftForSave();
                 const replacing = NoteMusic.isReplacing();
-                const textChanged = replacing || noteText !== oldText || (noteMusic ? noteMusic.trackId : '') !== NoteMusic.idOf(existingNote);
+                const textChanged = noteText !== oldText || (noteMusic ? noteMusic.trackId : '') !== NoteMusic.idOf(existingNote);
                 const hadNote = NoteMusic.hasContent(existingNote);
                 const willHaveNote = !!noteText || !!noteMusic;
 
                 if (textChanged) {
-                    if (hadNote) {
+                    if (hadNote && replacing) {
                         await purgeCommentsForNote(titaCurrentUser.uid);
                     }
 
                     if (willHaveNote) {
-                        // A brand-new / replaced note gets a fresh 24h; a plain edit keeps its expiry.
-                        const freshNote = replacing || !NoteMusic.isActive(existingNote);
+                        // A brand-new or expired note gets a fresh 24h. Edits and song changes keep an active note's expiry.
+                        const freshNote = !NoteMusic.isActive(existingNote);
                         const expireTs = freshNote
                             ? firebase.firestore.Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
                             : existingNote.expireAt;
@@ -8122,6 +8242,7 @@ function startHighlightReply(commentId, authorName) {
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                         await notifyNoteMentions(noteText, displayName);
+                        notePendingMentions.clear();
                         NoteMusic.setReplaceNote({ text: noteText, music: noteMusic, expireAt: expireTs });
                     } else {
                         try { await noteRef.delete(); } catch (e) { /* ignore */ }
@@ -8266,6 +8387,20 @@ function startHighlightReply(commentId, authorName) {
 
         document.addEventListener('DOMContentLoaded', function() {
             showLoadingOverlay('Loading TIMAWA…');
+            if (!navigator.onLine) {
+                landingOfflineChoiceShown = true;
+                const continueOffline = () => {
+                    loadCarouselData('coffeeShops', 'coffeeTrack', 'coffeeDots', 'coffee');
+                    loadCarouselData('favoritePlaces', 'placesTrack', 'placesDots', 'places');
+                    loadCarouselData('thingsToDo', 'activitiesTrack', 'activitiesDots', 'activities');
+                    loadMembersFromFirestore();
+                    loadNotes();
+                    hideLoadingOverlay();
+                };
+                if (window.TIMAWA_PWA?.showOfflineChoice) window.TIMAWA_PWA.showOfflineChoice({ onContinue: continueOffline });
+                else continueOffline();
+                return;
+            }
 
             loadCarouselData('coffeeShops', 'coffeeTrack', 'coffeeDots', 'coffee');
             loadCarouselData('favoritePlaces', 'placesTrack', 'placesDots', 'places');

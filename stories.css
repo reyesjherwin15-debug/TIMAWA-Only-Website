@@ -106,7 +106,10 @@ html.st-lock, html.st-lock body { overflow: hidden !important; }
     text-shadow: 0 1px 6px rgba(0,0,0,.8); max-height: 84px; overflow: auto; pointer-events: auto; overflow-wrap: anywhere;
 }
 .st-bottom { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; padding: 10px 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; }
-.st-rsum { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 0; }
+.st-rsum { position: absolute; right: 12px; bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 68px)); z-index: 7; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-self: flex-end; min-height: 0; max-width: 48%; pointer-events: none; }
+.st-frame:has(.st-vsheet:not([hidden])) .st-vsheet { z-index: 8; }
+.st-frame:has(.st-vsheet:not([hidden])) .st-rsum { z-index: 10; bottom: max(72px, calc(env(safe-area-inset-bottom, 0px) + 68px)); }
+@media (max-width: 640px) { .st-frame:has(.st-vsheet:not([hidden])) .st-rsum { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); } }
 .st-rsum span { background: rgba(0,0,0,.45); border-radius: 999px; padding: 3px 9px; font-size: 13px; }
 .st-rsum span.mine { outline: 1.5px solid var(--theme-primary, #fff); }
 .st-music { display: block; }
@@ -259,6 +262,21 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
    v1.3 additions
    ================================================================ */
 .st-viewer [hidden], .st-comp [hidden] { display: none !important; }
+.st-cbody { position: relative; }
+.st-sh-b { position: relative; }
+.st-sh-b > input[data-in="caption"] { position: relative; z-index: 1; }
+.st-sh-b:has(.st-mention-list.show) { padding-bottom: 190px; }
+@supports not selector(:has(*)) { .st-mention-list.show { position: relative; margin-bottom: 180px; } }
+.st-viewer .st-vsheet[hidden] { display: none !important; }
+.st-viewer .st-vsheet:not([hidden]) { transform: translateY(var(--st-viewer-drag, 0px)); }
+.st-viewer .st-frame:has(.st-vsheet:not([hidden])) { touch-action: pan-y; }
+.st-viewer .st-vsheet:not([hidden]) { touch-action: none; }
+.st-viewer .st-vsheet:not([hidden]) .st-vlist { touch-action: pan-y; }
+.st-viewer .st-frame:has(.st-vsheet:not([hidden])) .st-vsheet { max-height: 72%; }
+.st-viewer .st-vsheet.expanded { max-height: 92%; transform: translateY(0) !important; }
+.st-viewer .st-vsheet.expanded .st-vlist { flex: 1; min-height: 0; }
+.st-viewer .st-vsheet.dragging { transition: none !important; }
+@media (max-width: 640px) { .st-viewer .st-rsum { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); } }
 .st-viewer { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; }
 .st-bd { position: absolute; inset: 0; background: rgba(8, 8, 14, .92); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .st-frame { z-index: 1; touch-action: none; will-change: transform; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -278,9 +296,14 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 .st-act:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .st-vsheet {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; max-height: 72%; display: flex; flex-direction: column;
+    transform: translateY(var(--st-viewer-drag, 0px)); transition: transform .18s ease-out;
+    touch-action: pan-y; overscroll-behavior: contain;
     background: rgba(18, 18, 26, .97); border-radius: 20px 20px 0 0; box-shadow: 0 -12px 40px rgba(0, 0, 0, .5); animation: stUp .24s cubic-bezier(.22, .9, .28, 1);
 }
-.st-vh { display: flex; align-items: center; gap: 8px; padding: 14px 14px 8px; }
+.st-vsheet.dragging { transition: none; }
+.st-vsheet:not([hidden]) ~ .st-bottom .st-own { position: relative; z-index: 9; }
+.st-vh { display: flex; align-items: center; gap: 8px; padding: 14px 14px 8px; touch-action: none; cursor: grab; }
+.st-vh::before { content: ''; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 38px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.38); }
 .st-vh b { flex: 1; font-size: 15px; }
 .st-vlist { list-style: none; margin: 0; padding: 4px 14px 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; }
 .st-vi { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
@@ -568,6 +591,12 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
     .st-dlg-card { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
     .st-dlg-card { transform: translateY(40px); }
 }
+@media (max-width: 640px) {
+    .st-viewer { align-items: stretch; }
+    .st-frame { height: var(--st-vv-height, 100dvh); min-height: var(--st-vv-height, 100dvh); }
+    .st-bottom .st-caption { padding-right: 44px; text-align: left; }
+    .st-viewer .st-rsum { right: 12px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); max-width: 45%; }
+}
 @media (prefers-reduced-motion: reduce) { .st-dlg-bd, .st-dlg-card, .st-dlg-act button { transition: none !important; } }
 
 
@@ -580,13 +609,18 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 .st-bd { background: rgba(8, 8, 14, .94); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .st-viewer .st-bgblur img { filter: none; transform: none; opacity: .6; }       /* tiny image scaled up = free blur */
 .st-viewer.anim .st-music-card, .st-viewer.anim .st-act, .st-viewer.anim .st-tray { -webkit-backdrop-filter: none; backdrop-filter: none; }
-.st-vlist, .st-bottom .st-caption { touch-action: pan-y; }
+.st-vlist, .st-bottom .st-caption, .st-vh { touch-action: pan-y; }
+.st-vsheet { will-change: transform; }
 .st-frame { backface-visibility: hidden; }
 
 /* ---------- touch and hold: pause and hide every control to see the whole story ---------- */
 .st-top, .st-bottom, .st-scrim-t, .st-scrim-b, .st-vsheet, .st-nav { transition: opacity .16s ease; }
 .st-viewer.clean .st-top, .st-viewer.clean .st-bottom, .st-viewer.clean .st-scrim-t, .st-viewer.clean .st-scrim-b,
 .st-viewer.clean .st-vsheet, .st-viewer.clean .st-nav { opacity: 0; pointer-events: none; }
+.st-caption-field { position: relative; }
+.st-mention-list { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); margin: 0; max-height: min(180px, 30vh); overflow-y: auto; z-index: 20; }
+.st-sh-b:has(.st-caption-field .st-mention-list.show) { padding-bottom: 195px; }
+@supports not selector(:has(*)) { .st-mention-list.show { position: relative; margin: 8px 0 180px; } }
 
 /* ---------- editor: moving / scaling / rotating shows the whole element ---------- */
 .st-tools { transition: opacity .15s ease; }

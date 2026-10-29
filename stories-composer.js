@@ -96,6 +96,26 @@
 
         root.addEventListener('click', onClick);
         q.shb.addEventListener('input', onInput);
+        q.shb.addEventListener('keydown', e => {
+            const input = e.target;
+            if (input.dataset.in !== 'caption') return;
+            if (captionMentionOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                e.preventDefault();
+                captionMentionIndex = (captionMentionIndex + (e.key === 'ArrowDown' ? 1 : -1) + captionMentionCandidates.length) % captionMentionCandidates.length;
+                renderCaptionMentions(input);
+            } else if (captionMentionOpen && (e.key === 'Enter' || e.key === 'Tab')) {
+                const user = captionMentionCandidates[captionMentionIndex];
+                if (user) { e.preventDefault(); selectCaptionMention(input, user); }
+            } else if (e.key === 'Escape' && captionMentionOpen) {
+                captionMentionOpen = false; renderCaptionMentions(input);
+            }
+        });            q.shb.addEventListener('click', e => {
+            const option = e.target.closest('[data-mention-idx]');
+            if (!option) return;
+            const input = q.shb.querySelector('[data-in="caption"]');
+            const user = captionMentionCandidates[Number(option.dataset.mentionIdx)];
+            if (input && user) selectCaptionMention(input, user);
+        });
         q.shb.addEventListener('change', e => {
             if (e.target.type !== 'range') return;
             if (e.target.dataset.in === 'size' || e.target.dataset.in === 'rot') pushHist();
@@ -418,7 +438,7 @@
             <p class="st-hint">How long viewers see this story (15 s – 1 min).</p>`;
     }
     function captionSheet() {
-        return `<input class="st-input" data-in="caption" maxlength="${MAX_CAPTION}" placeholder="Say something about this moment… (@name to mention)" value="${S.esc(M.caption)}" aria-label="Caption"><p class="st-hint">Shown at the bottom of your story. Up to ${MAX_CAPTION} characters.</p>`;
+        return `<div class="st-caption-field"><input class="st-input" data-in="caption" maxlength="${MAX_CAPTION}" placeholder="Say something about this moment… (@name to mention)" value="${S.esc(M.caption)}" aria-label="Caption"><p class="st-hint">Shown at the bottom of your story. Up to ${MAX_CAPTION} characters.</p></div>`;
     }
 
     const snap = () => JSON.stringify(M.texts);
@@ -752,7 +772,7 @@
 
     function onInput(e) {
         const k = e.target.dataset.in, t = selT();
-        if (k === 'caption') { M.caption = e.target.value.slice(0, MAX_CAPTION); renderTools(); renderCaption(); }
+        if (k === 'caption') { M.caption = e.target.value.slice(0, MAX_CAPTION); detectCaptionMention(e.target); renderTools(); renderCaption(); }
         else if (k === 'mediaScale') { M.mt.scale = S.clamp(Number(e.target.value) / 100, 0.5, 3); applyMT(); const z = $('.st-zoomv'); if (z) z.textContent = Math.round(M.mt.scale * 100) + '%'; }
         else if (k === 'music') { M.query = e.target.value; }
         else if (k === 'spotify') { M.spq = e.target.value; }
@@ -859,19 +879,74 @@
     /* ------------------------------------------------------------------ */
     let mentionDirectory = null;
     let mentionDirectoryAt = 0;
+    let captionMentionCandidates = [];
+    let captionMentionIndex = 0;
+    let captionMentionOpen = false;
+
+    async function getMentionDirectory() {
+        if (!mentionDirectory || Date.now() - mentionDirectoryAt > 5 * 60 * 1000) {
+            const snap = await C.db.collection('users').get();
+            mentionDirectory = snap.docs
+                .map(d => ({ uid: d.id, name: ((d.data() || {}).displayName || '').trim(), photo: ((d.data() || {}).photoURL || '') }))
+                .filter(u => u.name && u.uid !== C.me.uid)
+                .sort((a, b) => a.name.localeCompare(b.name));
+            mentionDirectoryAt = Date.now();
+        }
+        return mentionDirectory;
+    }
+
+    function detectCaptionMention(input) {
+        const cursor = input.selectionStart;
+        const match = input.value.slice(0, cursor).match(/@([\w\s.'-]{0,30})$/);
+        if (!match) { captionMentionOpen = false; captionMentionCandidates = []; renderCaptionMentions(input); return; }
+        const query = match[1].trim().toLowerCase();
+        getMentionDirectory().then(users => {
+            if (!input.isConnected || document.activeElement !== input || input.selectionStart !== cursor) return;
+            const q = input.value.slice(0, cursor).match(/@([\w\s.'-]{0,30})$/)?.[1].trim().toLowerCase();
+            if (q === undefined) { captionMentionOpen = false; renderCaptionMentions(input); return; }
+            captionMentionCandidates = users.filter(u => u.uid !== C.me.uid && (!q || u.name.toLowerCase().includes(q))).slice(0, 6);
+            captionMentionIndex = 0;
+            captionMentionOpen = true;
+            renderCaptionMentions(input);
+        }).catch(() => { captionMentionOpen = false; });
+    }
+
+    function renderCaptionMentions(input) {
+        if (!q || !q.shb) return;
+        let box = q.shb.querySelector('.st-mention-list');
+        if (!box) {
+            box = document.createElement('div'); box.className = 'mention-dropdown st-mention-list';
+            const field = input.parentElement;
+            field.appendChild(box);
+        }
+        if (!captionMentionOpen) { box.classList.remove('show'); return; }
+        box.innerHTML = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
+            (captionMentionCandidates.length ? captionMentionCandidates.map((u, i) => `<button type="button" class="mention-option ${i === captionMentionIndex ? 'active' : ''}" data-mention-idx="${i}"><span class="mention-info"><span class="mention-name">${S.esc(u.name)}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('') : '<div class="mention-dropdown-empty">No members found</div>');
+        box.classList.add('show');
+    }
+
+    function selectCaptionMention(input, user) {
+        const cursor = input.selectionStart;
+        const before = input.value.slice(0, cursor), after = input.value.slice(cursor);
+        const match = before.match(/@([\w\s.'-]{0,30})$/);
+        if (!match) return;
+        const start = cursor - match[0].length;
+        const inserted = '@' + user.name.replace(/\s+/g, ' ') + ' ';
+        input.value = input.value.slice(0, start) + inserted + after;
+        M.caption = input.value.slice(0, MAX_CAPTION);
+        const next = start + inserted.length;
+        input.setSelectionRange(next, next);
+        captionMentionOpen = false;
+        renderCaptionMentions(input);
+        renderTools(); renderCaption(); input.focus();
+    }
 
     async function resolveStoryMentions(text) {
         const caption = String(text || '');
         if (caption.indexOf('@') === -1) return [];
         try {
-            if (!mentionDirectory || Date.now() - mentionDirectoryAt > 5 * 60 * 1000) {
-                const snap = await C.db.collection('users').get();
-                mentionDirectory = snap.docs
-                    .map(d => ({ uid: d.id, name: ((d.data() || {}).displayName || '').trim() }))
-                    .filter(u => u.name)
-                    .sort((a, b) => b.name.length - a.name.length);
-                mentionDirectoryAt = Date.now();
-            }
+            await getMentionDirectory();
+            mentionDirectory.sort((a, b) => b.name.length - a.name.length);
         } catch (err) {
             return [];
         }
@@ -897,7 +972,8 @@
                 batch.set(ref, {
                     type: 'mention',
                     pushPending: true,
-                    pushContext: 'mention',
+                    pushContext: `mention:story_${storyId}`,
+                    pushUrl: `index.html?story=${encodeURIComponent(storyId)}`,
                     title: `📣 ${C.me.name} mentioned you in their story`,
                     message: `"${snippet}"`,
                     icon: '📣',

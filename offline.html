@@ -1,167 +1,62 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<!-- ═══ TIMAWA page header ═══ -->
-<!--
-  TIMAWA — offline fallback
-  ============================================================================
-  Shown by sw.js when a member opens a page that was never cached while the
-  device is offline. Deliberately dependency-free: inline CSS, one precached
-  icon, no external requests — it has to render with no network at all.
-
-  Shared by every page
-    theme.css / theme.js   theme system (26 presets) — loads before first paint
-    mobile-nav.*           slide-in burger drawer for screens <= 768px
-    pwa.js / pwa.css       service worker, install banner, push subscriptions
-    idle-logout.js         signs the member out after inactivity
-    visit-tracker.js       one Firestore write per session (lastVisit)
-
-  Firebase: compat v9, project `timawa2`, default app (auth + firestore).
--->
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#1089d3" />
-    <title>TIMAWA — Offline</title>
-    <link rel="manifest" href="manifest.json" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="TIMAWA" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
-    <style>
-        :root {
-            --brand: #1089d3;
-            --brand-2: #12b1d1;
-            --ink: #101828;
-            --muted: #667085;
-            --bg: #f8faff;
-            --card: #ffffff;
-            --line: #eaecf0;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --ink: #eef2f7;
-                --muted: #98a2b3;
-                --bg: #0b1220;
-                --card: #131c2b;
-                --line: #23304a;
-            }
-        }
-
-        * { box-sizing: border-box; }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            min-height: 100dvh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;   /* fallback for browsers without env() */
-            padding: calc(24px + env(safe-area-inset-top, 0px))
-                     calc(24px + env(safe-area-inset-right, 0px))
-                     calc(24px + env(safe-area-inset-bottom, 0px))
-                     calc(24px + env(safe-area-inset-left, 0px));
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background:
-                radial-gradient(700px 380px at 12% -10%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 70%),
-                radial-gradient(600px 340px at 90% 110%, color-mix(in srgb, var(--brand-2) 14%, transparent), transparent 70%),
-                var(--bg);
-            color: var(--ink);
-        }
-
-        .card {
-            width: min(420px, 100%);
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 26px;
-            padding: 34px 28px 28px;
-            text-align: center;
-            box-shadow: 0 30px 60px -30px rgba(16, 24, 40, 0.35);
-        }
-
-        .mark {
-            width: 64px;
-            height: 64px;
-            border-radius: 18px;
-            overflow: hidden;
-            margin: 0 auto 18px;
-            background: #fff;
-            box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.08), 0 12px 24px -14px rgba(16, 137, 211, 0.5);
-        }
-
-        .mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-        h1 {
-            margin: 0 0 8px;
-            font-size: 23px;
-            letter-spacing: -0.02em;
-        }
-
-        p {
-            margin: 0 0 22px;
-            font-size: 14px;
-            line-height: 1.6;
-            color: var(--muted);
-        }
-
-        .actions {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        button, a.button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            padding: 13px 18px;
-            border-radius: 14px;
-            font: inherit;
-            font-size: 14px;
-            font-weight: 700;
-            text-decoration: none;
-            cursor: pointer;
-            border: 1px solid transparent;
-        }
-
-        button {
-            color: #fff;
-            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
-            box-shadow: 0 14px 26px -16px rgba(16, 137, 211, 0.9);
-        }
-
-        a.button {
-            color: var(--ink);
-            background: transparent;
-            border-color: var(--line);
-        }
-
-        .hint {
-            margin: 20px 0 0;
-            font-size: 11.5px;
-            color: var(--muted);
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16233a">
+  <title>TIMAWA — Offline</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #101827; color: #f8fafc; }
+    main { width: min(100%, 480px); padding: 30px; border: 1px solid #334155; border-radius: 24px; background: #1e293b; box-shadow: 0 20px 60px #02061780; }
+    .mark { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; background: linear-gradient(135deg,#0ea5e9,#6366f1); font-size: 25px; font-weight: 900; }
+    h1 { margin: 18px 0 8px; font-size: 26px; }
+    p { color: #cbd5e1; line-height: 1.55; }
+    .actions { display: grid; gap: 10px; margin-top: 22px; }
+    button { min-height: 48px; padding: 12px 16px; border: 0; border-radius: 13px; color: #fff; background: #2563eb; font: inherit; font-weight: 750; cursor: pointer; }
+    button.secondary { color: #e2e8f0; background: #334155; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    small { display: block; margin-top: 18px; color: #94a3b8; }
+    #status { min-height: 1.5em; color: #bae6fd; }
+  </style>
 </head>
 <body>
-    <main class="card">
-        <div class="mark"><img src="icons/icon-192.png" alt="TIMAWA" /></div>
-        <h1>You're offline</h1>
-        <p>
-            This page hasn't been saved on this device yet. Pages you've already opened still
-            work, and anything you post will sync once you're back online.
-        </p>
-        <div class="actions">
-            <button type="button" onclick="location.reload()">Try again</button>
-            <a class="button" href="index.html">Go to the home page</a>
-        </div>
-        <p class="hint">TIMAWA works best installed to your home screen.</p>
-    </main>
+  <main>
+    <div class="mark" aria-hidden="true">T</div>
+    <h1>You're offline</h1>
+    <p>TIMAWA can reopen a page previously saved on this device. Offline changes may not sync until the connection returns.</p>
+    <p id="status" role="status" aria-live="polite"></p>
+    <div class="actions">
+      <button id="openLast" type="button">Open last saved page</button>
+      <button id="openHome" class="secondary" type="button">Open TIMAWA home</button>
+      <button id="retry" class="secondary" type="button">Check connection</button>
+    </div>
+    <small>Only pages and data cached before you went offline are available.</small>
+  </main>
+  <script>
+    (function () {
+      'use strict';
+      var status = document.getElementById('status');
+      function localPage(value) {
+        try {
+          var target = new URL(value || './index.html', location.href);
+          return target.origin === location.origin && target.pathname.startsWith(new URL('./', location.href).pathname) ? target.href : new URL('./index.html', location.href).href;
+        } catch (_) { return new URL('./index.html', location.href).href; }
+      }
+      function go(target) { location.href = localPage(target); }
+      document.getElementById('openLast').addEventListener('click', function () {
+        var last = '';
+        try { last = localStorage.getItem('timawa.lastPage') || ''; } catch (_) {}
+        go(last || './dashboard.html');
+      });
+      document.getElementById('openHome').addEventListener('click', function () { go('./index.html'); });
+      document.getElementById('retry').addEventListener('click', function () {
+        if (navigator.onLine) { status.textContent = 'Connection detected. Opening TIMAWA…'; go('./index.html'); }
+        else status.textContent = 'Still offline. You can open a page saved on this device.';
+      });
+      window.addEventListener('online', function () { status.textContent = 'Connection restored. Reopen TIMAWA to sync.'; });
+    })();
+  </script>
 </body>
 </html>

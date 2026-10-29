@@ -17,13 +17,13 @@ This script watches for those flags, applies the read-state rules, sends, and
 clears the flag again.
 
 Rules implemented here (see PWA-PUSH-SETUP.md)
-  1. message sent        -> the receiver gets a notification
-  2. still unread        -> no new notification (they already have a live one)
-  3. read by the receiver-> the NEXT message arms a fresh notification
-
-Rule 2 is enforced twice: the page only sets pushPending when the previous
-message was read, and this script re-reads readBy immediately before sending,
-so a member who reads while the dispatcher is idle never gets a stale ping.
+  1. every flagged event  -> a notification, read or unread
+     (messages, mentions, reactions, highlights/posts, admin announcements)
+  2. consecutive events in the same conversation THREAD: the payload tag comes
+     from `pushContext`, so the device replaces the previous notification
+     instead of stacking one per message
+  3. `readBy` is no longer a gate — opening the screen still closes the
+     notification (the page does that), but it never suppresses a new one
 """
 
 from __future__ import annotations
@@ -67,9 +67,20 @@ def build_payload(doc_id: str, item: dict, default_url: str = "dashboard.html") 
     url = item.get("pushUrl") or item.get("link") or default_url
     title = (item.get("title") or "TIMAWA").strip()
     body = (item.get("message") or "").strip() or "Open TIMAWA to see it."
-    # Stable per announcement doc: a repeat replaces the old notification on
-    # the device instead of stacking a second copy.
-    tag = f"ann_{ann_type}_{doc_id}"
+
+    # THREADING: a conversation-scoped context (chat:<uid>, mention:squad, ...)
+    # becomes the tag, so the next event replaces this notification on the
+    # device. Admin broadcasts (ann:*) stay one-per-document instead of all
+    # collapsing into a single card.
+    if context and not context.startswith("ann:"):
+        tag = f"timawa_{context}"
+    else:
+        tag = f"ann_{ann_type}_{doc_id}"
+
+    # "· 3 new" on threaded chat notifications.
+    count = item.get("pushCount")
+    if isinstance(count, int) and count > 1:
+        body = f"{body} · {count} new"
 
     return {
         "title": title,
@@ -110,7 +121,11 @@ def load_subscriptions(db, uid: str | None, limit: int = 500):
 def decide(item: dict, receiver_uid: str | None) -> tuple[bool, str]:
     """(should_send, why). Mirrors the rules in PWA-PUSH-SETUP.md.
 
-    receiver_uid is the announcement's targetUid (None = broadcast)."""
+    receiver_uid is the announcement's targetUid (None = broadcast).
+
+    Read state is deliberately NOT considered: a member who already opened the
+    app still gets the next message (threaded on the same tag). The page closes
+    the notification when they reach the screen it belongs to."""
     if not item.get("pushPending"):
         return False, "not flagged"
 
@@ -123,10 +138,6 @@ def decide(item: dict, receiver_uid: str | None) -> tuple[bool, str]:
         if sender_uid and sender_uid == receiver_uid:
             return False, "sender is the receiver"
 
-    read_by = item.get("readBy")
-    if receiver_uid and isinstance(read_by, list) and receiver_uid in read_by:
-        # Rule 3 boundary: it was read before we got around to sending.
-        return False, "already read"
     return True, "ok"
 
 
@@ -137,12 +148,12 @@ def handle(ref, item: dict, *, db, vapid_private, subject: str,
 
     should, why = decide(item, target_uid)
     if not should:
-        if item.get("pushPending") and why in ("already read", "sender is the receiver"):
+        if item.get("pushPending"):
             try:
                 ref.update({"pushPending": False,
                             "pushSkippedAt": datetime.now(timezone.utc),
-                            "pushSkipReason": "read before dispatch"})
-                log(f"[{doc_id}] read before we sent -> flag cleared (no push)")
+                            "pushSkipReason": why})
+                log(f"[{doc_id}] skipped: {why}")
             except Exception as exc:  # noqa: BLE001
                 log(f"[{doc_id}] could not clear flag: {exc}")
         return

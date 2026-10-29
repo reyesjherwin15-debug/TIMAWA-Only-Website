@@ -2809,6 +2809,9 @@
         .chat-mobile-back i {
             font-size: 14px;
         }
+        .chat-desktop-back { display: none; }
+        .chat-container.fullscreen-chat .chat-desktop-back { display: inline-flex; margin: 8px 12px 0; }
+        @media (max-width: 768px) { .chat-container.fullscreen-chat .chat-desktop-back { display: none; } }
 
         .mention-dropdown {
             position: absolute;
@@ -2833,6 +2836,12 @@
         }
 
         .mention-dropdown.show { display: block; }
+        .highlight-caption-group, .tita-note-editor { position: relative; }
+        .highlight-caption-group .mention-dropdown,
+        .tita-note-editor .mention-dropdown { left: 0; right: 0; bottom: auto; top: 100%; margin: 6px 0 0; z-index: 120; }
+        .upload-progress { height: 8px; margin: 0 0 14px; overflow: hidden; border-radius: 999px; background: var(--theme-border-soft); }
+        .upload-progress[hidden] { display: none; }
+        .upload-progress span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--theme-gradient); transition: width .12s linear; }
 
         .mention-dropdown-header {
             font-size: 10px;
@@ -4104,8 +4113,13 @@
             overflow: hidden;
             border-radius: 24px 24px 0 0;
         }
-
-        .highlight-detail-modal .modal-header img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .hl-detail-image-nav { position: absolute; top: 50%; z-index: 4; width: 42px; height: 42px; display: grid; place-items: center; transform: translateY(-50%); border: 0; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; cursor: pointer; }
+        .hl-detail-image-nav[hidden] { display: none; }
+        .hl-detail-image-nav.prev { left: 12px; }
+        .hl-detail-image-nav.next { right: 12px; }
+        .highlight-detail-modal .modal-header img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
         .highlight-detail-modal .modal-header .hl-multi-badge { position: absolute; bottom: 14px; left: 14px; background: rgba(0,0,0,0.7); color: white; padding: 6px 14px; border-radius: 50px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
         .highlight-detail-modal .modal-body { padding: 26px 30px 30px; }
         .highlight-detail-modal .hl-author-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
@@ -4857,7 +4871,7 @@
             display: flex; gap: 8px; align-items: flex-end;
         }
         .note-comment-input-wrap textarea {
-            flex: 1;
+            flex: 1; min-width: 0; width: 100%; box-sizing: border-box;
             min-height: 40px;
             max-height: 100px;
             padding: 10px 14px;
@@ -5097,7 +5111,7 @@
             display: flex; gap: 8px; align-items: flex-end;
         }
         .highlight-comment-input-wrap textarea {
-            flex: 1;
+            flex: 1; min-width: 0; width: 100%; box-sizing: border-box;
             min-height: 40px;
             max-height: 100px;
             padding: 10px 14px;
@@ -5322,6 +5336,11 @@
             opacity: 1;
             pointer-events: auto;
         }
+
+        body.mnav-open .tita-launcher,
+        body.mnav-open .tita-panel { display: none !important; }
+        body.mnav-open .mnav-backdrop { z-index: 2600 !important; }
+        body.mnav-open .mnav-drawer { z-index: 2601 !important; }
 
         .tita-header {
             background: var(--theme-gradient);
@@ -5693,16 +5712,16 @@
                 display: flex;
                 flex-direction: column;
                 position: fixed;
-                top: 0;
+                top: var(--chat-vv-top, 0px);
                 left: 0;
                 right: 0;
-                bottom: 0;
+                bottom: auto;
                 z-index: 6000;
                 border-radius: 0;
                 border: none;
-                height: 100vh;
-                height: 100dvh;
-                max-height: 100dvh;
+                height: var(--chat-vv-height, 100vh);
+                height: var(--chat-vv-height, 100dvh);
+                max-height: var(--chat-vv-height, 100dvh);
                 width: 100vw;
                 overflow: hidden;
                 overscroll-behavior: contain;
@@ -5784,6 +5803,7 @@
             .chat-mobile-back {
                 display: inline-flex;
             }
+            .chat-desktop-back { display: none !important; }
 
             .chat-sidebar-toggle {
                 display: none;
@@ -7319,9 +7339,10 @@
                             <div class="chat-user-list" id="chatUserList"></div>
                         </aside>
                         <div class="chat-main" id="chatMain">
-                            <div class="chat-mobile-back" onclick="showChatSidebar()">
-                                <i class="fas fa-chevron-left"></i> All chats
-                            </div>
+                <div class="chat-mobile-back" onclick="showChatSidebar()">
+                    <i class="fas fa-chevron-left"></i> Back to members
+                </div>
+                <button type="button" class="chat-mobile-back chat-desktop-back" onclick="showChatSidebar()" aria-label="Back to members"><i class="fas fa-arrow-left"></i> Back to members</button>
                             <div class="chat-main-empty" id="chatMainEmpty">
                                 <i class="fas fa-comments"></i>
                                 <h3>Select a conversation</h3>
@@ -7404,10 +7425,10 @@
     <div id="uploadModal" class="modal">
         <div class="modal-content">
             <h2><i class="fas fa-cloud-upload-alt"></i> Add Highlight</h2>
-            <form id="uploadForm">
-                <div class="input-group">
+            <form id="uploadForm">                    <div class="input-group highlight-caption-group">
                     <label>Caption</label>
-                    <textarea id="captionInput" placeholder="What's happening?"></textarea>
+                    <textarea id="captionInput" placeholder="What's happening? (type @ to mention)" autocomplete="off"></textarea>
+                    <div class="mention-dropdown" id="highlightCaptionMentionDropdown"></div>
                 </div>
                 <div class="input-group">
                     <label>Photos</label>
@@ -7418,6 +7439,7 @@
                     </div>
                     <input type="file" id="fileInput" accept="image/*" multiple style="display: none;" />
                 </div>
+                <div id="highlightUploadProgress" class="upload-progress" role="progressbar" aria-label="Highlight upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><span id="highlightUploadProgressFill"></span></div>
                 <div class="modal-actions">
                     <button type="submit" class="btn-primary" id="uploadBtn"><i class="fas fa-upload"></i> Upload</button>
                     <button type="button" class="btn-secondary" onclick="closeUploadModal()">Cancel</button>
@@ -7432,6 +7454,8 @@
             <div class="modal-header">
                 <button class="modal-close" onclick="closeHighlightDetail()" title="Close" aria-label="Close"><i class="fas fa-times"></i></button>
                 <img id="hlDetailImage" src="" alt="Highlight" />
+                <button type="button" id="hlDetailPrevImage" class="hl-detail-image-nav prev" aria-label="Previous photo" onclick="navigateHighlightDetailImage(-1)" hidden><i class="fas fa-chevron-left"></i></button>
+                <button type="button" id="hlDetailNextImage" class="hl-detail-image-nav next" aria-label="Next photo" onclick="navigateHighlightDetailImage(1)" hidden><i class="fas fa-chevron-right"></i></button>
                 <div class="hl-multi-badge" id="hlDetailMultiBadge" style="display:none;">
                     <i class="fas fa-images"></i> <span id="hlDetailMultiCount">0</span> photos
                 </div>
@@ -7713,7 +7737,10 @@
                     <label for="titaNote"><i class="fas fa-comment-dots"></i> Quick Note</label>
                     <span class="tita-counter"><span id="titaNoteCount">0</span>/60</span>
                 </div>
-                <input type="text" id="titaNote" placeholder="Coffee later? ☕" maxlength="60" autocomplete="off" />
+                <div class="tita-note-editor">
+                    <div class="mention-dropdown" id="titaNoteMentionDropdown"></div>
+                    <input type="text" id="titaNote" placeholder="Coffee later? ☕ (type @ to mention)" maxlength="60" autocomplete="off" />
+                </div>
                 <div id="titaNoteMusicRow"></div>
                 <div id="titaNoteReplaceRow"></div>
                 <div class="tita-note-meta" id="titaNoteStatus" style="display:none;">
@@ -7969,6 +7996,10 @@
         // ===== MENTION (notes) STATE =====
         let pendingMentions = new Map();
         let mentionDropdownIndex = -1;
+        let titaNoteMentionCandidates = [];
+        let titaNoteMentionIndex = 0;
+        let titaNoteMentionOpen = false;
+        let titaNoteMentionStart = -1;
         let mentionCandidates = [];
         let mentionDropdownOpen = false;
         let mentionAnchorStart = -1;
@@ -8316,6 +8347,21 @@
             hideLoadingOverlay(420);
         }
 
+        function showOfflineChoice() {
+            if (!window.TIMAWA_PWA || !window.TIMAWA_PWA.showOfflineChoice) return;
+            window.TIMAWA_PWA.showOfflineChoice();
+        }
+
+        function setupOfflineModeChoices() {
+            if (!navigator.onLine) setTimeout(showOfflineChoice, 0);
+            window.addEventListener('online', function () {
+                window.TIMAWA_PWA?.showConnectionChoice?.();
+            });
+            window.addEventListener('offline', function () {
+                showToast('Connection lost. Cached TIMAWA data remains available on this page.', 'warn', 5000);
+            });
+        }
+
         (function initConfirmBtn() {
             const okBtn = document.getElementById('confirmOkBtn');
             if (okBtn) {
@@ -8368,6 +8414,43 @@
         // ================================================================
         // ===== MODAL-OPEN STATE MANAGER =====
         // ================================================================
+        const modalBackStates = new Map();
+        let modalBackState = false;
+        let ignoredModalBackEvents = 0;
+        let modalBackStateId = null;
+        function pushModalBackState(id, close) {
+            if (modalBackStates.has(id)) return;
+            modalBackStates.set(id, close);
+            try { history.pushState({ ...(history.state || {}), timawaModal: id }, ''); } catch (_) { /* ignore */ }
+            modalBackStateId = id;
+            modalBackState = true;
+        }
+        function releaseModalBackState(id) {
+            modalBackStates.delete(id);
+            if (!modalBackState || modalBackStateId !== id) return;
+            modalBackState = false;
+            modalBackStateId = null;
+            ignoredModalBackEvents++;
+            setTimeout(() => history.back(), 0);
+        }
+        window.addEventListener('popstate', function() {
+            if (ignoredModalBackEvents > 0) {
+                ignoredModalBackEvents--;
+                modalBackState = !!modalBackStateId;
+                return;
+            }
+            if (!modalBackState) return;
+            modalBackState = false;
+            modalBackStateId = null;
+            const activeId = Array.from(modalBackStates.keys()).reverse().find(id => document.getElementById(id)?.classList.contains('active'));
+            if (activeId) {
+                const close = modalBackStates.get(activeId);
+                modalBackStates.delete(activeId);
+                close();
+            }
+            modalBackStateId = Array.from(modalBackStates.keys()).reverse()[0] || null;
+            modalBackState = !!modalBackStateId;
+        });
         function syncModalOpenState() {
             const anyOpen = anyModalOpen();
             if (anyOpen) {
@@ -8423,7 +8506,7 @@
             }
         }
 
-        function chatActiveTabIsSelected() {
+        function                chatActiveTabIsSelected() {
             const chatsPanel = document.getElementById('panel-chats');
             return chatsPanel && chatsPanel.classList.contains('active');
         }
@@ -8437,6 +8520,9 @@
         // ===== SOCIAL TABS =====
         // ================================================================
         function switchSocialTab(tab) {
+            if (tab !== 'chats' && document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) {
+                setChatFullscreen(false);
+            }
             const pills = document.querySelectorAll('.social-section .tab-pill');
             pills.forEach(p => {
                 p.classList.toggle('active', p.dataset.tab === tab);
@@ -8453,9 +8539,14 @@
 
             if (tab === 'chats') {
                 ensureChatListenersAttached();
-                if (isMobile()) {
-                    showChatSidebar();
-                }
+                // Opening the tab starts in fullscreen with the member list visible.
+                // Do not call showChatSidebar() here: that is the Back action and
+                // intentionally exits fullscreen to the Members tab.
+                const sidebar = document.getElementById('chatSidebar');
+                const main = document.getElementById('chatMain');
+                if (sidebar) sidebar.classList.remove('hidden');
+                if (main) main.classList.remove('visible');
+                setChatFullscreen(true);
                 loadChatConversationsSummary();
                 const countLabel = document.getElementById('memberCountLabel');
                 if (countLabel) countLabel.style.display = 'none';
@@ -8861,6 +8952,20 @@
             const main = document.getElementById('chatMain');
             if (sidebar) sidebar.classList.remove('hidden');
             if (main) main.classList.remove('visible');
+            if (document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) {
+                activeChatUid = null;
+                activeChatIsGroup = false;
+                chatMessages = [];
+                detachChatMessagesListener();
+                renderChatHeader();
+                setChatFullscreen(false, true);
+                switchSocialTab('members');
+                if (_chatFullscreenHistory) {
+                    _chatFullscreenHistory = false;
+                    ignoredChatBackEvents++;
+                    setTimeout(() => history.back(), 0);
+                }
+            }
         }
 
         function hideChatSidebar() {
@@ -8874,21 +8979,73 @@
         // ===== CHAT FULLSCREEN =====
         // ================================================================
         let _fullscreenScrollY = 0;
+        let _chatFullscreenHistory = false;
+        let ignoredChatBackEvents = 0;
+        window.addEventListener('popstate', function () {
+            if (ignoredChatBackEvents > 0) { ignoredChatBackEvents--; return; }
+            if (!_chatFullscreenHistory) return;
+            _chatFullscreenHistory = false;
+            const container = document.getElementById('chatContainerEl');
+            if (container?.classList.contains('fullscreen-chat')) {
+                activeChatUid = null;
+                activeChatIsGroup = false;
+                chatMessages = [];
+                detachChatMessagesListener();
+                renderChatHeader();
+                setChatFullscreen(false, true);
+                switchSocialTab('members');
+                const sidebar = document.getElementById('chatSidebar');
+                const main = document.getElementById('chatMain');
+                if (sidebar) sidebar.classList.remove('hidden');
+                if (main) main.classList.remove('visible');
+            }
+        });
+        (function syncChatVisualViewport() {
+            const update = () => {
+                const vv = window.visualViewport;
+                if (!vv) return;
+                document.documentElement.style.setProperty('--chat-vv-top', Math.max(0, vv.offsetTop) + 'px');
+                document.documentElement.style.setProperty('--chat-vv-height', Math.max(240, vv.height) + 'px');
+            };
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', update);
+                window.visualViewport.addEventListener('scroll', update);
+                update();
+            }
+        })();
 
         function toggleChatFullscreen() {
+            const container = document.getElementById('chatContainerEl');
+            if (!container) return;
+            if (container.classList.contains('fullscreen-chat')) {
+                showChatSidebar();
+                return;
+            }
+            setChatFullscreen(true);
+        }
+
+        function setChatFullscreen(isFullscreen, skipReturn) {
             const container = document.getElementById('chatContainerEl');
             const btn = document.getElementById('chatFullscreenBtn');
             const btnSidebar = document.getElementById('chatFullscreenBtnSidebar');
             if (!container) return;
-
-            const isFullscreen = container.classList.toggle('fullscreen-chat');
+            const wasFullscreen = container.classList.contains('fullscreen-chat');
+            container.classList.toggle('fullscreen-chat', !!isFullscreen);
             const body = document.body;
 
             if (isFullscreen) {
                 _fullscreenScrollY = window.scrollY || window.pageYOffset || 0;
                 body.style.top = `-${_fullscreenScrollY}px`;
                 body.classList.add('chat-fullscreen-active');
+                if (!_chatFullscreenHistory) {
+                    try { history.pushState({ timawaChatFullscreen: true }, ''); _chatFullscreenHistory = true; } catch (e) { /* ignore */ }
+                }
             } else {
+                if (wasFullscreen && _chatFullscreenHistory && !skipReturn) {
+                    _chatFullscreenHistory = false;
+                    ignoredChatBackEvents++;
+                    try { history.back(); } catch (e) { ignoredChatBackEvents = Math.max(0, ignoredChatBackEvents - 1); }
+                }
                 body.classList.remove('chat-fullscreen-active');
                 body.style.top = '';
                 window.scrollTo(0, _fullscreenScrollY);
@@ -8907,17 +9064,17 @@
             });
 
             if (isFullscreen) {
-                if (isMobile() && activeChatUid) {
-                    hideChatSidebar();
-                }
+                if (activeChatUid) hideChatSidebar();
                 setTimeout(() => {
                     const chatBody = document.getElementById('chatBody');
                     if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
                 }, 60);
-            } else {
-                if (isMobile()) {
-                    showChatSidebar();
-                }
+            } else if (!skipReturn) {
+                const sidebar = document.getElementById('chatSidebar');
+                const main = document.getElementById('chatMain');
+                if (sidebar) sidebar.classList.remove('hidden');
+                if (main) main.classList.remove('visible');
+                if (document.getElementById('panel-chats')?.classList.contains('active')) switchSocialTab('members');
             }
         }
 
@@ -9279,9 +9436,11 @@
         // ================================================================
         async function resolveChatNotifications(otherUid) {
             if (!currentUser || !otherUid) return;
-
+            const contexts = otherUid === 'group'
+                ? ['chat:group', 'mention:group', 'mention:squad', 'squad']
+                : [`chat:${otherUid}`, `mention:chat_${otherUid}`];
             if (window.TIMAWA_PWA && typeof window.TIMAWA_PWA.clearNotifications === 'function') {
-                window.TIMAWA_PWA.clearNotifications(`chat:${otherUid}`);
+                contexts.forEach(context => window.TIMAWA_PWA.clearNotifications(context));
             }
 
             try {
@@ -9289,7 +9448,7 @@
                     .where('type', '==', 'chat')
                     .where('targetUid', '==', currentUser.uid)
                     .where('referenceId', '==', `dm_${otherUid}`)
-                    .limit(1)
+                    .limit(20)
                     .get();
                 snap.forEach((doc) => {
                     const data = doc.data();
@@ -9309,7 +9468,10 @@
                     mentions.forEach((doc) => {
                         const data = doc.data();
                         const ref = data.referenceId || '';
-                        if (!ref.startsWith('group_') && !ref.startsWith('squad_')) return;
+                        const belongsToConversation = otherUid === 'group'
+                            ? ref.startsWith('group_') || ref.startsWith('squad_')
+                            : ref === `chat_${otherUid}`;
+                        if (!belongsToConversation) return;
                         if (Array.isArray(data.readBy) && data.readBy.includes(currentUser.uid)) return;
                         markAnnouncementRead(doc.id);
                     });
@@ -9356,6 +9518,7 @@
         function openChatWith(uid) {
             if (!chatFeatureEnabled) return;
             if (!uid || !currentUser) return;
+            if (!document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) setChatFullscreen(true);
             if (uid === currentUser.uid) return;
 
             activeChatUid = uid;
@@ -9386,6 +9549,7 @@
         function openGroupChat() {
             if (!chatFeatureEnabled) return;
             if (!currentUser) return;
+            if (!document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) setChatFullscreen(true);
 
             activeChatUid = GROUP_CHAT_KEY;
             activeChatIsGroup = true;
@@ -9575,6 +9739,7 @@
 
         async function markChatReadFrom(uid) {
             if (!currentUser || !uid || activeChatIsGroup) return;
+            resolveChatNotifications(uid);
             try {
                 const snap = await db.collection('chatMessages')
                     .where('senderUid', '==', uid)
@@ -10949,18 +11114,21 @@
                         ? `📣 ${senderName} mentioned you in ${groupName || 'Group Chat'}`
                         : `📣 ${senderName} mentioned you in a chat`;
 
+                    const conversationKey = isGroup ? 'group' : `chat_${senderUid}`;
+                    const conversationUrl = isGroup ? 'dashboard.html#chat_group' : `dashboard.html#chat_${senderUid}`;
                     notifications.push({
                         type: 'mention',
                         pushPending: true,
-                        pushContext: 'mention',
+                        pushContext: isGroup ? 'mention:group' : `mention:chat_${senderUid}`,
+                        pushUrl: conversationUrl,
                         title: titleText,
                         message: `"${snippet}"`,
                         icon: '📣',
                         priority: 'info',
-                        link: 'dashboard.html',
-                        linkLabel: 'Open Dashboard',
+                        link: conversationUrl,
+                        linkLabel: 'Open Chat',
                         targetUid: uid,
-                        referenceId: isGroup ? `group_${uid}` : `chat_${uid}`,
+                        referenceId: isGroup ? `group_${uid}` : `chat_${senderUid}`,
                         readBy: [],
                         createdBy: 'system',
                         createdByName: 'System',
@@ -11430,6 +11598,7 @@
         }
 
         function detectHighlightMentionQuery(input) {
+            if (input === highlightCaptionInput) { handleHighlightCaptionInput(); return; }
             const value = input.value;
             const cursorPos = input.selectionStart;
             const beforeCursor = value.slice(0, cursorPos);
@@ -11768,10 +11937,9 @@ function startHighlightReply(commentId, authorName) {
 
         function resolveHighlightMentions(text) {
             const found = new Set();
+            const loweredText = String(text || '').toLowerCase();
             highlightPendingMentions.forEach((info) => {
-                if (text.toLowerCase().includes(`@${info.name.toLowerCase()}`)) {
-                    found.add(info.uid);
-                }
+                if (info.uid && loweredText.includes(`@${info.name.toLowerCase()}`)) found.add(info.uid);
             });
 
             const cached = Object.values(userProfileCache)
@@ -12768,6 +12936,7 @@ function startHighlightReply(commentId, authorName) {
 
             document.getElementById('noteModal').classList.add('active');
             document.body.style.overflow = 'hidden';
+            pushModalBackState('noteModal', closeNoteModal);
             syncModalOpenState();
         }
 
@@ -12783,6 +12952,7 @@ function startHighlightReply(commentId, authorName) {
             closeMentionDropdown();
 
             document.getElementById('noteModal').classList.remove('active');
+            releaseModalBackState('noteModal');
             if (!anyModalOpen()) document.body.style.overflow = 'auto';
             currentNoteUid = null;
             syncModalOpenState();
@@ -13054,11 +13224,13 @@ function startHighlightReply(commentId, authorName) {
                     const ref = db.collection('announcements').doc();
                     batch.set(ref, {
                         type: 'mention',
+                        pushPending: true,
+                        pushContext: 'mention',
                         title: `📣 ${noteOwnerName} mentioned you in their note`,
                         message: `"${snippet}"`,
                         icon: '📣',
                         priority: 'info',
-                        link: 'index.html#members-section',
+                        link: `index.html#members-section`,
                         linkLabel: 'View Note',
                         targetUid: uid,
                         referenceId: `note_${titaCurrentUser.uid}`,
@@ -13066,9 +13238,7 @@ function startHighlightReply(commentId, authorName) {
                         createdBy: 'system',
                         createdByName: 'System',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        expiresAt,
-                        pushPending: true,
-                        pushContext: 'mention'
+                        expiresAt
                     });
                 });
                 await batch.commit();
@@ -13432,11 +13602,13 @@ function startReplyTo(commentId, authorName) {
 
             // Opening the bell means the member has seen whatever it carried —
             // close those OS notifications (in-app read state stays untouched).
-            if (isOpen && window.TIMAWA_PWA && typeof window.TIMAWA_PWA.clearNotifications === 'function') {
-                window.TIMAWA_PWA.clearNotifications('ann:');
+            if (isOpen) {
+                if (window.TIMAWA_PWA && typeof window.TIMAWA_PWA.clearNotifications === 'function') {
+                    window.TIMAWA_PWA.clearNotifications('ann:');
+                }
+                Promise.resolve(markAllAnnouncementsRead()).catch(() => {});
+                positionAnnouncementPopup(bell);
             }
-
-            if (isOpen) positionAnnouncementPopup(bell);
             else {
                 if (desktopBell) desktopBell.classList.remove('active');
                 if (mobileBell) mobileBell.classList.remove('active');
@@ -13629,11 +13801,24 @@ function startReplyTo(commentId, authorName) {
 
             document.getElementById('announcementViewModal').classList.add('active');
             document.body.style.overflow = 'hidden';
+            pushModalBackState('announcementViewModal', closeAnnouncementView);
+            if (item.type === 'chat') {
+                const senderUid = String(item.referenceId || '').replace(/^dm_/, '');
+                if (senderUid) {
+                    linkBtn.href = `dashboard.html#chat_${senderUid}`;
+                    linkBtn.onclick = function(e) {
+                        e.preventDefault();
+                        closeAnnouncementView();
+                        setTimeout(() => { window.location.href = `dashboard.html#chat_${senderUid}`; }, 150);
+                    };
+                }
+            }
             syncModalOpenState();
         }
 
         function closeAnnouncementView() {
             document.getElementById('announcementViewModal').classList.remove('active');
+            releaseModalBackState('announcementViewModal');
             if (!anyModalOpen()) document.body.style.overflow = 'auto';
             currentAnnouncementViewId = null;
             syncModalOpenState();
@@ -14072,6 +14257,38 @@ function startReplyTo(commentId, authorName) {
         // ================================================================
         // ===== AUTH STATE =====
         // ================================================================
+        let offlineChoiceShown = false;
+        function showOfflineChoice() {
+            if (navigator.onLine) return;
+            try {
+                if (sessionStorage.getItem('timawa.offline-mode') === '1') { hideLoadingOverlay(); return; }
+                if (sessionStorage.getItem('timawa.offline-choice-dismissed') === '1') { hideLoadingOverlay(); return; }
+            } catch (e) { /* ignore */ }
+            offlineChoiceShown = true;
+            const continueOffline = () => {
+                try { sessionStorage.setItem('timawa.offline-mode', '1'); } catch (_) {}
+                hideLoadingOverlay();
+                if (currentUser) renderCachedDashboardContent();
+                showToast('Offline mode: showing previously saved data where available.', 'info', 5000);
+            };
+            if (!window.TIMAWA_PWA?.showOfflineChoice) {
+                continueOffline();
+                return;
+            }
+            window.TIMAWA_PWA.showOfflineChoice({ onContinue: continueOffline });
+        }
+
+        function renderCachedDashboardContent() {
+            restoreCollapseState();
+            Promise.resolve().then(() => {
+                loadHighlights().catch(() => {});
+                loadMembers().catch(() => {});
+                loadNotes();
+                loadChatFeatureFlag();
+            });
+            hideLoadingOverlay();
+        }
+
         auth.onAuthStateChanged(async (user) => {
             if (!user) {
                 window.location.href = 'index.html';
@@ -14081,7 +14298,45 @@ function startReplyTo(commentId, authorName) {
             currentUser = user;
             titaCurrentUser = user;
 
-            showLoadingOverlay('Loading dashboard…');
+            const cachedProfile = (() => {
+                try {
+                    const cached = JSON.parse(localStorage.getItem('timawa_me_' + user.uid) || sessionStorage.getItem('timawa_me_' + user.uid) || 'null');
+                    return cached && cached.uid === user.uid ? cached.data : null;
+                } catch (e) { return null; }
+            })();
+            if (cachedProfile) {
+                currentUserData = titaUserData = cachedProfile;
+                userProfileCache[user.uid] = { id: user.uid, ...cachedProfile };
+                const cachedName = cachedProfile.displayName || user.displayName || user.email || 'Squad';
+                const cachedNameEl = document.getElementById('userName');
+                const cachedHeroEl = document.getElementById('heroName');
+                const cachedAvatarEl = document.getElementById('userAvatar');
+                if (cachedNameEl) cachedNameEl.textContent = cachedName;
+                if (cachedHeroEl) cachedHeroEl.textContent = cachedName;
+                if (cachedAvatarEl) cachedProfile.photoURL ? cachedAvatarEl.innerHTML = `<img src="${cloudinaryThumb(cachedProfile.photoURL, 80)}" alt="${escapeAttr(cachedName)}" />` : cachedAvatarEl.textContent = cachedName.charAt(0).toUpperCase();
+                document.getElementById('titaLauncher')?.classList.add('visible');
+                // Start cache-backed Firestore listeners immediately; cached data
+                // paints first while network refreshes in the background.
+                renderCachedDashboardContent();
+            }
+            if (!navigator.onLine && cachedProfile) {
+                currentUserData = titaUserData = cachedProfile;
+                userProfileCache[user.uid] = { id: user.uid, ...cachedProfile };
+                const name = cachedProfile.displayName || user.displayName || user.email || 'Squad';
+                const nameEl = document.getElementById('userName');
+                const heroNameEl = document.getElementById('heroName');
+                if (nameEl) nameEl.textContent = name;
+                if (heroNameEl) heroNameEl.textContent = name;
+                const avatarEl = document.getElementById('userAvatar');
+                if (avatarEl) cachedProfile.photoURL ? avatarEl.innerHTML = `<img src="${cloudinaryThumb(cachedProfile.photoURL, 80)}" alt="${escapeAttr(name)}" />` : avatarEl.textContent = name.charAt(0).toUpperCase();
+                const launcher = document.getElementById('titaLauncher');
+                if (launcher) launcher.classList.add('visible');
+                renderCachedDashboardContent();
+                showOfflineChoice();
+                return;
+            }
+
+            if (!cachedProfile) showLoadingOverlay('Loading dashboard…');
 
             try {
                 const data = await getCurrentUserProfileCached(user);
@@ -14130,8 +14385,10 @@ function startReplyTo(commentId, authorName) {
 
             hideLoadingOverlayWhenReady();
         });
+        setupOfflineModeChoices();
 
         window.addEventListener('beforeunload', function() {
+            try { localStorage.setItem('timawa.lastPage', window.location.href); } catch (e) { /* ignore */ }
             stopAutoCleanup();
             stopCommentAutoCleanup();
             detachAllNoteCountListeners();
@@ -14313,12 +14570,21 @@ function startReplyTo(commentId, authorName) {
             currentFullViewFilename = filename || 'TIMAWA_image.jpg';
 
             const img = document.getElementById('fullViewImage');
-            img.src = currentFullViewUrl;
+            const firstUrl = currentFullViewUrl;
+            const firstPreview = cloudinaryThumb(firstUrl, 960);
+            img.onload = null; img.onerror = null;
+            img.src = firstPreview;
             img.classList.remove('swapping');
+            if (firstPreview !== firstUrl) {
+                const full = new Image(); full.decoding = 'async';
+                full.onload = () => { if (currentFullViewUrl === firstUrl) img.src = firstUrl; };
+                full.src = firstUrl;
+            }
 
             updateFullViewUI();
 
             document.getElementById('fullViewModal').classList.add('active');
+            pushModalBackState('fullViewModal', closeFullView);
             document.body.style.overflow = 'hidden';
             syncModalOpenState();
 
@@ -14354,15 +14620,36 @@ function startReplyTo(commentId, authorName) {
 
             fullViewIndex = newIndex;
             currentFullViewUrl = fullViewImages[fullViewIndex];
-
             const img = document.getElementById('fullViewImage');
+            const nextUrl = currentFullViewUrl;
+            const previewUrl = cloudinaryThumb(nextUrl, 960);
             img.classList.add('swapping');
-
-            setTimeout(() => {
-                img.src = currentFullViewUrl;
+            updateFullViewUI();
+            const showNextImage = () => {
+                if (currentFullViewUrl !== nextUrl) return;
                 img.classList.remove('swapping');
-                updateFullViewUI();
-            }, 150);
+                // Upgrade to the original in the background after the quick
+                // preview is visible; do not block the swipe on full decoding.
+                if (previewUrl !== nextUrl) {
+                    const fullImage = new Image();
+                    fullImage.decoding = 'async';
+                    fullImage.onload = () => {
+                        if (currentFullViewUrl === nextUrl) img.src = nextUrl;
+                    };
+                    fullImage.src = nextUrl;
+                }
+            };
+            // Show the lower-bandwidth preview immediately; image load/decode
+            // must never hold the gesture on the previous photo.
+            img.onload = showNextImage;
+            img.onerror = () => {
+                if (currentFullViewUrl === nextUrl) {
+                    img.classList.remove('swapping');
+                    updateFullViewUI();
+                }
+            };
+            img.src = previewUrl;
+            if (img.complete && img.naturalWidth) showNextImage();
 
             // Update the download filename based on context
             if (fullViewContext === 'gallery') {
@@ -14379,6 +14666,7 @@ function startReplyTo(commentId, authorName) {
 
         function closeFullView() {
             document.getElementById('fullViewModal').classList.remove('active');
+            releaseModalBackState('fullViewModal');
             document.getElementById('fullViewImage').src = '';
             if (!anyModalOpen()) document.body.style.overflow = 'auto';
             currentFullViewUrl = '';
@@ -14786,6 +15074,41 @@ function startReplyTo(commentId, authorName) {
         // ================================================================
         // ===== HIGHLIGHT DETAIL =====
         // ================================================================
+        let highlightDetailImageUrls = [];
+        function updateHighlightDetailImageNav() {
+            const prev = document.getElementById('hlDetailPrevImage');
+            const next = document.getElementById('hlDetailNextImage');
+            const multiple = highlightDetailImageUrls.length > 1;
+            if (prev) prev.hidden = !multiple || currentHighlightDetailImageIndex <= 0;
+            if (next) next.hidden = !multiple || currentHighlightDetailImageIndex >= highlightDetailImageUrls.length - 1;
+        }
+
+        function navigateHighlightDetailImage(direction) {
+            const nextIndex = currentHighlightDetailImageIndex + direction;
+            if (nextIndex < 0 || nextIndex >= highlightDetailImageUrls.length) return;
+            currentHighlightDetailImageIndex = nextIndex;
+            const url = highlightDetailImageUrls[nextIndex];
+            const preview = cloudinaryThumb(url, 640);
+            const image = document.getElementById('hlDetailImage');
+            image.onload = null; image.onerror = null;
+            image.src = preview;
+            if (preview !== url) {
+                const full = new Image(); full.decoding = 'async';
+                full.onload = () => {
+                    if (currentHighlightDetailId && highlightDetailImageUrls[currentHighlightDetailImageIndex] === url) image.src = url;
+                };
+                full.src = url;
+            }
+            // Warm only the adjacent small previews; do not download every full-resolution
+            // image in a multi-photo post before the user asks to view it.
+            [nextIndex - 1, nextIndex + 1].forEach(i => {
+                const neighbor = highlightDetailImageUrls[i];
+                if (!neighbor) return;
+                const warm = new Image(); warm.decoding = 'async'; warm.src = cloudinaryThumb(neighbor, 320);
+            });
+            updateHighlightDetailImageNav();
+        }
+
         function openHighlightDetail(highlightId) {
             db.collection('highlights').doc(highlightId).get().then(doc => {
                 if (!doc.exists) { showToast('This highlight no longer exists.', 'warn'); return; }
@@ -14796,6 +15119,7 @@ function startReplyTo(commentId, authorName) {
                 currentHighlightReplyTo = null;
 
                 const imageUrls = item.imageURLs || [];
+                highlightDetailImageUrls = imageUrls.slice();
                 const mainImage = imageUrls[0] || '';
                 const authorName = item.authorName || 'Someone';
                 const authorUid = item.authorUid || '';
@@ -14811,8 +15135,17 @@ function startReplyTo(commentId, authorName) {
                 const hasMulti = imageUrls.length > 1;
 
                 const imgEl = document.getElementById('hlDetailImage');
-                if (mainImage) { imgEl.src = mainImage; imgEl.style.display = 'block'; }
-                else { imgEl.src = ''; imgEl.style.display = 'none'; }
+                if (mainImage) {
+                    const preview = cloudinaryThumb(mainImage, 640);
+                    imgEl.onload = null; imgEl.onerror = null;
+                    imgEl.src = preview; imgEl.style.display = 'block';
+                    if (preview !== mainImage) {
+                        const full = new Image(); full.decoding = 'async';
+                        full.onload = () => { if (currentHighlightDetailId === highlightId && currentHighlightDetailImageIndex === 0) imgEl.src = mainImage; };
+                        full.src = mainImage;
+                    }
+                } else { imgEl.src = ''; imgEl.style.display = 'none'; }
+                updateHighlightDetailImageNav();
 
                 const multiBadge = document.getElementById('hlDetailMultiBadge');
                 if (hasMulti) {
@@ -14877,6 +15210,7 @@ function startReplyTo(commentId, authorName) {
 
                 document.getElementById('highlightDetailModal').classList.add('active');
                 document.body.style.overflow = 'hidden';
+                pushModalBackState('highlightDetailModal', closeHighlightDetail);
                 syncModalOpenState();
             }).catch(err => {
                 console.error('openHighlightDetail error:', err);
@@ -14901,10 +15235,13 @@ function startReplyTo(commentId, authorName) {
                     p.style.zIndex = '';
                 });
             document.getElementById('highlightDetailModal').classList.remove('active');
+            releaseModalBackState('highlightDetailModal');
             if (!anyModalOpen()) document.body.style.overflow = 'auto';
             document.getElementById('hlDetailImage').src = '';
             currentHighlightDetailId = null;
             currentHighlightDetailImageIndex = 0;
+            highlightDetailImageUrls = [];
+            updateHighlightDetailImageNav();
             syncModalOpenState();
         }
 
@@ -14975,6 +15312,7 @@ function startReplyTo(commentId, authorName) {
 
             document.getElementById('galleryModal').classList.add('active');
             document.body.style.overflow = 'hidden';
+            pushModalBackState('galleryModal', closeGallery);
             syncModalOpenState();
             grid.innerHTML = `<div class="gallery-loading"><span class="spinner"></span><p style="margin-top:10px;font-size:13px;">Loading photos…</p></div>`;
 
@@ -15049,6 +15387,7 @@ function startReplyTo(commentId, authorName) {
 
         function closeGallery() {
             document.getElementById('galleryModal').classList.remove('active');
+            releaseModalBackState('galleryModal');
             if (!document.getElementById('lightboxModal').classList.contains('active')) {
                 document.body.style.overflow = 'auto';
             }
@@ -15142,11 +15481,13 @@ function startReplyTo(commentId, authorName) {
             document.getElementById('lightboxImage').src = url;
             document.getElementById('lightboxModal').classList.add('active');
             document.body.style.overflow = 'hidden';
+            pushModalBackState('lightboxModal', closeLightbox);
             syncModalOpenState();
         }
 
         function closeLightbox() {
             document.getElementById('lightboxModal').classList.remove('active');
+            releaseModalBackState('lightboxModal');
             document.getElementById('lightboxImage').src = '';
             currentLightboxUrl = '';
             if (!document.getElementById('galleryModal').classList.contains('active')) {
@@ -15304,7 +15645,7 @@ function startReplyTo(commentId, authorName) {
         // ================================================================
         // ===== UPLOAD =====
         // ================================================================
-        async function uploadToCloudinary(file, expiryDateStr) {
+        async function uploadToCloudinary(file, expiryDateStr, onProgress) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
@@ -15318,6 +15659,9 @@ function startReplyTo(commentId, authorName) {
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`);
+                xhr.upload.onprogress = function(event) {
+                    if (event.lengthComputable && typeof onProgress === 'function') onProgress(event.loaded / event.total);
+                };
                 xhr.onload = function() {
                     if (xhr.status === 200) {
                         const json = JSON.parse(xhr.responseText);
@@ -15342,6 +15686,12 @@ function startReplyTo(commentId, authorName) {
             document.getElementById('fileList').innerHTML = '';
             document.getElementById('fileInput').value = '';
             document.getElementById('captionInput').value = '';
+            highlightPendingMentions.clear();
+            closeHighlightCaptionMention();
+            const progress = document.getElementById('highlightUploadProgress');
+            const fill = document.getElementById('highlightUploadProgressFill');
+            if (progress) { progress.hidden = true; progress.setAttribute('aria-valuenow', '0'); }
+            if (fill) fill.style.width = '0%';
         }
 
         function closeUploadModal() {
@@ -15350,12 +15700,115 @@ function startReplyTo(commentId, authorName) {
             selectedFiles = [];
             document.getElementById('fileList').innerHTML = '';
             document.getElementById('fileInput').value = '';
+            const progress = document.getElementById('highlightUploadProgress');
+            const fill = document.getElementById('highlightUploadProgressFill');
+            if (progress) { progress.hidden = true; progress.setAttribute('aria-valuenow', '0'); }
+            if (fill) fill.style.width = '0%';
+            highlightPendingMentions.clear();
+            closeHighlightCaptionMention();
             syncModalOpenState();
         }
 
         document.getElementById('uploadArea').addEventListener('click', function() {
             document.getElementById('fileInput').click();
         });
+
+        const highlightCaptionInput = document.getElementById('captionInput');
+        const highlightCaptionDropdown = document.getElementById('highlightCaptionMentionDropdown');
+        let captionMentionCandidates = [];
+        let captionMentionOpen = false;
+        let captionMentionIndex = 0;
+        highlightCaptionInput.addEventListener('input', handleHighlightCaptionInput);
+        highlightCaptionInput.addEventListener('keydown', handleHighlightCaptionKeydown);
+        highlightCaptionInput.addEventListener('blur', () => setTimeout(closeHighlightCaptionMention, 180));
+        highlightCaptionDropdown.addEventListener('mousedown', event => event.preventDefault());
+        highlightCaptionDropdown.addEventListener('click', event => {
+            const option = event.target.closest('[data-caption-mention-index]');
+            if (option) insertHighlightCaptionMention(Number(option.dataset.captionMentionIndex));
+        });
+
+        function handleHighlightCaptionInput() {
+            const cursor = highlightCaptionInput.selectionStart;
+            const match = highlightCaptionInput.value.slice(0, cursor).match(MENTION_REGEX);
+            if (!match) { closeHighlightCaptionMention(); return; }
+            const query = match[1].trim().toLowerCase();
+            captionMentionCandidates = Object.values(userProfileCache)
+                .filter(user => user.id !== currentUser?.uid && (user.displayName || user.email))
+                .filter(user => (user.displayName || user.email || '').toLowerCase().includes(query))
+                .sort((a, b) => (a.displayName || a.email || '').localeCompare(b.displayName || b.email || ''))
+                .slice(0, MENTION_MAX_RESULTS);
+            captionMentionIndex = 0;
+            captionMentionOpen = true;
+            renderHighlightCaptionMentions();
+        }
+
+        function handleHighlightCaptionKeydown(event) {
+            if (!captionMentionOpen) return;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                const direction = event.key === 'ArrowDown' ? 1 : -1;
+                captionMentionIndex = (captionMentionIndex + direction + Math.max(captionMentionCandidates.length, 1)) % Math.max(captionMentionCandidates.length, 1);
+                renderHighlightCaptionMentions();
+            } else if ((event.key === 'Enter' || event.key === 'Tab') && captionMentionCandidates[captionMentionIndex]) {
+                event.preventDefault(); insertHighlightCaptionMention(captionMentionIndex);
+            } else if (event.key === 'Escape') closeHighlightCaptionMention();
+        }
+
+        function renderHighlightCaptionMentions() {
+            if (!captionMentionOpen) { highlightCaptionDropdown.classList.remove('show'); return; }
+            const html = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
+                (captionMentionCandidates.length ? captionMentionCandidates.map((user, index) => `<button type="button" class="mention-option ${index === captionMentionIndex ? 'active' : ''}" data-caption-mention-index="${index}"><span class="mention-info"><span class="mention-name">${escapeHtml(user.displayName || user.email || 'Member')}</span><span class="mention-hint">Tap to mention</span></span></button>`).join('') : '<div class="mention-dropdown-empty">No members found</div>');
+            highlightCaptionDropdown.innerHTML = html;
+            highlightCaptionDropdown.classList.add('show');
+        }
+
+        function insertHighlightCaptionMention(index) {
+            const user = captionMentionCandidates[index];
+            if (!user) return;
+            const name = user.displayName || user.email || 'Member';
+            const cursor = highlightCaptionInput.selectionStart;
+            const before = highlightCaptionInput.value.slice(0, cursor);
+            const match = before.match(MENTION_REGEX);
+            if (!match) return;
+            const start = cursor - match[0].length;
+            const inserted = `@${name} `;
+            highlightCaptionInput.value = highlightCaptionInput.value.slice(0, start) + inserted + highlightCaptionInput.value.slice(cursor);
+            highlightPendingMentions.set(name.toLowerCase(), { uid: user.id || user.uid, name });
+            const next = start + inserted.length;
+            highlightCaptionInput.setSelectionRange(next, next);
+            closeHighlightCaptionMention();
+            highlightCaptionInput.focus();
+        }
+
+        function closeHighlightCaptionMention() {
+            captionMentionOpen = false;
+            captionMentionCandidates = [];
+            highlightCaptionDropdown.classList.remove('show');
+        }
+
+        async function notifyHighlightCaptionMentions(uids, caption, highlightId, authorName) {
+            if (!uids.length || !caption) return;
+            const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+            const snippet = caption.slice(0, 100) + (caption.length > 100 ? '…' : '');
+            const batch = db.batch();
+            uids.forEach(uid => {
+                const ref = db.collection('announcements').doc();
+                batch.set(ref, {
+                    type: 'mention',
+                    pushPending: true,
+                    pushContext: 'mention',
+                    title: `📣 ${authorName} mentioned you in a highlight`,
+                    message: `“${snippet}”`,
+                    icon: '📣', priority: 'info',
+                    link: 'dashboard.html#highlights', linkLabel: 'View Highlight',
+                    targetUid: uid, referenceId: highlightId, readBy: [],
+                    createdBy: 'system', createdByName: 'System',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(), expiresAt
+                });
+            });
+            try { await batch.commit(); }
+            catch (error) { console.warn('Could not notify highlight caption mentions:', error); }
+        }
 
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const files = Array.from(e.target.files);
@@ -15390,9 +15843,7 @@ function startReplyTo(commentId, authorName) {
 
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            if (selectedFiles.length === 0) { showToast('Please select at least one photo', 'warn'); return; }
-
-            const caption = document.getElementById('captionInput').value.trim();
+            if (selectedFiles.length === 0) { showToast('Please select at least one photo', 'warn'); return; }                const caption = document.getElementById('captionInput').value.trim();
             const submitBtn = document.getElementById('uploadBtn');
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner"></span> Uploading...';
@@ -15409,10 +15860,17 @@ function startReplyTo(commentId, authorName) {
 
                 const imageUrls = [];
                 const imagePublicIds = [];
+                const captionMentionUids = resolveHighlightMentions(caption).filter(uid => uid !== user.uid);
 
                 for (const file of selectedFiles) {
                     try {
-                        const result = await uploadToCloudinary(file, expiryDateStr);
+                        const result = await uploadToCloudinary(file, expiryDateStr, progress => {
+                            const percent = Math.round(((imageUrls.length + progress) / selectedFiles.length) * 100);
+                            submitBtn.innerHTML = `<span class="spinner"></span> Uploading ${imageUrls.length + 1}/${selectedFiles.length} · ${percent}%`;
+                            const progressBar = document.getElementById('highlightUploadProgress');
+                            const progressFill = document.getElementById('highlightUploadProgressFill');
+                            if (progressBar && progressFill) { progressBar.hidden = false; progressFill.style.width = `${percent}%`; progressBar.setAttribute('aria-valuenow', String(percent)); }
+                        });
                         imageUrls.push(result.secure_url);
                         imagePublicIds.push(result.public_id);
                     } catch (err) {
@@ -15423,7 +15881,7 @@ function startReplyTo(commentId, authorName) {
                     }
                 }
 
-                await db.collection('highlights').add({
+                const createdHighlight = await db.collection('highlights').add({
                     imageURLs: imageUrls,
                     imagePublicIds: imagePublicIds,
                     imageExpiryTag: `expires_${expiryDateStr}`,
@@ -15433,6 +15891,7 @@ function startReplyTo(commentId, authorName) {
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     expiresAt: expiresAt
                 });
+                await notifyHighlightCaptionMentions(captionMentionUids, caption, createdHighlight.id, authorName);
 
                 closeUploadModal();
                 showToast(`Highlight uploaded! Expires in ${HIGHLIGHT_EXPIRY_DAYS} days.`, 'success', 4000);
@@ -15440,6 +15899,10 @@ function startReplyTo(commentId, authorName) {
             finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-upload"></i> Upload';
+                const progressBar = document.getElementById('highlightUploadProgress');
+                const progressFill = document.getElementById('highlightUploadProgressFill');
+                if (progressBar) { progressBar.hidden = true; progressBar.setAttribute('aria-valuenow', '0'); }
+                if (progressFill) progressFill.style.width = '0%';
             }
         });
 
@@ -15714,11 +16177,13 @@ function startReplyTo(commentId, authorName) {
 
             document.getElementById('memberDetailModal').classList.add('active');
             document.body.style.overflow = 'hidden';
+            pushModalBackState('memberDetailModal', closeMemberDetail);
             syncModalOpenState();
         }
 
         function closeMemberDetail() {
             document.getElementById('memberDetailModal').classList.remove('active');
+            releaseModalBackState('memberDetailModal');
             if (!anyModalOpen()) document.body.style.overflow = 'auto';
             document.getElementById('memberDetailAvatar').innerHTML = '';
             currentMemberDetail = null;
@@ -15958,14 +16423,15 @@ function startReplyTo(commentId, authorName) {
             const noteCount = document.getElementById('titaNoteCount');
             const noteStatus = document.getElementById('titaNoteStatus');
 
+            const noteInputActive = !!noteInput && document.activeElement === noteInput;
+            if (noteInput && !noteInputActive) noteInput.value = note?.text || '';
+            if (noteCount) noteCount.textContent = String((noteInputActive ? noteInput.value : note?.text || '').length);
             if (window.NoteMusic) {
                 NoteMusic.setDraft(note ? note.music : null);
                 NoteMusic.setReplaceNote(note);
             }
 
             if (note && window.NoteMusic && NoteMusic.hasContent(note)) {
-                if (noteInput) noteInput.value = note.text || '';
-                if (noteCount) noteCount.textContent = (note.text || '').length;
 
                 const expireAt = note.expireAt
                     ? (note.expireAt.seconds ? new Date(note.expireAt.seconds * 1000) : new Date(note.expireAt))
@@ -15978,8 +16444,8 @@ function startReplyTo(commentId, authorName) {
                     noteStatus.style.display = 'none';
                 }
             } else {
-                if (noteInput) noteInput.value = '';
-                if (noteCount) noteCount.textContent = '0';
+                if (noteInput && !noteInputActive) noteInput.value = '';
+                if (noteCount && !noteInputActive) noteCount.textContent = '0';
                 if (noteStatus) noteStatus.style.display = 'none';
             }
 
@@ -15996,8 +16462,76 @@ function startReplyTo(commentId, authorName) {
             if (noteInput) {
                 noteInput.addEventListener('input', function() {
                     document.getElementById('titaNoteCount').textContent = this.value.length;
+                    detectTitaNoteMention(this);
                 });
+                noteInput.addEventListener('keydown', handleTitaNoteMentionKeydown);
+                noteInput.addEventListener('blur', () => setTimeout(closeTitaNoteMention, 180));
             }
+        });
+
+        function detectTitaNoteMention(input) {
+            const cursor = input.selectionStart || 0;
+            const match = input.value.slice(0, cursor).match(MENTION_REGEX);
+            const dropdown = document.getElementById('titaNoteMentionDropdown');
+            if (!match || !dropdown) { closeTitaNoteMention(); return; }
+            const query = match[1].trim().toLowerCase();
+            const myUid = titaCurrentUser?.uid;
+            titaNoteMentionCandidates = Object.values(userProfileCache)
+                .filter(u => (u.id || u.uid) && (u.id || u.uid) !== myUid && (u.displayName || u.email))
+                .filter(u => !query || (u.displayName || u.email || '').toLowerCase().includes(query))
+                .sort((a, b) => (a.displayName || a.email || '').localeCompare(b.displayName || b.email || ''))
+                .slice(0, MENTION_MAX_RESULTS);
+            titaNoteMentionIndex = 0;
+            titaNoteMentionStart = cursor - match[0].length;
+            titaNoteMentionOpen = true;
+            dropdown.innerHTML = '<div class="mention-dropdown-header"><i class="fas fa-at"></i> Mention a member</div>' +
+                (titaNoteMentionCandidates.length ? titaNoteMentionCandidates.map((u, i) => {
+                    const name = u.displayName || u.email || 'Member';
+                    return `<button type="button" class="mention-option ${i === titaNoteMentionIndex ? 'active' : ''}" data-tita-note-mention="${i}"><span class="mention-info"><span class="mention-name">${escapeHtml(name)}</span><span class="mention-hint">Tap to mention</span></span></button>`;
+                }).join('') : '<div class="mention-dropdown-empty">No members found</div>');
+            dropdown.classList.add('show');
+        }
+
+        function handleTitaNoteMentionKeydown(event) {
+            if (!titaNoteMentionOpen) return;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                const count = Math.max(1, titaNoteMentionCandidates.length);
+                titaNoteMentionIndex = (titaNoteMentionIndex + (event.key === 'ArrowDown' ? 1 : -1) + count) % count;
+                const dropdown = document.getElementById('titaNoteMentionDropdown');
+                dropdown?.querySelectorAll('.mention-option').forEach((option, index) => option.classList.toggle('active', index === titaNoteMentionIndex));
+            } else if ((event.key === 'Enter' || event.key === 'Tab') && titaNoteMentionCandidates[titaNoteMentionIndex]) {
+                event.preventDefault();
+                insertTitaNoteMention(titaNoteMentionIndex);
+            } else if (event.key === 'Escape') {
+                event.preventDefault(); closeTitaNoteMention();
+            }
+        }
+
+        function insertTitaNoteMention(index) {
+            const input = document.getElementById('titaNote');
+            const user = titaNoteMentionCandidates[index];
+            if (!input || !user) return;
+            const name = user.displayName || user.email || 'Member';
+            const uid = user.id || user.uid;
+            const cursor = input.selectionStart || 0;
+            const start = titaNoteMentionStart >= 0 ? titaNoteMentionStart : cursor;
+            const inserted = `@${name} `;
+            input.value = input.value.slice(0, start) + inserted + input.value.slice(cursor);
+            if (uid) pendingMentions.set(name.toLowerCase(), { uid, name });
+            input.setSelectionRange(start + inserted.length, start + inserted.length);
+            document.getElementById('titaNoteCount').textContent = input.value.length;
+            closeTitaNoteMention(); input.focus();
+        }
+
+        function closeTitaNoteMention() {
+            document.getElementById('titaNoteMentionDropdown')?.classList.remove('show');
+            titaNoteMentionCandidates = []; titaNoteMentionOpen = false; titaNoteMentionStart = -1;
+        }
+
+        document.addEventListener('click', event => {
+            const option = event.target.closest('[data-tita-note-mention]');
+            if (option) insertTitaNoteMention(Number(option.dataset.titaNoteMention));
         });
 
         function titaToggleCustomLocation() {
@@ -16073,18 +16607,18 @@ function startReplyTo(commentId, authorName) {
                 const oldText = existingNote?.text || '';
                 const noteMusic = NoteMusic.getDraftForSave();
                 const replacing = NoteMusic.isReplacing();
-                const textChanged = replacing || noteText !== oldText || (noteMusic ? noteMusic.trackId : '') !== NoteMusic.idOf(existingNote);
+                const textChanged = noteText !== oldText || (noteMusic ? noteMusic.trackId : '') !== NoteMusic.idOf(existingNote);
                 const hadNote = NoteMusic.hasContent(existingNote);
                 const willHaveNote = !!noteText || !!noteMusic;
 
                 if (textChanged) {
-                    if (hadNote) {
+                    if (hadNote && replacing) {
                         await purgeCommentsForNote(titaCurrentUser.uid);
                     }
 
                     if (willHaveNote) {
-                        // A brand-new / replaced note gets a fresh 24h; a plain edit keeps its expiry.
-                        const freshNote = replacing || !NoteMusic.isActive(existingNote);
+                        // A brand-new or expired note gets a fresh 24h. Edits and song changes keep an active note's expiry.
+                        const freshNote = !NoteMusic.isActive(existingNote);
                         const expireTs = freshNote
                             ? firebase.firestore.Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
                             : existingNote.expireAt;
@@ -16112,9 +16646,11 @@ function startReplyTo(commentId, authorName) {
 
                 titaUserData = { ...titaUserData, ...updateData };
                 userProfileCache[titaCurrentUser.uid] = { id: titaCurrentUser.uid, ...titaUserData };
-                renderMembersGridFromCache();
-
-                try {
+                renderMembersGridFromCache();                try { localStorage.setItem('timawa_me_' + titaCurrentUser.uid, JSON.stringify({
+                        uid: titaCurrentUser.uid,
+                        t: Date.now(),
+                        data: titaUserData
+                    }));
                     sessionStorage.setItem('timawa_me_' + titaCurrentUser.uid, JSON.stringify({
                         uid: titaCurrentUser.uid,
                         t: Date.now(),
@@ -16213,20 +16749,22 @@ function startReplyTo(commentId, authorName) {
 
             if (window.visualViewport) {
                 let _vvTimer = null;
+                const keepActiveInputVisible = () => {
+                    const active = document.activeElement;
+                    if (!active || !active.matches('input, textarea, select, [contenteditable="true"]')) return;
+                    const vv = window.visualViewport;
+                    const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+                    const rect = active.getBoundingClientRect();
+                    if (rect.bottom > visibleBottom - 16 || rect.top < (vv ? vv.offsetTop : 0) + 8) {
+                        try { active.scrollIntoView({ block: 'nearest', behavior: 'auto' }); } catch (e) { active.scrollIntoView(false); }
+                    }
+                    if (active.id === 'chatInput') ensureChatInputVisible();
+                };
                 window.visualViewport.addEventListener('resize', () => {
-                    const active = document.activeElement;
-                    if (!active || active.id !== 'chatInput') return;
                     if (_vvTimer) clearTimeout(_vvTimer);
-                    _vvTimer = setTimeout(() => {
-                        ensureChatInputVisible();
-                        _vvTimer = null;
-                    }, 80);
+                    _vvTimer = setTimeout(() => { keepActiveInputVisible(); _vvTimer = null; }, 80);
                 });
-                window.visualViewport.addEventListener('scroll', () => {
-                    const active = document.activeElement;
-                    if (!active || active.id !== 'chatInput') return;
-                    ensureChatInputVisible();
-                });
+                window.visualViewport.addEventListener('scroll', keepActiveInputVisible);
             }
         });
 
