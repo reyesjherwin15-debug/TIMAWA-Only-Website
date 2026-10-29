@@ -35,6 +35,10 @@ deleted highlight stayed in the account forever.
 | Admin sweep of expired stories | `admin.html` | `source: 'story'` |
 | Delete your own story | `stories.js` | `source: 'story'` |
 | Auto-delete your expired stories | `stories.js` | `source: 'story'` |
+| Replace your profile photo | `profile.html` | `source: 'profile'` |
+| Admin replaces/clears a member's photo | `admin.html` | `source: 'profile'` |
+| Admin replaces their own photo | `admin_profile.html` | `source: 'profile'` |
+| Delete a member (admin) | `admin.html` | `source: 'profile'` |
 
 Each entry is one document in `mediaCleanupQueue`:
 
@@ -65,7 +69,32 @@ does not pile up duplicates.
    reused here.
 
 The workflow [`.github/workflows/cloudinary-cleanup.yml`](.github/workflows/cloudinary-cleanup.yml)
-runs **every hour** and also has a **Run workflow** button:
+runs on two schedules and also has a **Run workflow** button:
+
+| When | Mode | What it does |
+|---|---|---|
+| every hour (`:23`) | `queue` | deletes exactly what the app queued |
+| daily, 03:47 UTC | `both` | queue **plus** an orphan sweep |
+
+### Why the daily sweep matters
+
+The queue only knows about content that was deleted *through the app*. Anything
+else stays in the account until something sweeps it:
+
+* a profile photo that was **replaced** (the new URL is the only one any document
+  references — the old file is simply unreferenced);
+* a story that expired while nobody had the site open (its document is still
+  there, and Firestore's TTL may lag a day, but the media is no longer shown);
+* uploads interrupted mid-way, and posts deleted from an older page version that
+  did not know about the queue.
+
+The sweep lists everything under `t-imawa/`, subtracts every id any document
+still references (`highlights`, `stories`, `notes`, `announcements`, `events`,
+`users`, `publicProfiles`, `coffeeShops`, `favoritePlaces`, `thingsToDo`,
+`chatMessages`), and deletes what is left **only if** it is older than
+`min_age_hours` (24 by default, so an in-flight upload is never touched). If any
+of those collections cannot be read it refuses to delete anything at all — an
+incomplete picture would look exactly like a pile of orphans.
 
 | Input | Meaning |
 |---|---|
@@ -105,6 +134,21 @@ Safety rails:
 - orphan sweep skips anything younger than `--min-age-hours`;
 - failures are retried up to 5 times, then marked `failed` and left in the queue
   for inspection.
+
+## Tests
+
+The worker has a test suite that needs no credentials, no network and no
+Cloudinary account — Firestore and the Cloudinary HTTP calls are faked:
+
+```bash
+python -m unittest discover -s tools/tests -v
+```
+
+It covers the URL → public-id parsing, the request signature, every queue
+outcome (deleted, already gone, auth rejected, retried then `failed`, wrong
+folder, dry run), and the orphan sweep (replaced avatar deleted while the new
+one is kept, fresh uploads protected by `min_age_hours`, referenced assets kept,
+refuses to run on an incomplete scan, `max_delete` cap).
 
 ## Optional: tighter rules
 

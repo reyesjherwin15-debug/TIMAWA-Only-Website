@@ -3081,6 +3081,40 @@
             });
         }
 
+        // ===== CLOUDINARY CLEANUP (queued) =====
+        // A page cannot delete a Cloudinary asset: /image/destroy needs the API
+        // secret, and this site uploads with the unsigned `t-imawa` preset. So the
+        // public ID is queued in Firestore and the "Cloudinary cleanup" GitHub
+        // workflow removes the file within the hour.
+        function publicIdFromCloudinaryUrl(url) {
+            if (typeof url !== 'string' || url.indexOf('/upload/') === -1) return '';
+            const parts = url.split('/upload/')[1].split('/');
+            while (parts.length && (/^v\d+$/.test(parts[0]) || parts[0].indexOf(',') > -1)) parts.shift();
+            return parts.join('/').replace(/\.[A-Za-z0-9]+$/, '');
+        }
+
+        async function queueCloudinaryCleanup(publicIds, meta) {
+            const list = (Array.isArray(publicIds) ? publicIds : [publicIds]).filter(Boolean);
+            let queued = 0;
+            for (const id of list) {
+                try {
+                    const docId = String(id).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 400);
+                    await db.collection('mediaCleanupQueue').doc(docId).set({
+                        publicId: String(id),
+                        resourceType: (meta && meta.resourceType) === 'video' ? 'video' : 'image',
+                        source: (meta && meta.source) || 'other',
+                        sourceId: (meta && meta.sourceId) || '',
+                        status: 'pending',
+                        attempts: 0,
+                        requestedBy: currentUser ? currentUser.uid : '',
+                        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    queued++;
+                } catch (e) { console.warn('Could not queue media cleanup:', id, e.message); }
+            }
+            return queued;
+        }
+
         auth.onAuthStateChanged(async (user) => {
             if (!user) { window.location.href = 'index.html'; return; }
             currentUser = user;
@@ -3414,6 +3448,15 @@
                 if (photoURL) updateData.photoURL = photoURL;
 
                 await db.collection('users').doc(currentUser.uid).set(updateData, { merge: true });
+
+                // The photo that was just replaced is referenced by nothing now, so
+                // queue it: otherwise every avatar ever uploaded stays in the account.
+                const previousPhoto = (profileData && profileData.photoURL) || '';
+                if (previousPhoto && previousPhoto !== (updateData.photoURL || '')) {
+                    const oldAvatarId = publicIdFromCloudinaryUrl(previousPhoto);
+                    if (oldAvatarId) queueCloudinaryCleanup([oldAvatarId], { source: 'profile', sourceId: currentUser.uid });
+                }
+
                 const mergedData = { ...(profileData || {}), ...updateData };
                 saveCurrentUserProfileCache(currentUser.uid, mergedData);
 

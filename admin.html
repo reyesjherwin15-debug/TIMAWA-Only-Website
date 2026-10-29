@@ -6731,6 +6731,14 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 await db.collection('users').doc(editingUserId).set(updateData, { merge: true });
+
+                // Replacing or clearing a member's avatar leaves the old file unused.
+                const previousPhoto = (allAppUsers.find(u => u.id === editingUserId) || {}).photoURL || '';
+                if (previousPhoto && previousPhoto !== (updateData.photoURL || '')) {
+                    const oldAvatarId = publicIdFromCloudinaryUrl(previousPhoto);
+                    if (oldAvatarId) await queueCloudinaryCleanup([oldAvatarId], { source: 'profile', sourceId: editingUserId });
+                }
+
                 showToast('User updated successfully!', 'success');
                 closeUserEditModal();
             } catch (err) {
