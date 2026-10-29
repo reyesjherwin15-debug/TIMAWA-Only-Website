@@ -94,14 +94,17 @@ def build_payload(doc_id: str, item: dict, default_url: str = "dashboard.html") 
     }
 
 
-def load_subscriptions(db, uid: str | None, limit: int = 500):
-    """(reference, subscription) pairs. uid=None broadcasts to everyone."""
+def load_subscriptions(db, uid: str | None, limit: int = 500, exclude_uid: str | None = None):
+    """(reference, subscription) pairs. uid=None broadcasts to everyone;
+    exclude_uid skips one member (the person who created the activity)."""
     from send_activity_push import COLLECTION as COL  # same collection
 
     subs = []
     for doc in db.collection(COL).where("enabled", "==", True).limit(limit).stream():
         data = doc.to_dict() or {}
         if uid and data.get("uid") != uid:
+            continue
+        if exclude_uid and data.get("uid") == exclude_uid:
             continue
         keys = data.get("keys") or {}
         endpoint = data.get("endpoint")
@@ -186,7 +189,7 @@ def handle(ref, item: dict, *, db, vapid_private, subject: str,
 
     from send_activity_push import send_all
 
-    subs = load_subscriptions(db, target_uid)
+    subs = load_subscriptions(db, target_uid, exclude_uid=fresh.get("actorUid"))
     if not subs:
         log(f"          no subscriptions for {'everyone' if not target_uid else target_uid}")
         ref.update({"pushPending": False,

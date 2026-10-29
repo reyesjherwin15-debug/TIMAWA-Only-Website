@@ -2517,9 +2517,28 @@
                 </div>
                 <p style="font-size:12.5px;color:var(--admin-text-dim);margin:4px 0 14px;">
                     <b>Remove</b> hides a story from every member immediately and keeps the record (reversible).
-                    <b>Delete</b> removes the record permanently. Uploaded media stays on Cloudinary until your cleanup job runs.
+                    <b>Delete</b> removes the record permanently and queues its photo/video for Cloudinary cleanup.
                 </p>
                 <div class="items-grid" id="storiesGrid"></div>
+            </div>
+
+            <div class="admin-card" style="margin-top:18px;">
+                <div class="card-header">
+                    <h3><i class="fas fa-broom" style="color: var(--admin-primary);"></i> Cloudinary storage</h3>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;width:100%;margin-top:10px;">
+                        <span class="count" id="cleanupQueueCount">— queued</span>
+                        <span class="count" id="cleanupMediaCount">— files in use</span>
+                        <button class="btn-secondary" onclick="loadCleanupStatus()"><i class="fas fa-sync"></i> Refresh</button>
+                        <button class="btn-danger" onclick="queueExpiredStoryMedia()"><i class="fas fa-broom"></i> Queue expired stories</button>
+                    </div>
+                </div>
+                <p style="font-size:12.5px;color:var(--admin-text-dim);margin:4px 0 12px;">
+                    Deleted highlights, removed photos and deleted stories queue their files here. The
+                    <b>Cloudinary cleanup</b> GitHub workflow deletes them every hour, so storage stays flat without
+                    opening the Cloudinary console. A browser cannot delete these files itself — Cloudinary only
+                    accepts signed deletes, and the signing key lives in the repository secrets.
+                </p>
+                <div id="cleanupQueueList"></div>
             </div>
         </div>
     </div>
@@ -3509,6 +3528,58 @@
             return url.replace('/upload/', `/upload/w_${width},q_auto,f_auto/`);
         }
 
+        // ================================================================
+        // ===== CLOUDINARY CLEANUP QUEUE =====
+        // ================================================================
+        // The page cannot delete Cloudinary files. `/image/destroy` answers
+        // 401 "Unknown API key" without a signature, and Cloudinary refuses to
+        // issue delete tokens for unsigned uploads (this site's preset):
+        //   "Return delete token parameter is not allowed when using unsigned upload."
+        // So deleting content queues its public IDs here, and the
+        // `.github/workflows/cloudinary-cleanup.yml` job — which holds the API
+        // key in repository secrets — removes the files every hour.
+        function publicIdFromCloudinaryUrl(url) {
+            if (typeof url !== 'string' || url.indexOf('/upload/') === -1) return '';
+            const parts = url.split('/upload/')[1].split('/');
+            while (parts.length && (/^v\d+$/.test(parts[0]) || parts[0].indexOf(',') > -1)) parts.shift();
+            return parts.join('/').replace(/\.[A-Za-z0-9]+$/, '');
+        }
+
+        // Stored IDs first, then any that can be recovered from the URLs.
+        function collectMediaIds(publicIds, urls) {
+            const out = new Set();
+            (Array.isArray(publicIds) ? publicIds : []).forEach((id) => {
+                if (typeof id === 'string' && id) out.add(id);
+            });
+            (Array.isArray(urls) ? urls : []).forEach((url) => {
+                const id = publicIdFromCloudinaryUrl(url);
+                if (id && id.indexOf('t-imawa/') === 0) out.add(id);
+            });
+            return [...out];
+        }
+
+        async function queueCloudinaryCleanup(publicIds, meta) {
+            const list = (Array.isArray(publicIds) ? publicIds : [publicIds]).filter(Boolean);
+            let queued = 0;
+            for (const id of list) {
+                try {
+                    const docId = String(id).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 400);
+                    await db.collection('mediaCleanupQueue').doc(docId).set({
+                        publicId: String(id),
+                        resourceType: (meta && meta.resourceType) === 'video' ? 'video' : 'image',
+                        source: (meta && meta.source) || 'other',
+                        sourceId: (meta && meta.sourceId) || '',
+                        status: 'pending',
+                        attempts: 0,
+                        requestedBy: currentUser ? currentUser.uid : '',
+                        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    queued++;
+                } catch (e) { console.warn('Could not queue media cleanup:', id, e.message); }
+            }
+            return queued;
+        }
+
         function escapeRegex(str) {
             return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
@@ -3764,6 +3835,17 @@
                     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Deleting...'; }
 
                     try {
+                        // Highlights: queue their photos before the records go.
+                        if (tab === 'highlights') {
+                            for (const id of ids) {
+                                const h = allHighlights.find(x => x.id === id);
+                                await queueCloudinaryCleanup(
+                                    collectMediaIds(h?.imagePublicIds, h?.imageURLs),
+                                    { source: 'highlight', sourceId: id }
+                                );
+                            }
+                        }
+
                         const refs = ids.map(id => ({ collection: collectionName, id }));
                         const result = await chunkedBatchDelete(refs);
                         if (result.errors > 0) {
@@ -4320,9 +4402,22 @@
                         detachHighlightReactionsListener(id);
                         delete highlightReactionsCache[id];
 
+                        // Queue the photos before the record disappears.
+                        let mediaIds = collectMediaIds(h?.imagePublicIds, h?.imageURLs);
+                        if (!mediaIds.length) {
+                            try {
+                                const fresh = await db.collection('highlights').doc(id).get();
+                                const d = fresh.data() || {};
+                                mediaIds = collectMediaIds(d.imagePublicIds, d.imageURLs);
+                            } catch (e) { /* keep empty */ }
+                        }
+                        const queuedFiles = await queueCloudinaryCleanup(mediaIds, { source: 'highlight', sourceId: id });
+
                         // Delete the highlight doc
                         await db.collection('highlights').doc(id).delete();
-                        showToast('Highlight deleted.', 'success');
+                        showToast(queuedFiles
+                            ? `Highlight deleted. ${queuedFiles} photo${queuedFiles !== 1 ? 's' : ''} queued for Cloudinary cleanup.`
+                            : 'Highlight deleted.', 'success');
                     } catch (err) {
                         console.error('Error deleting highlight:', err);
                         showToast('Error deleting highlight: ' + err.message, 'error');
@@ -4379,6 +4474,15 @@
 
                 const highlightIds = [];
                 snapshot.forEach(doc => highlightIds.push(doc.id));
+
+                // Queue every photo before the records are removed.
+                for (const doc of snapshot.docs) {
+                    const d = doc.data() || {};
+                    await queueCloudinaryCleanup(
+                        collectMediaIds(d.imagePublicIds, d.imageURLs),
+                        { source: 'highlight', sourceId: doc.id }
+                    );
+                }
 
                 for (const hid of highlightIds) {
                     try {
@@ -6654,6 +6758,7 @@
                 this.classList.add('active');
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 document.getElementById(`tab-${this.dataset.tab}`).classList.add('active');
+                if (this.dataset.tab === 'stories') loadCleanupStatus();
             });
         });
 
@@ -6692,6 +6797,13 @@
                 sweepTried.add(s.id);
                 try {
                     const ref = db.collection('stories').doc(s.id);
+                    await queueCloudinaryCleanup(
+                        collectMediaIds(
+                            [...(Array.isArray(s.mediaPublicIds) ? s.mediaPublicIds : []), s.mediaPublicId || ''],
+                            [s.mediaUrl || '', s.thumbUrl || '']
+                        ),
+                        { source: 'story', sourceId: s.id, resourceType: s.mediaType === 'video' ? 'video' : 'image' }
+                    );
                     const rs = await ref.collection('reactions').get();
                     const b = db.batch(); rs.forEach(d => b.delete(d.ref)); b.delete(ref);
                     await b.commit();
@@ -6786,10 +6898,24 @@
                         await ref.update({ status: 'active', removedAt: firebase.firestore.FieldValue.delete(), removedBy: firebase.firestore.FieldValue.delete(), removalReason: firebase.firestore.FieldValue.delete() });
                         showToast('Story restored.', 'success');
                     } else if (action === 'delete') {
+                        const snap = await ref.get();
+                        const s = snap.exists ? snap.data() : null;
+                        const mediaIds = collectMediaIds(
+                            [...((s && Array.isArray(s.mediaPublicIds)) ? s.mediaPublicIds : []),
+                             (s && s.mediaPublicId) ? s.mediaPublicId : ''],
+                            [(s && s.mediaUrl) || '', (s && s.thumbUrl) || '']
+                        );
+                        const queuedFiles = await queueCloudinaryCleanup(mediaIds, {
+                            source: 'story',
+                            sourceId: id,
+                            resourceType: s && s.mediaType === 'video' ? 'video' : 'image'
+                        });
                         const rs = await ref.collection('reactions').get();
                         const b = db.batch(); rs.forEach(d => b.delete(d.ref)); b.delete(ref);
                         await b.commit();
-                        showToast('Story deleted permanently.', 'success');
+                        showToast(queuedFiles
+                            ? `Story deleted. ${queuedFiles} file${queuedFiles !== 1 ? 's' : ''} queued for Cloudinary cleanup.`
+                            : 'Story deleted permanently.', 'success');
                     }
                 } catch (err) {
                     console.error('moderateStory error:', err);
@@ -6803,6 +6929,86 @@
             }[action];
             if (!copy) return;
             showConfirm({ ...copy, onConfirm: run });
+        }
+
+        // ================================================================
+        // ===== CLOUDINARY CLEANUP: status + bulk queueing =====
+        // ================================================================
+        function cleanupFmt(ts) {
+            const ms = ts && typeof ts.seconds === 'number' ? ts.seconds * 1000 : 0;
+            if (!ms) return '—';
+            return new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        }
+
+        async function loadCleanupStatus() {
+            const countEl = document.getElementById('cleanupQueueCount');
+            const mediaEl = document.getElementById('cleanupMediaCount');
+            const listEl = document.getElementById('cleanupQueueList');
+            if (!countEl) return;
+
+            // Files the currently loaded content still points at.
+            let media = 0;
+            (allHighlights || []).forEach(h => {
+                media += collectMediaIds(h.imagePublicIds, h.imageURLs).length;
+            });
+            (adminStoriesCache || []).forEach(s => {
+                media += collectMediaIds(
+                    [...(Array.isArray(s.mediaPublicIds) ? s.mediaPublicIds : []), s.mediaPublicId || ''],
+                    [s.mediaUrl || '', s.thumbUrl || '']
+                ).length;
+            });
+            if (mediaEl) mediaEl.textContent = `${media} file${media === 1 ? '' : 's'} in use`;
+
+            try {
+                const snap = await db.collection('mediaCleanupQueue').limit(50).get();
+                const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                    .sort((a, b) => ((b.requestedAt?.seconds || 0) - (a.requestedAt?.seconds || 0)));
+                const pending = rows.filter(r => r.status !== 'done').length;
+                countEl.textContent = `${pending} queued`;
+
+                if (!listEl) return;
+                if (!rows.length) {
+                    listEl.innerHTML = '<p style="font-size:12.5px;color:var(--admin-text-dim);margin:0;"><i class="fas fa-check-circle" style="color:var(--admin-success);"></i> Queue is empty — every deleted file has been removed from Cloudinary.</p>';
+                    return;
+                }
+                listEl.innerHTML = rows.slice(0, 8).map(r => {
+                    const failed = r.status === 'failed';
+                    const color = failed ? 'var(--admin-danger)' : 'var(--admin-warning, #b8860b)';
+                    return `<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:7px 0;border-top:1px solid var(--admin-border);font-size:12.5px;">
+                        <span style="min-width:0;overflow-wrap:anywhere;color:var(--admin-text-muted);">
+                            <i class="fas fa-${r.resourceType === 'video' ? 'video' : 'image'}" style="opacity:.7;"></i>
+                            ${escapeHtml(String(r.publicId || r.id).slice(0, 72))}
+                        </span>
+                        <span style="white-space:nowrap;color:${color};font-weight:700;">${escapeHtml(r.status || 'pending')}${r.attempts ? ` · try ${r.attempts}` : ''}</span>
+                        <span style="white-space:nowrap;color:var(--admin-text-dim);">${escapeHtml(cleanupFmt(r.requestedAt))}</span>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                countEl.textContent = 'queue unavailable';
+                console.warn('Could not read mediaCleanupQueue:', e.message);
+            }
+        }
+
+        async function queueExpiredStoryMedia() {
+            const list = (adminStoriesCache || []).filter(s => {
+                const status = storyEffectiveStatus(s);
+                return status === 'expired' || status === 'removed';
+            });
+            if (!list.length) { showToast('No expired or removed stories to clean up.', 'info'); return; }
+            let files = 0;
+            for (const s of list) {
+                files += await queueCloudinaryCleanup(
+                    collectMediaIds(
+                        [...(Array.isArray(s.mediaPublicIds) ? s.mediaPublicIds : []), s.mediaPublicId || ''],
+                        [s.mediaUrl || '', s.thumbUrl || '']
+                    ),
+                    { source: 'story', sourceId: s.id, resourceType: s.mediaType === 'video' ? 'video' : 'image' }
+                );
+            }
+            showToast(files
+                ? `Queued ${files} file${files !== 1 ? 's' : ''} for Cloudinary cleanup.`
+                : 'Nothing to queue — those stories have no stored media IDs.', files ? 'success' : 'info');
+            loadCleanupStatus();
         }
 
         function toggleMobileMenu() {
@@ -6928,7 +7134,7 @@
     <script src="idle-logout.js"></script>
     <script src="stories-shared.js?v=1.11.1"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.4"></script>
+    <script src="stories.js?v=1.12.5"></script>
     <script src="public-profile.js?v=1.2.0"></script>
     <script src="mobile-nav.js?v=1.2.0"></script>
 

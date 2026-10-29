@@ -15081,27 +15081,51 @@ function startReplyTo(commentId, authorName) {
         }
 
         // ================================================================
-        // ===== CLOUDINARY DELETE =====
+        // ===== CLOUDINARY DELETE (queued) =====
         // ================================================================
+        // The browser cannot delete Cloudinary assets: /image/destroy needs the
+        // API secret (an unsigned call answers 401 "Unknown API key"), and
+        // Cloudinary refuses delete tokens for unsigned uploads — the preset
+        // this site uses. So the public ID is queued in Firestore and the
+        // `Cloudinary cleanup` GitHub workflow removes the file within the hour.
+        // What used to happen here was a silent no-op: every deleted highlight
+        // stayed in the account forever.
+        function publicIdFromCloudinaryUrl(url) {
+            if (typeof url !== 'string' || url.indexOf('/upload/') === -1) return '';
+            const parts = url.split('/upload/')[1].split('/');
+            while (parts.length && (/^v\d+$/.test(parts[0]) || parts[0].indexOf(',') > -1)) parts.shift();
+            return parts.join('/').replace(/\.[A-Za-z0-9]+$/, '');
+        }
+
+        async function queueCloudinaryCleanup(publicIds, meta) {
+            const list = (Array.isArray(publicIds) ? publicIds : [publicIds]).filter(Boolean);
+            let queued = 0;
+            for (const id of list) {
+                try {
+                    const docId = String(id).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 400);
+                    await db.collection('mediaCleanupQueue').doc(docId).set({
+                        publicId: String(id),
+                        resourceType: (meta && meta.resourceType) === 'video' ? 'video' : 'image',
+                        source: (meta && meta.source) || 'other',
+                        sourceId: (meta && meta.sourceId) || '',
+                        status: 'pending',
+                        attempts: 0,
+                        requestedBy: currentUser ? currentUser.uid : '',
+                        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    queued++;
+                } catch (err) { console.warn('Could not queue media cleanup:', id, err.message); }
+            }
+            return queued;
+        }
+
         async function deleteFromCloudinary(imageUrl, publicIdHint) {
-            try {
-                let publicId = publicIdHint;
-                if (!publicId) {
-                    const urlParts = imageUrl.split('/');
-                    const filename = urlParts[urlParts.length - 1];
-                    publicId = `t-imawa/highlights/${filename.split('.')[0]}`;
-                }
-
-                const formData = new FormData();
-                formData.append('public_id', publicId);
-
-                const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/destroy`, {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                return result.result === 'ok';
-            } catch (error) { return false; }
+            const publicId = publicIdHint || publicIdFromCloudinaryUrl(imageUrl);
+            if (!publicId) return false;
+            return (await queueCloudinaryCleanup([publicId], {
+                source: 'highlight',
+                resourceType: 'image'
+            })) > 0;
         }
 
         async function deleteHighlight(id) {
@@ -17499,7 +17523,7 @@ function startReplyTo(commentId, authorName) {
 
     <script src="stories-shared.js?v=1.11.1"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.4"></script>
+    <script src="stories.js?v=1.12.5"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.0"></script>

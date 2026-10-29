@@ -1050,7 +1050,7 @@
         const ok = await S.confirm({ title: 'Delete this story?', message: 'It disappears for everyone right away. Replies already sent in chat will stay.', confirmLabel: 'Delete story', cancelLabel: 'Keep it', type: 'danger' });
         if (!ok) { resume('confirm'); return; }
         try {
-            await deleteStoryDoc(db.collection('stories').doc(s.id));
+            await deleteStoryDoc(db.collection('stories').doc(s.id), { ...s, id: s.id });
             rawCache = rawCache.filter(x => x.id !== s.id); rebuild(rawCache);
             toast('Story deleted.', 'success');
             V.paused.delete('confirm');
@@ -1129,7 +1129,38 @@
     // Primary mechanism: a Firestore TTL policy on stories.expiresAt (see STORIES_SETUP.md).
     // TTL can lag by up to a day, so each member's browser also removes THEIR OWN expired
     // stories (and the reactions under them) as a safety net; the admin page sweeps everyone's.
-    async function deleteStoryDoc(ref) {
+    // The browser cannot delete Cloudinary files (the API secret must not live
+    // in the page), so the media is queued for the "Cloudinary cleanup"
+    // workflow before the story document goes away.
+    async function queueStoryMedia(doc) {
+        if (!doc) return;
+        const ids = [];
+        if (Array.isArray(doc.mediaPublicIds)) ids.push(...doc.mediaPublicIds);
+        if (doc.mediaPublicId) ids.push(doc.mediaPublicId);
+        const resourceType = doc.mediaType === 'video' ? 'video' : 'image';
+        for (const pid of ids.filter(Boolean)) {
+            try {
+                const docId = String(pid).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 400);
+                await db.collection('mediaCleanupQueue').doc(docId).set({
+                    publicId: String(pid),
+                    resourceType: resourceType,
+                    source: 'story',
+                    sourceId: doc.id || '',
+                    status: 'pending',
+                    attempts: 0,
+                    requestedBy: (st.me && st.me.uid) || '',
+                    requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (e) { console.warn('Could not queue story media:', pid, e.message); }
+        }
+    }
+
+    async function deleteStoryDoc(ref, data) {
+        let doc = data || null;
+        if (!doc) {
+            try { const snap = await ref.get(); doc = snap.exists ? snap.data() : null; } catch (e) { doc = null; }
+        }
+        await queueStoryMedia(doc);
         const [rs, vs] = await Promise.all([ref.collection('reactions').get(), ref.collection('views').get()]);
         const b = db.batch(); rs.forEach(d => b.delete(d.ref)); vs.forEach(d => b.delete(d.ref)); b.delete(ref);
         await b.commit();
@@ -1145,7 +1176,7 @@
                 const e = x.expiresAt && typeof x.expiresAt.toMillis === 'function' ? x.expiresAt.toMillis() : 0;
                 if (!c) continue;
                 const exp = Math.min(e || (c + S.DURATION_MS), c + S.DURATION_MS);
-                if (exp + 60000 < t) { try { await deleteStoryDoc(d.ref); } catch (err) { /* retry next visit */ } }
+                if (exp + 60000 < t) { try { await deleteStoryDoc(d.ref, { ...x, id: d.id }); } catch (err) { /* retry next visit */ } }
             }
         } catch (e) { /* offline or rules: skip silently */ }
     }
