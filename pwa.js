@@ -820,6 +820,7 @@
         if (permanent) {
             try { localStorage.setItem(CONFIG.installDismissKey, String(Date.now())); } catch (_) { /* ignore */ }
         }
+        document.body.classList.remove('pwa-banner-open');
         if (node && node.parentNode) {
             node.dataset.hidden = 'true';
             setTimeout(() => node.remove(), 260);
@@ -872,6 +873,10 @@
         action.addEventListener('click', onAction);
         banner.querySelector('.pwa-banner__close').addEventListener('click', () => dismissBanner(banner, false));
         document.body.appendChild(banner);
+        // The assistant launcher floats at bottom-right and used to sit on top
+        // of the banner's action and close buttons. This class lifts it clear
+        // while the banner owns the bottom edge.
+        document.body.classList.add('pwa-banner-open');
         requestAnimationFrame(() => { banner.dataset.visible = 'true'; });
         return banner;
     }

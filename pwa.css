@@ -22,7 +22,6 @@
 .pwa-banner {
     position: fixed;
     left: 50%;
-    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
     transform: translate(-50%, 130%);
     width: min(440px, calc(100vw - 24px));
     display: flex;
@@ -35,9 +34,21 @@
     border: 1px solid color-mix(in srgb, var(--theme-primary, #1089d3) 22%, transparent);
     box-shadow: 0 24px 50px -22px rgba(16, 24, 40, 0.45),
         0 2px 8px rgba(16, 24, 40, 0.06);
-    z-index: 1400;
+    /* Above the assistant launcher (2500) so its close button is never buried,
+       below the assistant sheet (2600) so an open panel stays on top. */
+    z-index: 2550;
+    /* Ride above the software keyboard like every other bottom surface. */
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px) + var(--kb-inset, 0px));
     opacity: 0;
     transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+}
+
+/* While the install banner is on screen the launcher moves up, so both the
+   banner's buttons and the assistant stay reachable on a phone. */
+@media (max-width: 640px) {
+    body.pwa-banner-open .tita-launcher {
+        bottom: calc(108px + env(safe-area-inset-bottom, 0px) + var(--kb-inset, 0px)) !important;
+    }
 }
 
 .pwa-banner[data-visible="true"] {
