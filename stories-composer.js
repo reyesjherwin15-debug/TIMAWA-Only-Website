@@ -1,5 +1,5 @@
 /* ================================================================
-   stories-composer.js · TIMAWA / Barkada Stories  (lazy-loaded, v1.12)
+   stories-composer.js · TIMAWA / Barkada Stories  (lazy-loaded, v1.13)
    ================================================================ */
 (function () {
     'use strict';
@@ -17,7 +17,7 @@
 
     let C = null, root = null, q = {};
     const M = {
-        sheet: null, items: [], video: null, layout: '', format: 'frames', selCell: 0, panCell: null, fit: 'fill', dur: MIN_DUR, slide: 0,
+        sheet: null, items: [], video: null, layout: '', format: 'frames', selCell: 0, panCell: null, swap: null, fit: 'fill', dur: MIN_DUR, slide: 0,
         texts: [], sel: null, caption: '', track: null, spotify: null, mstyle: 'bar',
         mpos: { x: 0.5, y: 0.54, scale: 1, rot: 0 },
         mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
@@ -87,6 +87,7 @@
             <div class="st-tools" role="toolbar" aria-label="Story tools"></div>
             <div class="st-stagewrap"><div class="st-cstage">
               <div class="st-bgblur"></div><div class="st-media-wrap"></div><div class="st-texts"></div><div class="st-msticker"></div>
+              <div class="st-guides" hidden aria-hidden="true"><i class="gv"></i><i class="gh"></i></div>
                             <div class="st-scrim-t" hidden></div><div class="st-scrim-b" hidden></div>
               <div class="st-song" hidden></div>
               <button class="st-snd" type="button" data-k="sound" hidden aria-label="Turn on the video's sound"><i class="fas fa-volume-xmark"></i><span>Tap for sound</span></button>
@@ -102,7 +103,7 @@
         document.body.appendChild(root);
         q = { head: $('.st-ch'), stage: $('.st-cstage'), mw: $('.st-media-wrap'), bg: $('.st-bgblur'), tx: $('.st-texts'), tools: $('.st-tools'), sheet: $('.st-sheet'),
               sht: $('.st-sh-h b'), col: $('[data-k=collapse]'), shb: $('.st-sh-b'), file: $('input[type=file]'), bar: $('.st-bar'), barI: $('.st-bar i'), pub: $('[data-k=publish]'),
-              pv: $('.st-pv'), msk: $('.st-msticker'), song: $('.st-song'), capv: $('.st-capv'), slides: $('.st-cslides'), snd: $('[data-k=sound]'), sT: $('.st-scrim-t'), sB: $('.st-scrim-b'), prevB: $('[data-k=preview]'), done: $('[data-k=editDone]') };
+              pv: $('.st-pv'), msk: $('.st-msticker'), song: $('.st-song'), capv: $('.st-capv'), slides: $('.st-cslides'), snd: $('[data-k=sound]'), sT: $('.st-scrim-t'), sB: $('.st-scrim-b'), prevB: $('[data-k=preview]'), done: $('[data-k=editDone]'), guides: $('.st-guides') };
         S.observeStage(q.stage);
         if ('ResizeObserver' in window) new ResizeObserver(measure).observe(q.sheet);
 
@@ -185,7 +186,7 @@
     function reset() {
         stopAudio(); revokeAll();
         Object.assign(M, {
-            sheet: null, items: [], video: null, layout: '', format: 'frames', selCell: 0, panCell: null, fit: 'fill', dur: MIN_DUR, slide: 0,
+            sheet: null, items: [], video: null, layout: '', format: 'frames', selCell: 0, panCell: null, swap: null, fit: 'fill', dur: MIN_DUR, slide: 0,
             texts: [], sel: null, caption: '', track: null, spotify: null, mstyle: 'bar',
             mpos: { x: 0.5, y: 0.54, scale: 1, rot: 0 }, mcolor: '#ffffff',
             mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
@@ -292,6 +293,7 @@
             }
             if (M.fit === 'fit') q.mw.classList.add('fit');
         } else if (collage) {
+            if (M.fit !== 'fit') M.items.forEach(it => { it.tr = fitCellTransform(it.tr); });
             q.mw.innerHTML = S.collageHtml(M.items, M.layout, true, { fit: M.fit, active: M.selCell, size: 900 });
             const b = new Image(); b.src = M.items[Math.max(0, Math.min(n - 1, M.selCell))].url; b.alt = ''; q.bg.appendChild(b);
         } else if (n >= 1) {
@@ -311,7 +313,8 @@
         const it = M.items[i];
         if (!cell || !it) return;
         const img = cell.querySelector('img');
-        const tr = S.cleanCellTransform(it.tr);
+        const tr = fitCellTransform(it.tr);
+        it.tr = tr;
         if (img) img.style.transform = `translate(${(tr.x * 100).toFixed(2)}%,${(tr.y * 100).toFixed(2)}%) scale(${tr.scale.toFixed(3)}) rotate(${tr.rot.toFixed(1)}deg)`;
     }
     function selectCell(i) {
@@ -320,6 +323,58 @@
         M.selCell = i;
         q.mw.querySelectorAll('.st-cell').forEach(c => c.classList.toggle('on', Number(c.dataset.cell) === i));
         if (M.sheet === 'layout') renderSheet();
+    }
+
+    // ---------------- snapping / alignment guides ----------------
+    // A shop-fitted story is built from a few natural lines: the centre and
+    // the two thirds. Text also lines up with other text, which is what makes
+    // a caption and a sticker look intentionally placed instead of almost right.
+    function snapVal(v, targets, threshold) {
+        let best = null, reach = threshold;
+        targets.forEach(t => {
+            const d = Math.abs(v - t);
+            if (d <= reach) { reach = d; best = t; }
+        });
+        return best == null ? { v: v, snapped: false } : { v: best, snapped: true };
+    }
+    function showGuides(x, y) {
+        if (!q.guides) return;
+        const v = q.guides.querySelector('.gv'), h = q.guides.querySelector('.gh');
+        const onX = x != null, onY = y != null;
+        q.guides.hidden = !(onX || onY);
+        if (v) { v.style.display = onX ? 'block' : 'none'; if (onX) v.style.left = (x * 100).toFixed(3) + '%'; }
+        if (h) { h.style.display = onY ? 'block' : 'none'; if (onY) h.style.top = (y * 100).toFixed(3) + '%'; }
+    }
+    function hideGuides() { showGuides(null, null); }
+    function textSnapTargets(axis, id) {
+        const list = [0.5, 1 / 3, 2 / 3];
+        M.texts.forEach(o => { if (o.id !== id) list.push(axis === 'x' ? o.x : o.y); });
+        return list;
+    }
+
+    // Layout cells must always be fully covered in Fill mode. The photo box is
+    // rotated/scaled about its centre, so the safe area shrinks as it turns:
+    // this clamps the pan (and lifts a too-small zoom) until no cell background
+    // can show through. "Fit whole" deliberately keeps its letterbox, so it is
+    // left alone.
+    function fitCellTransform(t) {
+        const tr = S.cleanCellTransform(t);
+        if (M.fit === 'fit') return tr;
+        const rad = tr.rot * Math.PI / 180;
+        const extent = Math.abs(Math.cos(rad)) + Math.abs(Math.sin(rad));
+        const minScale = Math.max(1, extent);
+        if (tr.scale < minScale) tr.scale = minScale;
+        const margin = Math.max(0, (tr.scale * extent - 1) / 2);
+        tr.x = S.clamp(tr.x, -margin, margin);
+        tr.y = S.clamp(tr.y, -margin, margin);
+        return tr;
+    }
+    function cellCenterFrac(i) {
+        const cell = q.mw.querySelector(`.st-cell[data-cell="${i}"]`);
+        if (!cell) return null;
+        const sr = q.stage.getBoundingClientRect(), cr = cell.getBoundingClientRect();
+        if (!sr.width || !sr.height) return null;
+        return { x: (cr.left + cr.width / 2 - sr.left) / sr.width, y: (cr.top + cr.height / 2 - sr.top) / sr.height };
     }
     // Instagram-style film strip: every selected photo is its own frame, and
     // tapping a thumbnail previews that frame without changing the order.
@@ -559,7 +614,7 @@
             h += `<div class="st-lab" style="margin-top:12px">Choose a layout</div><div class="st-layouts">`
                 + S.layoutsFor(n).map(L => `<div class="st-layout-opt"><button type="button" class="st-lay ${M.layout === L.id ? 'on' : ''}" data-k="layout" data-v="${L.id}" aria-label="${L.label}" aria-pressed="${M.layout === L.id}" title="${L.label}">${S.miniLayoutHtml(L)}</button><small>${L.label}</small></div>`).join('')
                 + `</div>
-                <p class="st-hint">Tap a photo to select it. ${coarse() ? 'Drag it to reposition, pinch and twist to zoom and rotate.' : 'Drag it to reposition, or use the sliders below.'}</p>
+                <p class="st-hint">Tap a photo to select it. Drag to reposition, pinch to zoom and rotate, or press and hold then drag it onto another photo to swap their spots.</p>
                 <div class="st-lab">Selected photo ${Math.min(M.selCell + 1, n)} of ${n}</div>`;
             if (!coarse()) {
                 h += `<div class="st-row2 st-desk-only">
@@ -740,14 +795,19 @@
             if (!d.moved && Math.hypot(dx, dy) < 4) return;
             d.moved = true; st.classList.add('drag');
             const t = find(d.id); if (!t) return;
-            t.x = S.clamp(d.ox + dx / d.w, d.hw, 1 - d.hw);
-            t.y = S.clamp(d.oy + dy / d.h, d.hh, 1 - d.hh);
+            const nx = S.clamp(d.ox + dx / d.w, d.hw, 1 - d.hw);
+            const ny = S.clamp(d.oy + dy / d.h, d.hh, 1 - d.hh);
+            const sx = snapVal(nx, textSnapTargets('x', t.id), 0.016);
+            const sy = snapVal(ny, textSnapTargets('y', t.id), 0.016);
+            t.x = sx.v; t.y = sy.v;
             refreshEl(t);
+            showGuides(sx.snapped ? t.x : null, sy.snapped ? t.y : null);
         });
         // A tap (no drag) on a text opens its formatting panel straight away,
         // the way Instagram does. Dragging still moves it without opening anything.
         const end = (allowOpen) => {
             const d = M.drag; M.drag = null; st.classList.remove('drag');
+            hideGuides();
             if (!d) return;
             if (d.moved) { pushHist(); return; }
             if (allowOpen && find(d.id) && M.sheet !== 'text') openSheet('text');
@@ -778,6 +838,7 @@
             if (!session) return;
             const s = session; session = null;
             detach();
+            hideGuides();
             const wasTap = s.kind === 'move' && !moved && (performance.now() - downAt) < TAP_MS;
             if (s.kind === 'move') {
                 if (wasTap) {
@@ -802,8 +863,12 @@
                 if (!moved) { e.preventDefault(); e.stopPropagation(); return; }
                 const dx = dxPx / sr.width;
                 const dy = dyPx / sr.height;
-                M.mpos.x = S.clamp(s.ox + dx, s.hw || 0, 1 - (s.hw || 0));
-                M.mpos.y = S.clamp(s.oy + dy, s.hh || 0, 1 - (s.hh || 0));
+                const nx = S.clamp(s.ox + dx, s.hw || 0, 1 - (s.hw || 0));
+                const ny = S.clamp(s.oy + dy, s.hh || 0, 1 - (s.hh || 0));
+                const sx = snapVal(nx, [0.5, 1 / 3, 2 / 3], 0.02);
+                const sy = snapVal(ny, [0.5, 1 / 3, 2 / 3], 0.02);
+                M.mpos.x = sx.v; M.mpos.y = sy.v;
+                showGuides(sx.snapped ? M.mpos.x : null, sy.snapped ? M.mpos.y : null);
                 paintStickerSoon();
             } else if (s.mode === 'rot') {
                 const ang = Math.atan2(e.clientY - s.cy, e.clientX - s.cx);
@@ -897,6 +962,57 @@
         const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
         const ang = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
         const wrap = d => ((d + 180) % 360 + 360) % 360 - 180;
+
+        // Press-and-hold on a layout photo starts a swap session: drag it onto
+        // another cell and the two photos trade places. A normal drag (started
+        // before the hold fires) still repositions the crop instead.
+        let holdTimer = 0, holdId = null;
+        function clearHold() {
+            if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; }
+            holdId = null;
+        }
+        function beginSwap(id) {
+            if (!M.panCell || M.panCell.id !== id || M.panCell.moved) return;
+            const from = M.panCell.i;
+            M.panCell = null;
+            holdId = null;
+            M.swap = { from: from, to: -1, id: id };
+            st.classList.add('swapping');
+            const src = q.mw.querySelector(`.st-cell[data-cell="${from}"]`);
+            if (src) src.classList.add('swap-src');
+            selectCell(from);
+        }
+        function markSwapTarget(cx, cy) {
+            if (!M.swap) return;
+            let to = -1;
+            q.mw.querySelectorAll('.st-cell').forEach(cell => {
+                const r = cell.getBoundingClientRect();
+                if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) to = Number(cell.dataset.cell);
+            });
+            if (to === M.swap.from) to = -1;
+            if (to === M.swap.to) return;
+            M.swap.to = to;
+            q.mw.querySelectorAll('.st-cell').forEach(c => c.classList.toggle('swap-dst', Number(c.dataset.cell) === to));
+        }
+        function finishSwap(commit) {
+            const s = M.swap;
+            if (!s) return;
+            M.swap = null;
+            clearHold();
+            st.classList.remove('swapping');
+            q.mw.querySelectorAll('.st-cell').forEach(c => c.classList.remove('swap-src', 'swap-dst'));
+            if (!commit || s.to == null || s.to < 0 || s.to === s.from) {
+                if (M.sheet === 'layout') renderSheet();
+                return;
+            }
+            const a = M.items[s.from], b = M.items[s.to];
+            if (!a || !b) return;
+            M.items[s.from] = b;
+            M.items[s.to] = a;
+            M.selCell = s.to;
+            renderStage(); renderSheet();
+        }
+
         const targetOf = el => {
             const t = el.closest && el.closest('.st-t'); if (t) return { k: 'text', id: t.dataset.id };
             if (el.closest && el.closest('.st-mwrap')) return { k: 'sticker' };
@@ -908,6 +1024,8 @@
             let tg = [a.tgt, b.tgt].find(x => x.k !== 'bg') || (canMT() ? { k: 'media' } : null);
             if (!tg) return false;
             M.drag = null; M.pan = null;
+            clearHold();
+            if (M.swap) finishSwap(false);
             if (M.stickerCancel) M.stickerCancel();
             q.stage.classList.add('drag');
             const t = tg.k === 'text' ? find(tg.id) : null;
@@ -934,16 +1052,21 @@
                 M.mpos.scale = S.clamp(P.sc0 * k, 0.25, 4); M.mpos.rot = S.clamp(Math.round(wrap(P.sr0 + dr)), -180, 180); paintStickerSoon();
             } else if (P.tg.k === 'cell') {
                 const it = M.items[P.tg.i]; if (!it) return;
-                const tr = S.cleanCellTransform(it.tr);
-                tr.scale = S.clamp(P.cs0 * k, 0.5, 4);
-                tr.rot = S.clamp(Math.round(wrap(P.cr0 + dr)), -180, 180);
+                let scale = S.clamp(P.cs0 * k, 0.5, 4);
+                if (Math.abs(scale - 1) < 0.035) scale = 1;
+                let rot = wrap(P.cr0 + dr);
+                const cardinal = [0, 90, -90, 180].find(a => Math.abs(wrap(rot - a)) <= 4);
+                if (cardinal !== undefined) rot = cardinal;
+                const tr = fitCellTransform(Object.assign({}, it.tr, { scale: scale, rot: S.clamp(Math.round(rot), -180, 180) }));
                 it.tr = tr; paintCell(P.tg.i);
             } else { M.mt.scale = S.clamp(P.sc0 * k, 0.5, 3); applyMT(); }
         }
         st.addEventListener('pointerdown', e => {
             if (M.preview || e.target.closest('.st-tools') || e.target.closest('.st-snd')) return;
+            clearHold();
+            if (M.swap) finishSwap(false);
             ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, tgt: targetOf(e.target) });
-            if (ptrs.size === 2 && !P) { if (begin()) { e.stopPropagation(); e.preventDefault(); } return; }
+            if (ptrs.size === 2 && !P) { clearHold(); if (begin()) { e.stopPropagation(); e.preventDefault(); } return; }
             if (P) { e.stopPropagation(); e.preventDefault(); return; }
             // first finger on the bare photo / video: prepare to move it (only when it has been resized or is "Fit whole")
             const p = ptrs.get(e.pointerId);
@@ -957,8 +1080,15 @@
                 if (cell && it) {
                     selectCell(p.tgt.i);
                     const r = cell.getBoundingClientRect();
-                    const tr = S.cleanCellTransform(it.tr);
+                    const tr = fitCellTransform(it.tr);
                     M.panCell = { i: p.tgt.i, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: tr.x, oy: tr.y, w: r.width || 1, h: r.height || 1, moved: false };
+                    const pid = e.pointerId;
+                    holdId = pid;
+                    holdTimer = setTimeout(() => {
+                        holdTimer = 0;
+                        if (holdId !== pid) return;
+                        beginSwap(pid);
+                    }, 380);
                 }
             }
         }, true);
@@ -966,17 +1096,24 @@
             const p = ptrs.get(e.pointerId); if (!p) return;
             p.x = e.clientX; p.y = e.clientY;
             if (P) { if (ptrs.size >= 2) apply(); e.stopPropagation(); e.preventDefault(); return; }
+            if (M.swap && M.swap.id === e.pointerId) {
+                markSwapTarget(e.clientX, e.clientY);
+                e.stopPropagation(); e.preventDefault(); return;
+            }
             const pc = M.panCell;
             if (pc && pc.id === e.pointerId) {
                 const dx = e.clientX - pc.sx, dy = e.clientY - pc.sy;
                 if (!pc.moved && Math.hypot(dx, dy) < 4) { e.preventDefault(); return; }
+                clearHold();
                 pc.moved = true; st.classList.add('drag');
                 const it = M.items[pc.i];
                 if (it) {
-                    const tr = S.cleanCellTransform(it.tr);
-                    tr.x = S.clamp(pc.ox + dx / pc.w, -1, 1);
-                    tr.y = S.clamp(pc.oy + dy / pc.h, -1, 1);
+                    const tr = fitCellTransform(Object.assign({}, it.tr, { x: pc.ox + dx / pc.w, y: pc.oy + dy / pc.h }));
+                    const sx = snapVal(tr.x, [0], 0.025), sy = snapVal(tr.y, [0], 0.025);
+                    tr.x = sx.v; tr.y = sy.v;
                     it.tr = tr; paintCell(pc.i);
+                    const c = cellCenterFrac(pc.i);
+                    showGuides(sx.snapped && c ? c.x : null, sy.snapped && c ? c.y : null);
                 }
                 e.preventDefault(); return;
             }
@@ -985,13 +1122,26 @@
                 const dx = e.clientX - pn.sx, dy = e.clientY - pn.sy;
                 if (!pn.moved && Math.hypot(dx, dy) < 5) return;
                 pn.moved = true; st.classList.add('drag');
-                M.mt.x = S.clamp(pn.ox + dx / pn.w, -1, 1); M.mt.y = S.clamp(pn.oy + dy / pn.h, -1, 1); applyMT();
+                const nx = S.clamp(pn.ox + dx / pn.w, -1, 1), ny = S.clamp(pn.oy + dy / pn.h, -1, 1);
+                const sx = snapVal(nx, [0], 0.02), sy = snapVal(ny, [0], 0.02);
+                M.mt.x = sx.v; M.mt.y = sy.v; applyMT();
+                showGuides(sx.snapped ? 0.5 : null, sy.snapped ? 0.5 : null);
                 e.preventDefault();
             }
         }, true);
         const up = e => {
+            clearHold();
+            if (M.swap && M.swap.id === e.pointerId) {
+                const commit = e.type !== 'pointercancel';
+                finishSwap(commit);
+                hideGuides();
+                ptrs.delete(e.pointerId);
+                st.classList.remove('drag');
+                return;
+            }
             if (!ptrs.has(e.pointerId)) return;
             ptrs.delete(e.pointerId);
+            hideGuides();
             if (M.pan && M.pan.id === e.pointerId) { M.pan = null; st.classList.remove('drag'); }
             if (M.panCell && M.panCell.id === e.pointerId) { M.panCell = null; st.classList.remove('drag'); if (M.sheet === 'layout') renderSheet(); }
             if (P && ptrs.size < 2) { const was = P; P = null; st.classList.remove('drag'); pushHist(); if (was.tg.k !== 'media') renderSheet(); else if (M.sheet === 'layout') renderSheet(); }
@@ -1044,11 +1194,26 @@
         else if (k === 'mediaScale') { M.mt.scale = S.clamp(Number(e.target.value) / 100, 0.5, 3); applyMT(); const z = $('.st-zoomv'); if (z) z.textContent = Math.round(M.mt.scale * 100) + '%'; }
         else if (k === 'cellScale') {
             const it = M.items[M.selCell];
-            if (it) { it.tr = S.cleanCellTransform(Object.assign({}, it.tr, { scale: Number(e.target.value) / 100 })); paintCell(M.selCell); const b = $('.st-cellzoomv'); if (b) b.textContent = Math.round(it.tr.scale * 100) + '%'; }
+            if (it) {
+                it.tr = fitCellTransform(Object.assign({}, it.tr, { scale: Number(e.target.value) / 100 }));
+                paintCell(M.selCell);
+                e.target.value = Math.round(it.tr.scale * 100);
+                const b = $('.st-cellzoomv'); if (b) b.textContent = Math.round(it.tr.scale * 100) + '%';
+                const rot = q.shb.querySelector('[data-in="cellRot"]'); if (rot) rot.value = Math.round(it.tr.rot);
+            }
         }
         else if (k === 'cellRot') {
             const it = M.items[M.selCell];
-            if (it) { it.tr = S.cleanCellTransform(Object.assign({}, it.tr, { rot: Number(e.target.value) })); paintCell(M.selCell); }
+            if (it) {
+                let deg = Math.round(Number(e.target.value));
+                const cardinal = [0, 90, -90, 180].find(a => Math.abs(deg - a) <= 3);
+                if (cardinal !== undefined) deg = cardinal;
+                it.tr = fitCellTransform(Object.assign({}, it.tr, { rot: deg }));
+                paintCell(M.selCell);
+                e.target.value = Math.round(it.tr.rot);
+                const z = q.shb.querySelector('[data-in="cellScale"]'); if (z) z.value = Math.round(it.tr.scale * 100);
+                const b = $('.st-cellzoomv'); if (b) b.textContent = Math.round(it.tr.scale * 100) + '%';
+            }
         }
         else if (k === 'music') { M.query = e.target.value; }
         else if (k === 'spotify') { M.spq = e.target.value; }
@@ -1085,12 +1250,15 @@
                 renderStage(); renderSheet(); break;
             case 'cellReset': {
                 const it = M.items[M.selCell];
-                if (it) it.tr = { scale: 1, x: 0, y: 0, rot: 0 };
+                if (it) it.tr = fitCellTransform({ scale: 1, x: 0, y: 0, rot: 0 });
                 renderStage(); renderSheet(); break;
             }
             case 'slide': M.slide = S.clamp(parseInt(v, 10) || 0, 0, Math.max(0, M.items.length - 1)); renderStage(); break;
             case 'resetMedia': M.mt = { scale: 1, x: 0, y: 0 }; applyMT(); renderSheet(); break;
-            case 'fit': M.fit = v; renderStage(); renderSheet(); break;
+            case 'fit':
+                M.fit = v;
+                if (v === 'fill') M.items.forEach(it => { it.tr = fitCellTransform(it.tr); });
+                renderStage(); renderSheet(); break;
             case 'dur': M.dur = S.clamp(Number(v), MIN_DUR, MAX_DUR); renderSheet(); break;
             case 'addText': addText(); break;
             case 'editText': if (t) edit(t.id); break;
@@ -1540,7 +1708,7 @@
             };
             if (multi) {
                 doc.mediaItems = ups.map((u, i) => {
-                    const tr = layoutMode ? S.cleanCellTransform((M.items[i] || {}).tr) : null;
+                    const tr = layoutMode ? fitCellTransform((M.items[i] || {}).tr) : null;
                     return tr
                         ? { url: urls[i], w: u.width || 0, h: u.height || 0, transform: { scale: +tr.scale.toFixed(3), x: +tr.x.toFixed(4), y: +tr.y.toFixed(4), rot: Math.round(tr.rot) } }
                         : { url: urls[i], w: u.width || 0, h: u.height || 0 };

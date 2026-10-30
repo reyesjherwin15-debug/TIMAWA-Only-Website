@@ -927,6 +927,34 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
     pointer-events: none;
 }
 .st-comp .st-cellzoomv { font-size: 11px; color: var(--theme-text-muted, #555); }
+
+/* Snap guides: shown only while a dragged element locks onto a line. */
+.st-cstage .st-guides { position: absolute; inset: 0; z-index: 12; pointer-events: none; }
+.st-cstage .st-guides i {
+    position: absolute; display: block; background: #fff; border-radius: 999px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 0 12px rgba(0, 0, 0, .45); opacity: .95;
+}
+.st-cstage .st-guides .gv { top: 0; bottom: 0; width: 1.5px; transform: translateX(-50%); }
+.st-cstage .st-guides .gh { left: 0; right: 0; height: 1.5px; transform: translateY(-50%); }
+
+/* Press-and-hold photo swap in a Layout story. */
+.st-cstage.swapping { cursor: grabbing; }
+.st-cstage.swapping::after {
+    content: 'Drop on another photo to swap';
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    padding: 7px 13px; border-radius: 999px; background: rgba(3, 7, 18, .72);
+    color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .02em;
+    white-space: nowrap; z-index: 21; pointer-events: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
+}
+.st-media-wrap .st-cell.swap-src { opacity: .5; }
+.st-media-wrap .st-cell.swap-dst { z-index: 4; }
+.st-media-wrap .st-cell.swap-dst::after {
+    content: ''; position: absolute; inset: 3px; border-radius: 10px;
+    box-shadow: inset 0 0 0 3px var(--theme-primary, #38bdf8), 0 0 0 1px rgba(0, 0, 0, .3);
+    pointer-events: none;
+}
+
 @media (max-width: 640px) {
     .st-comp .st-layout-opt .st-lay { width: 40px; height: 52px; }
 }
