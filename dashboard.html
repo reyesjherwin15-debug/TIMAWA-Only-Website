@@ -57,7 +57,7 @@
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="stories.css?v=1.11.6" />
-    <script src="theme.js"></script>
+    <script src="theme.js?v=1.1.0"></script>
 
     <!-- Cloudinary Upload Widget -->
     <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
@@ -3429,28 +3429,6 @@
             flex-shrink: 0;
         }
 
-                .activity-row .activity-clear-btn {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            border: none;
-            background: var(--theme-bg-soft);
-            color: var(--theme-text-dim);
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            transition: all 0.2s ease;
-            flex-shrink: 0;
-            margin-top: 4px;
-        }
-        .activity-row .activity-clear-btn:hover {
-            background: var(--theme-warn-soft);
-            color: var(--theme-warn);
-            transform: scale(1.1);
-        }
-
         .activity-row .activity-time {
             font-size: 12px;
             font-weight: 700;
@@ -6240,10 +6218,6 @@
                 border-top: 1px solid var(--theme-border-soft);
             }
 
-            .activity-row .activity-clear-btn {
-                margin-top: 0;
-                margin-left: auto;
-            }
         }
 
         @media (max-width: 768px) and (min-height: 640px) {
@@ -7329,7 +7303,7 @@
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.3.0" />
-    <link rel="stylesheet" href="launch.css?v=1.0.0" />
+    <link rel="stylesheet" href="launch.css?v=1.1.0" />
     <style>
         /* Keyboard-aware full-bleed sheets.
            iOS does not shrink the layout viewport for the software keyboard, so
@@ -7347,18 +7321,14 @@
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
-    <div class="loading-overlay active" id="loadingOverlay" aria-hidden="false">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" class="pl" aria-hidden="true">
-            <defs>
-                <linearGradient y2="1" x2="0" y1="0" x1="0" id="pl-grad">
-                    <stop class="pl__grad-stop-1" offset="0%"></stop>
-                    <stop class="pl__grad-stop-2" offset="100%"></stop>
-                </linearGradient>
-            </defs>
-            <circle stroke-linecap="round" stroke-width="16" stroke="currentColor" fill="none" cy="64" cx="64" r="56" class="pl__ring" style="color: color-mix(in srgb, var(--theme-primary) 15%, transparent);"></circle>
-            <path stroke-dashoffset="10" stroke-dasharray="44 1111" stroke-linejoin="round" stroke-linecap="round" stroke-width="16" stroke="url(#pl-grad)" fill="none" d="M92,15.492S78.194,4.967,66.743,16.887c-17.231,17.938-28.26,96.974-28.26,96.974L119.85,59.892l-99-31.588,57.528,89.832L97.8,19.349,13.636,88.51l89.012,16.015S81.908,38.332,66.1,22.337C50.114,6.156,36,15.492,36,15.492a56,56,0,1,0,56,0Z" class="pl__worm"></path>
-        </svg>
-        <div class="loading-text" id="loadingText">Loading dashboard…</div>
+    <div class="loading-overlay t-splash active" id="loadingOverlay" aria-hidden="false">
+        <div class="t-splash-stage">
+            <div class="t-splash-mark" aria-hidden="true"><span class="t-splash-ring"></span><b>T</b></div>
+            <div class="t-splash-word" aria-hidden="true">TIMAWA</div>
+            <div class="t-splash-sub" aria-hidden="true">Squad Hub</div>
+            <div class="t-splash-bar" aria-hidden="true"><i></i></div>
+            <div class="loading-text" id="loadingText" role="status">Loading TIMAWA…</div>
+        </div>
     </div>
 
     <!-- ===== TOAST STACK ===== -->
@@ -9057,11 +9027,6 @@
                         </div>
                         <div class="activity-meta">
                             <span class="activity-time">${escapeHtml(rel)}</span>
-                            <button class="activity-clear-btn"
-                                    onclick="event.stopPropagation(); clearSingleActivityRecord('${escapeAttr(row.uid)}', '${escapeAttr(row.name)}')"
-                                    title="Remove from activity tracker (keeps their account)">
-                                <i class="fas fa-eye-slash"></i>
-                            </button>
                         </div>
                     </div>
                 `;
@@ -9114,33 +9079,9 @@
             }
         }
 
-        async function clearSingleActivityRecord(uid, name) {
-            if (!uid) return;
-            if (currentUser && uid === currentUser.uid) {
-                showToast('You can\'t clear your own activity record.', 'warn');
-                return;
-            }
-
-            showConfirm({
-                title: 'Remove from Activity?',
-                message: `Clear ${name}'s activity record? They will still be a squad member — only their "last seen" info is removed.`,
-                confirmLabel: 'Remove',
-                type: 'warn',
-                onConfirm: async () => {
-                    try {
-                        await db.collection('users').doc(uid).update({
-                            lastVisit: firebase.firestore.FieldValue.delete(),
-                            lastVisitPage: firebase.firestore.FieldValue.delete(),
-                            lastVisitTitle: firebase.firestore.FieldValue.delete(),
-                            visitCount: firebase.firestore.FieldValue.delete()
-                        });
-                        showToast(`${name} removed from activity tracker.`, 'success');
-                    } catch (err) {
-                        showToast('Could not clear activity: ' + err.message, 'error');
-                    }
-                }
-            });
-        }
+        // Deleting a member's activity row by hand is gone on purpose: the
+        // tracker prunes itself (5-day cutoff above), so the only way a record
+        // leaves the list is the automatic cleanup.
 
         async function scheduledInactiveUserCleanup() {
             try {
@@ -14535,6 +14476,7 @@ function startReplyTo(commentId, authorName) {
                 const todayDate = today.getDate();
                 const snap = await db.collection('users').limit(200).get();
                 const todayBirthdayUsers = [];
+                const allBirthdays = [];
                 snap.forEach(doc => {
                     const data = doc.data();
                     if (!data.birthday || typeof data.birthday !== 'string') return;
@@ -14543,6 +14485,10 @@ function startReplyTo(commentId, authorName) {
                     const bMonth = parseInt(parts[1], 10) - 1;
                     const bDay = parseInt(parts[2], 10);
                     if (isNaN(bMonth) || isNaN(bDay)) return;
+                    allBirthdays.push({
+                        name: data.displayName || data.email || 'Someone',
+                        md: String(parts[1]).padStart(2, '0') + '-' + String(parts[2]).padStart(2, '0')
+                    });
                     if (bMonth === todayMonth && bDay === todayDate) {
                         todayBirthdayUsers.push({
                             uid: doc.id,
@@ -14550,6 +14496,9 @@ function startReplyTo(commentId, authorName) {
                         });
                     }
                 });
+                if (window.TIMAWA_SYNC_BIRTHDAYS) {
+                    try { window.TIMAWA_SYNC_BIRTHDAYS(allBirthdays); } catch (e) { /* theme cache only */ }
+                }
                 if (todayBirthdayUsers.length === 0) {
                     markAutogenRunToday(currentUser.uid, 'birthdays_all');
                     return;
@@ -17582,6 +17531,6 @@ function startReplyTo(commentId, authorName) {
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.5.1" defer></script>
+    <script src="pwa.js?v=1.5.12" defer></script>
 </body>
 </html>

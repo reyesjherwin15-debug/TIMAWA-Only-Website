@@ -280,6 +280,48 @@
         return 'A newer version of TIMAWA is ready. Updating reloads the app with the latest code.';
     }
 
+    /* ---------- install assets (icon / splash) --------------------------------
+       A website cannot uninstall and reinstall itself — browsers forbid it, and
+       on iPhone the Home Screen icon is only read when the app is added again.
+       What the page CAN do is make the refresh as close to automatic as the
+       platform allows: re-read the manifest and every launch icon with the HTTP
+       cache bypassed, drop the stale manifest/icon entries from the app caches,
+       and let the service worker update. Android Chrome then swaps the icon on
+       the next launch; iPhone still needs the remove-and-add step, which the
+       update card spells out. Nothing the member saved is touched. */
+    const INSTALL_ASSETS = [
+        'manifest.json',
+        'launch.css',
+        'icons/icon-192.png?v=3',
+        'icons/icon-512.png?v=3',
+        'icons/icon-maskable-512.png?v=3',
+        'icons/apple-touch-icon-180.png?v=3'
+    ];
+
+    async function refreshInstallAssets() {
+        try {
+            await Promise.all(INSTALL_ASSETS.map((asset) => {
+                const url = asset + (asset.indexOf('?') > -1 ? '&' : '?') + 'bust=' + Date.now();
+                return fetch(url, { cache: 'reload' }).catch(() => null);
+            }));
+        } catch (_) { /* offline is fine */ }
+
+        // Only the install assets are evicted; the cached pages/members that
+        // make offline mode work stay exactly where they are.
+        try {
+            if (window.caches) {
+                const names = await caches.keys();
+                await Promise.all(names.map(async (name) => {
+                    const cache = await caches.open(name);
+                    const requests = await cache.keys();
+                    await Promise.all(requests
+                        .filter((request) => /manifest\.json|\/icons\/|\/launch\.css/.test(request.url))
+                        .map((request) => cache.delete(request)));
+                }));
+            }
+        } catch (_) { /* storage unavailable */ }
+    }
+
     /* Take the new page and let a waiting worker become the active one. Caches
        are deliberately not cleared: if the reload cannot reach the network the
        offline copy must still be there. */
@@ -291,7 +333,8 @@
                 try { if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) { /* ignore */ }
                 try { await reg.update(); } catch (_) { /* offline is fine */ }
             }
-        } catch (_) { /* no worker on this browser */ }
+            await refreshInstallAssets();
+        } catch (_) { /* install assets are best-effort */ }
         setTimeout(() => { try { location.reload(); } catch (_) { /* ignore */ } }, 320);
     }
 
@@ -1246,25 +1289,29 @@
     /* Splash                                                              */
     /* ------------------------------------------------------------------ */
 
-    /* Replaces the generic spinner in #loadingOverlay with the branded mark.
+    /* The launch screen is the branded mark — nothing else. Every page now
+       ships that markup in its HTML, so the very first paint is the modern
+       splash instead of the old spinner; this only fills it in for a page
+       that still has the generic overlay, and keeps the label in sync.
        The overlay keeps its id and its .active class, so every page's
-       showLoadingOverlay()/hideLoadingOverlay() keeps working untouched — only
-       its contents and its enter/leave motion are different. */
+       showLoadingOverlay()/hideLoadingOverlay() keeps working untouched. */
     function decorateSplash() {
         const overlay = document.getElementById('loadingOverlay');
-        if (!overlay || overlay.dataset.timawaSplash === '1') return;
-        overlay.dataset.timawaSplash = '1';
+        if (!overlay) return;
         const oldLabel = document.getElementById('loadingText');
         const labelText = (oldLabel && oldLabel.textContent) || 'Loading TIMAWA…';
         overlay.classList.add('t-splash');
-        overlay.innerHTML =
-            '<div class="t-splash-stage">' +
-                '<div class="t-splash-mark" aria-hidden="true"><span class="t-splash-ring"></span><b>T</b></div>' +
-                '<div class="t-splash-word" aria-hidden="true">TIMAWA</div>' +
-                '<div class="t-splash-sub" aria-hidden="true">Squad Hub</div>' +
-                '<div class="t-splash-bar" aria-hidden="true"><i></i></div>' +
-                '<div class="loading-text" id="loadingText" role="status"></div>' +
-            '</div>';
+        if (!overlay.querySelector('.t-splash-stage')) {
+            overlay.innerHTML =
+                '<div class="t-splash-stage">' +
+                    '<div class="t-splash-mark" aria-hidden="true"><span class="t-splash-ring"></span><b>T</b></div>' +
+                    '<div class="t-splash-word" aria-hidden="true">TIMAWA</div>' +
+                    '<div class="t-splash-sub" aria-hidden="true">Squad Hub</div>' +
+                    '<div class="t-splash-bar" aria-hidden="true"><i></i></div>' +
+                    '<div class="loading-text" id="loadingText" role="status"></div>' +
+                '</div>';
+        }
+        overlay.dataset.timawaSplash = '1';
         const label = document.getElementById('loadingText');
         if (label) label.textContent = labelText;
     }
@@ -1333,6 +1380,7 @@
         openOfflineWheel,
         checkAppUpdate,
         applyAppUpdate,
+        refreshInstallAssets,
         probeNetwork,
         isOffline,
         offlineBootCheck,

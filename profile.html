@@ -51,7 +51,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <script src="theme.js"></script>
+    <script src="theme.js?v=1.1.0"></script>
 
     <style>
         :root {
@@ -1753,22 +1753,18 @@
         }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="launch.css?v=1.0.0" />
+    <link rel="stylesheet" href="launch.css?v=1.1.0" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
-    <div class="loading-overlay active" id="loadingOverlay" aria-hidden="false">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" class="pl" aria-hidden="true">
-            <defs>
-                <linearGradient y2="1" x2="0" y1="0" x1="0" id="pl-grad">
-                    <stop class="pl__grad-stop-1" offset="0%"></stop>
-                    <stop class="pl__grad-stop-2" offset="100%"></stop>
-                </linearGradient>
-            </defs>
-            <circle stroke-linecap="round" stroke-width="16" stroke="currentColor" fill="none" cy="64" cx="64" r="56" class="pl__ring" style="color: color-mix(in srgb, var(--theme-primary) 15%, transparent);"></circle>
-            <path stroke-dashoffset="10" stroke-dasharray="44 1111" stroke-linejoin="round" stroke-linecap="round" stroke-width="16" stroke="url(#pl-grad)" fill="none" d="M92,15.492S78.194,4.967,66.743,16.887c-17.231,17.938-28.26,96.974-28.26,96.974L119.85,59.892l-99-31.588,57.528,89.832L97.8,19.349,13.636,88.51l89.012,16.015S81.908,38.332,66.1,22.337C50.114,6.156,36,15.492,36,15.492a56,56,0,1,0,56,0Z" class="pl__worm"></path>
-        </svg>
-        <div class="loading-text" id="loadingText">Loading profile…</div>
+    <div class="loading-overlay t-splash active" id="loadingOverlay" aria-hidden="false">
+        <div class="t-splash-stage">
+            <div class="t-splash-mark" aria-hidden="true"><span class="t-splash-ring"></span><b>T</b></div>
+            <div class="t-splash-word" aria-hidden="true">TIMAWA</div>
+            <div class="t-splash-sub" aria-hidden="true">Squad Hub</div>
+            <div class="t-splash-bar" aria-hidden="true"><i></i></div>
+            <div class="loading-text" id="loadingText" role="status">Loading TIMAWA…</div>
+        </div>
     </div>
 
     <!-- ===== TOAST STACK ===== -->
@@ -3310,11 +3306,17 @@
         }
 
         async function handlePhotoUpload(e) {
-            const file = e.target.files[0];
+            let file = e.target.files[0];
             if (!file) return;
             if (file.size > 10 * 1024 * 1024) {
                 showToast('Photo too large! Please choose an image under 10MB.', 'warn');
                 return;
+            }
+            // Size it against the circle it will live in, not a blind square crop.
+            if (window.TimawaAvatarCrop) {
+                const picked = await window.TimawaAvatarCrop.open(file, { size: 640 });
+                if (!picked) { e.target.value = ''; return; }
+                file = picked;
             }
             showMessage('📸 Compressing image...', 'info');
             try {
@@ -3906,6 +3908,7 @@
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.5.1" defer></script>
+    <script src="avatar-crop.js?v=1.0.0" defer></script>
+    <script src="pwa.js?v=1.5.12" defer></script>
 </body>
 </html>

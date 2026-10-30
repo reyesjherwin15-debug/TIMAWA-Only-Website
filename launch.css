@@ -1,35 +1,51 @@
 /* ============================================================================
    launch.css · TIMAWA — app launch screen
    ----------------------------------------------------------------------------
-   pwa.js turns #loadingOverlay into the branded .t-splash (mark + wordmark +
-   progress sweep). This file is the visual layer on top of it: a deep brand
-   field instead of the white page background, a richer tile, a wordmark that
-   reads on dark, and a calmer sweep.
+   The branded splash (mark + wordmark + progress sweep) is now the only launch
+   screen: every page ships this markup in its HTML, so the old ring spinner is
+   never painted, not even for one frame. pwa.js only fills in a page that still
+   has the generic overlay.
 
-   Loaded after the page's inline <style> and after pwa.css, so it wins by
-   source order. It only touches `.t-splash*` — the overlay every page uses for
-   ordinary "Loading…" states is left alone once decorated.
-
-   The native PWA splash (manifest background_color) is the same #071322, so a
-   cold start on a phone goes native splash → this screen without a white flash.
+   Everything here is built from the live theme tokens (--theme-bg,
+   --theme-primary, --theme-accent, --theme-text…), so the launch screen matches
+   whichever theme and light/dark mode the member picked, and the birthday theme
+   on their birthday. The fallbacks are the TIMAWA brand blues for a page that
+   has no theme system (the admin pages) or a first paint before theme.js runs.
    ========================================================================== */
 
 /* ---------- brand field ---------------------------------------------------- */
+/* Pages that never had a loading overlay (Spin & Poll) use the same class,
+   so the splash is self-positioning instead of relying on inline page CSS. */
 .loading-overlay.t-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    opacity: 0;
+    pointer-events: none;
     background:
-        radial-gradient(70% 46% at 50% 20%, rgba(58, 130, 255, 0.30) 0%, rgba(58, 130, 255, 0) 68%),
-        radial-gradient(60% 42% at 50% 96%, rgba(112, 92, 255, 0.26) 0%, rgba(112, 92, 255, 0) 70%),
-        radial-gradient(120% 120% at 50% 50%, rgba(7, 19, 34, 0) 42%, rgba(3, 9, 18, 0.55) 100%),
-        #071322;
+        radial-gradient(70% 46% at 50% 18%,
+            color-mix(in srgb, var(--theme-primary, #3a82ff) 24%, transparent) 0%,
+            transparent 68%),
+        radial-gradient(60% 44% at 50% 96%,
+            color-mix(in srgb, var(--theme-accent, #705cff) 20%, transparent) 0%,
+            transparent 70%),
+        radial-gradient(120% 120% at 50% 50%,
+            transparent 40%,
+            color-mix(in srgb, var(--theme-text, #071322) 14%, transparent) 100%),
+        var(--theme-bg, #071322);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    color-scheme: dark;
 }
 
-/* Before pwa.js decorates the overlay there is one paint with the plain
-   theme background — keep that first frame dark so the launch never flashes. */
+/* A page that still has the plain overlay: paint the theme background, not a
+   white flash, while its markup is being upgraded. */
 .loading-overlay:not(.t-splash) {
-    background: #071322;
+    background: var(--theme-bg, #071322);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
 }
@@ -40,13 +56,16 @@
     height: 94px;
     border-radius: 29px;
     background:
-        linear-gradient(158deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 44%),
-        linear-gradient(140deg, #3ea7ff 0%, #2a63ee 52%, #6f52ff 100%);
+        linear-gradient(158deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 46%),
+        linear-gradient(140deg,
+            var(--theme-primary, #3ea7ff) 0%,
+            var(--theme-primary-dark, #2a63ee) 54%,
+            var(--theme-accent, #6f52ff) 100%);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.5),
         inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-        0 26px 60px -18px rgba(38, 126, 255, 0.72),
-        0 54px 96px -40px rgba(122, 92, 255, 0.7);
+        0 26px 60px -18px color-mix(in srgb, var(--theme-primary, #267eff) 66%, transparent),
+        0 54px 96px -40px color-mix(in srgb, var(--theme-accent, #7a5cff) 64%, transparent);
     animation: tSplashFloat 3.8s ease-in-out infinite;
 }
 
@@ -64,20 +83,20 @@
     text-shadow: 0 3px 14px rgba(3, 16, 40, 0.4);
 }
 
-/* rotating arc: thinner, brand-blue, and slower than the old 1.5s spin */
+/* rotating arc in the theme accent — thinner and slower than a spinner */
 .t-splash-ring {
     inset: -12px;
     border-radius: 40px;
     background: conic-gradient(from 0turn,
-        rgba(255, 255, 255, 0) 0 58%,
-        #4fc3ff 78%,
-        #b9a6ff 92%,
-        rgba(255, 255, 255, 0) 100%);
+        transparent 0 58%,
+        var(--theme-primary, #4fc3ff) 76%,
+        var(--theme-accent, #b9a6ff) 92%,
+        transparent 100%);
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 0);
     mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 0);
     animation: tSplashSpin 2.2s linear infinite;
     opacity: 0.9;
-    filter: drop-shadow(0 0 10px rgba(79, 195, 255, 0.45));
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--theme-primary, #4fc3ff) 55%, transparent));
 }
 
 /* ---------- wordmark ------------------------------------------------------- */
@@ -88,10 +107,9 @@
     letter-spacing: 0.42em;
     text-indent: 0.42em;
     background: linear-gradient(90deg,
-        #cfe2ff 0%,
-        #ffffff 42%,
-        #d8c9ff 72%,
-        #cfe2ff 100%);
+        var(--theme-primary, #cfe2ff) 0%,
+        var(--theme-accent, #ffffff) 48%,
+        var(--theme-primary, #cfe2ff) 100%);
     background-size: 240% 100%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -106,7 +124,7 @@
     letter-spacing: 0.26em;
     text-indent: 0.26em;
     text-transform: uppercase;
-    color: rgba(184, 214, 255, 0.66);
+    color: color-mix(in srgb, var(--theme-text, #ffffff) 62%, transparent);
     opacity: 1;
 }
 
@@ -116,12 +134,16 @@
     width: 148px;
     height: 3px;
     border-radius: 999px;
-    background: rgba(148, 190, 255, 0.16);
+    background: color-mix(in srgb, var(--theme-primary, #94beff) 16%, transparent);
     overflow: hidden;
 }
 
 .t-splash-bar i {
-    background: linear-gradient(90deg, transparent, #4fa8ff, #b9a6ff, transparent);
+    background: linear-gradient(90deg,
+        transparent,
+        var(--theme-primary, #4fa8ff),
+        var(--theme-accent, #b9a6ff),
+        transparent);
     animation: tSplashSweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
@@ -132,7 +154,7 @@
     font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: rgba(190, 220, 255, 0.68);
+    color: color-mix(in srgb, var(--theme-text, #bee0ff) 58%, transparent);
     animation: tSplashStatus 2s ease-in-out infinite;
 }
 
@@ -144,6 +166,13 @@
 /* ---------- enter/leave ---------------------------------------------------- */
 .loading-overlay.t-splash {
     transition: opacity 0.42s ease, transform 0.55s cubic-bezier(0.4, 0, 0.2, 1), filter 0.38s ease;
+}
+
+.loading-overlay.t-splash.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    filter: none;
 }
 
 .loading-overlay.t-splash:not(.active) {

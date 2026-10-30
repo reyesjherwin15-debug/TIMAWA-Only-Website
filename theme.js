@@ -284,6 +284,10 @@
         hfathers: `
 <div class="shape " style="left:16%;top:58%;width:min(90vmin,740px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--hfg),transparent 65%);"></div><div class="shape " style="left:0;right:0;bottom:0;height:26%;background:linear-gradient(180deg,var(--q5),var(--q6))"></div><div class="shape " style="left:0;right:0;bottom:calc(26% - 6px);height:clamp(110px,22vh,230px);background:linear-gradient(var(--q3),var(--q3)) 0 0/100% 10px no-repeat,linear-gradient(var(--q3),var(--q3)) 0 62%/100% 8px no-repeat,repeating-linear-gradient(90deg,var(--q4) 0 38px,var(--q3) 38px 41px)"></div><svg class="shape " viewBox="0 0 120 140" style="left:5%;bottom:calc(26% - 40px);width:clamp(60px,8vw,110px)"><path d='M20 10L40 110M100 10L80 110M20 70H100' style='stroke:#2f6af0;stroke-width:9;stroke-linecap:round'/><path d='M14 20H106' style='stroke:#2f6af0;stroke-width:12;stroke-linecap:round'/><path d='M30 70L18 130M90 70L102 130' style='stroke:#1f4ab0;stroke-width:8;stroke-linecap:round'/></svg><svg class="shape opt" viewBox="0 0 112 90" style="left:19%;bottom:calc(26% - 38px);width:clamp(66px,8.6vw,120px)"><rect x='6' y='24' width='100' height='62' rx='8' style='fill:#e8505b'/><rect x='6' y='24' width='100' height='20' rx='8' style='fill:#fff'/><path d='M34 24C34 8 78 8 78 24' style='fill:none;stroke:#fff;stroke-width:5'/></svg><div class="shape ha-flick" style="right:calc(14% + clamp(30px,4.5vw,64px));bottom:calc(26% - 6px + clamp(100px,14vw,200px)*.62);width:clamp(60px,8vw,110px);aspect-ratio:1;translate:-50% 0;background:radial-gradient(circle,var(--hfc),transparent 62%)"></div><svg class="shape " viewBox="0 0 190 200" style="right:14%;bottom:calc(26% - 40px);width:clamp(120px,16vw,230px)"><ellipse cx='80' cy='194' rx='60' ry='5' style='fill:#000;fill-opacity:.18'/><path d='M44 110L30 194M116 110L130 194M80 112V190' style='stroke:#2a2a30;stroke-width:6;stroke-linecap:round'/><path d='M20 100C20 56 52 36 80 36C108 36 140 56 140 100Z' style='fill:#2a2a30'/><path d='M30 94C32 62 54 46 80 46' style='fill:none;stroke:#fff;stroke-opacity:.18;stroke-width:5;stroke-linecap:round'/><rect x='14' y='98' width='132' height='12' rx='5' style='fill:#4a4a54'/><circle cx='80' cy='32' r='6' style='fill:#c9a24a'/><rect x='148' y='128' width='40' height='6' rx='2' style='fill:#7a4a2a'/></svg><div class="shape " style="right:calc(14% + clamp(120px,16vw,230px)*.32);bottom:calc(26% + clamp(120px,16vw,230px)*.9);width:clamp(18px,2.4vw,34px);height:clamp(40px,5vw,70px);background:radial-gradient(ellipse 38% 16% at 42% 86%,rgba(255,255,255,.55),transparent),radial-gradient(ellipse 34% 16% at 60% 58%,rgba(255,255,255,.5),transparent),radial-gradient(ellipse 32% 15% at 44% 30%,rgba(255,255,255,.45),transparent);opacity:0;animation:nwSmoke 6s ease-out infinite"></div><div class="shape ha-tw" style="left:0;right:0;top:0;height:clamp(34px,4.6vw,56px);background:var(--hfl) 0 0/clamp(110px,10vw,150px) auto repeat-x"></div>
         `,
+        // ★ HBIRTHDAY — member birthdays only
+        hbirthday: `
+<div class="shape" style="left:50%;top:38%;width:min(88vmin,700px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--theme-primary),transparent 64%);opacity:.14"></div><div class="shape" style="left:0;right:0;top:0;height:clamp(30px,4.2vw,52px);background:repeating-linear-gradient(90deg,var(--theme-primary) 0 26px,var(--theme-accent) 26px 52px);opacity:.85"></div><div class="shape ha-float" style="left:10%;top:16%;width:clamp(60px,9vw,120px);aspect-ratio:1;border-radius:50% 50% 46% 46%;background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.7),transparent 42%),var(--theme-primary);box-shadow:0 18px 30px -18px rgba(0,0,0,.35)"></div><div class="shape ha-float" style="left:74%;top:10%;width:clamp(70px,10vw,138px);aspect-ratio:1;border-radius:50% 50% 46% 46%;background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.7),transparent 42%),var(--theme-accent);box-shadow:0 18px 30px -18px rgba(0,0,0,.35);animation-delay:-1.6s"></div><div class="shape ha-float" style="left:84%;top:40%;width:clamp(44px,6vw,88px);aspect-ratio:1;border-radius:50% 50% 46% 46%;background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.7),transparent 42%),var(--theme-primary);opacity:.8;animation-delay:-3s"></div><svg class="shape" viewBox="0 0 200 120" style="left:26%;bottom:12%;width:clamp(110px,16vw,220px)"><path d='M20 70C20 42 50 26 70 44C78 26 108 26 116 48C138 36 160 54 156 76C152 96 128 104 106 96C94 110 66 108 58 92C40 98 22 88 20 70Z' style='fill:var(--theme-primary);opacity:.9'/><path d='M34 66C42 54 56 54 62 64' style='fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;opacity:.55'/><rect x='96' y='8' width='6' height='34' rx='3' style='fill:var(--theme-accent)'/><path d='M99 6C91 0 91 -8 99 -12C107 -8 107 0 99 6Z' style='fill:var(--theme-accent)'/></svg><div class="shape" style="left:0;right:0;bottom:0;height:20%;background:linear-gradient(0deg,var(--theme-accent),transparent);opacity:.16"></div><div class="shape ha-tw" style="left:0;right:0;top:0;height:clamp(28px,4vw,46px);background:repeating-linear-gradient(115deg,transparent 0 16px,rgba(255,255,255,.55) 16px 24px);opacity:.22"></div>
+        `,
         // ★ HUNDAS — holiday only
         hundas: `
 <div class="shape " style="left:0;right:0;top:0;height:50%;background-image:radial-gradient(1.3px 1.3px at 51% 45%,#fff,transparent),radial-gradient(1.6px 1.6px at 24% 52%,#fff,transparent),radial-gradient(1.6px 1.6px at 91% 39%,#fff,transparent),radial-gradient(1.8px 1.8px at 52% 96%,#fff,transparent),radial-gradient(1.7px 1.7px at 4% 34%,#fff,transparent),radial-gradient(2.0px 2.0px at 5% 59%,#fff,transparent),radial-gradient(1.4px 1.4px at 22% 95%,#fff,transparent),radial-gradient(1.7px 1.7px at 35% 86%,#fff,transparent),radial-gradient(1.2px 1.2px at 77% 10%,#fff,transparent),radial-gradient(1.5px 1.5px at 78% 7%,#fff,transparent),radial-gradient(1.2px 1.2px at 39% 30%,#fff,transparent),radial-gradient(1.5px 1.5px at 49% 96%,#fff,transparent),radial-gradient(1.1px 1.1px at 74% 88%,#fff,transparent),radial-gradient(1.7px 1.7px at 15% 21%,#fff,transparent),radial-gradient(1.3px 1.3px at 25% 9%,#fff,transparent),radial-gradient(1.1px 1.1px at 31% 82%,#fff,transparent),radial-gradient(1.5px 1.5px at 76% 26%,#fff,transparent),radial-gradient(1.5px 1.5px at 10% 41%,#fff,transparent),radial-gradient(1.2px 1.2px at 16% 88%,#fff,transparent),radial-gradient(1.7px 1.7px at 5% 87%,#fff,transparent);opacity:var(--hus)"></div><div class="shape ha-pulse" style="left:80%;top:16%;width:min(80vmin,640px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--hum),transparent 65%);"></div><div class="shape " style="left:calc(80% - clamp(30px,4.5vw,64px));top:calc(16% - clamp(30px,4.5vw,64px));width:clamp(60px,9vw,128px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 36% 34%,#fffbe8,#efe6c8 66%,#d0c8a0)"></div><div class="shape " style="left:-10%;right:-10%;bottom:0;height:28%;border-radius:50% 50% 0 0/100% 100% 0 0;background:var(--q6)"></div><svg class="shape opt" viewBox="0 0 160 190" style="left:2%;bottom:16%;width:clamp(90px,13vw,190px)"><rect class='q5' x='6' y='40' width='22' height='150'/><rect class='q5' x='132' y='40' width='22' height='150'/><path class='q5' d='M0 40Q80 -20 160 40L160 52Q80 -4 0 52Z'/><rect class='q5' x='74' y='-14' width='12' height='46'/><rect class='q5' x='62' y='-2' width='36' height='10'/></svg><svg class="shape " viewBox="0 0 400 150" style="left:12%;bottom:6%;width:min(88%,860px)"><path class='q5' d='M10 140V101.0Q10 84 27.0 84Q44 84 44 101.0V140Z'/><path class='q5' d='M60 140V109.0Q60 94 75.0 94Q90 94 90 109.0V140Z'/><rect class='q5' x='134.0' y='64' width='8' height='76'/><rect class='q5' x='122.0' y='80' width='32' height='8'/><path class='q5' d='M176 140V105.0Q176 88 193.0 88Q210 88 210 105.0V140Z'/><path class='q5' d='M240 140V96.0Q240 80 256.0 80Q272 80 272 96.0V140Z'/><rect class='q5' x='310.0' y='70' width='8' height='70'/><rect class='q5' x='298.0' y='86' width='32' height='8'/><path class='q5' d='M350 140V104.0Q350 86 368.0 86Q386 86 386 104.0V140Z'/></svg><div class="shape " style="left:0;right:0;bottom:0;height:9%;background:var(--q7)"></div><div class="shape ha-drift" style="left:-10%;right:-10%;bottom:6%;height:26%;background:linear-gradient(0deg,rgba(255,255,255,.2),transparent)"></div><svg class="shape " viewBox="0 0 400 150" style="left:12%;bottom:3%;width:min(88%,860px)"><circle cx='34' cy='138' r='7' style='fill:#ff9f1c'/><circle cx='42' cy='132' r='7' style='fill:#ff9f1c'/><circle cx='26' cy='134' r='7' style='fill:#ff9f1c'/><circle cx='104' cy='138' r='7' style='fill:#ffd45c'/><circle cx='112' cy='132' r='7' style='fill:#ffd45c'/><circle cx='96' cy='134' r='7' style='fill:#ffd45c'/><circle cx='160' cy='138' r='7' style='fill:#fff'/><circle cx='168' cy='132' r='7' style='fill:#fff'/><circle cx='152' cy='134' r='7' style='fill:#fff'/><circle cx='222' cy='138' r='7' style='fill:#ff9f1c'/><circle cx='230' cy='132' r='7' style='fill:#ff9f1c'/><circle cx='214' cy='134' r='7' style='fill:#ff9f1c'/><circle cx='280' cy='138' r='7' style='fill:#ffd45c'/><circle cx='288' cy='132' r='7' style='fill:#ffd45c'/><circle cx='272' cy='134' r='7' style='fill:#ffd45c'/><circle cx='338' cy='138' r='7' style='fill:#fff'/><circle cx='346' cy='132' r='7' style='fill:#fff'/><circle cx='330' cy='134' r='7' style='fill:#fff'/><circle cx='394' cy='138' r='7' style='fill:#ff9f1c'/><circle cx='402' cy='132' r='7' style='fill:#ff9f1c'/><circle cx='386' cy='134' r='7' style='fill:#ff9f1c'/><rect x='36' y='106' width='8' height='34' rx='2' style='fill:#f4ead0'/><ellipse cx='40' cy='100' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='74' y='112' width='8' height='28' rx='2' style='fill:#f4ead0'/><ellipse cx='78' cy='106' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='146' y='98' width='8' height='42' rx='2' style='fill:#f4ead0'/><ellipse cx='150' cy='92' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='192' y='108' width='8' height='32' rx='2' style='fill:#f4ead0'/><ellipse cx='196' cy='102' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='258' y='100' width='8' height='40' rx='2' style='fill:#f4ead0'/><ellipse cx='262' cy='94' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='316' y='110' width='8' height='30' rx='2' style='fill:#f4ead0'/><ellipse cx='320' cy='104' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='364' y='104' width='8' height='36' rx='2' style='fill:#f4ead0'/><ellipse cx='368' cy='98' rx='3.4' ry='6.4' style='fill:#ffcf70'/></svg><div class="shape ha-flick" style="left:12%;bottom:3%;width:min(88%,860px);aspect-ratio:400/150;background:radial-gradient(circle 9% at 10.0% 66.7%,var(--hug),transparent),radial-gradient(circle 9% at 19.5% 70.7%,var(--hug),transparent),radial-gradient(circle 9% at 37.5% 61.3%,var(--hug),transparent),radial-gradient(circle 9% at 49.0% 68.0%,var(--hug),transparent),radial-gradient(circle 9% at 65.5% 62.7%,var(--hug),transparent),radial-gradient(circle 9% at 80.0% 69.3%,var(--hug),transparent),radial-gradient(circle 9% at 92.0% 65.3%,var(--hug),transparent)"></div>
@@ -1815,6 +1819,55 @@
                 '--theme-nav-bg': 'rgba(5, 13, 16, 0.98)'
             }
         },
+        /* ★ Birthday-only theme — never in the picker on other days. It is added
+           to THEMES only while a squad member's birthday is today (the names come
+           from the birthday cache the pages publish), exactly like a holiday. */
+        hbirthday: {
+            name: 'Birthday', sub: 'Celebration · Confetti', emoji: '🎂', group: 'today',
+            preview: { primary: '#e0356f', gradient: 'linear-gradient(135deg, #e0356f 0%, #f7c948 100%)' },
+            light: {
+                '--theme-primary': '#e0356f',
+                '--theme-accent': '#f7c948',
+                '--theme-primary-dark': '#b02455',
+                '--theme-primary-soft': '#fde7ee',
+                '--theme-primary-soft-2': '#fff5f8',
+                '--theme-bg': '#fffaf6',
+                '--theme-bg-soft': '#fff1f4',
+                '--theme-card': '#FFFFFF',
+                '--theme-text': '#33101c',
+                '--theme-text-muted': '#7a5560',
+                '--theme-text-dim': '#a3838c',
+                '--theme-text-faint': '#ccb2b9',
+                '--theme-border': '#fbe1e9',
+                '--theme-border-soft': '#fdf0f4',
+                '--theme-border-input': '#f7d2de',
+                '--theme-gradient': 'linear-gradient(45deg, #e0356f 0%, #f7c948 100%)',
+                '--theme-shadow': 'rgba(224, 53, 111, 0.16)',
+                '--theme-shadow-soft': 'rgba(224, 53, 111, 0.22)',
+                '--theme-nav-bg': 'rgba(255, 250, 246, 0.98)'
+            },
+            dark: {
+                '--theme-primary': '#ff6f9c',
+                '--theme-accent': '#ffcf6b',
+                '--theme-primary-dark': '#d94f7c',
+                '--theme-primary-soft': '#3d1a2a',
+                '--theme-primary-soft-2': '#1d0d16',
+                '--theme-bg': '#170a11',
+                '--theme-bg-soft': '#241019',
+                '--theme-card': '#241019',
+                '--theme-text': '#ffeef3',
+                '--theme-text-muted': '#d3a8b6',
+                '--theme-text-dim': '#a97f8c',
+                '--theme-text-faint': '#7d5964',
+                '--theme-border': '#3d1d2b',
+                '--theme-border-soft': '#2a1320',
+                '--theme-border-input': '#3d1d2b',
+                '--theme-gradient': 'linear-gradient(45deg, #ff6f9c 0%, #ffcf6b 100%)',
+                '--theme-shadow': 'rgba(255, 111, 156, 0.26)',
+                '--theme-shadow-soft': 'rgba(255, 111, 156, 0.18)',
+                '--theme-nav-bg': 'rgba(23, 10, 17, 0.98)'
+            }
+        },
     };
     (function holidayThemes() {
         const KEY = 'tw_holiday', SKIP = 'tw_hol_skip', PREV = 'tw_hol_prev';
@@ -1852,8 +1905,81 @@
         ];
         let forced = null, manualNext = false;
         document.addEventListener('click', e => { const t = e.target; if (t && t.closest && t.closest('.theme-preset')) manualNext = true; }, true);
-        const eventsOn = d => EVENTS.filter(x => x.on(d));
-        const find = d => { for (let i = 0; i < EVENTS.length; i++) if (EVENTS[i].on(d)) return EVENTS[i]; return null; };
+        /* ---------- birthday theme ------------------------------------------------
+           A member's birthday is not a fixed holiday, so the pages cache the
+           birthdays they already read from Firestore in localStorage and call
+           window.TIMAWA_SYNC_BIRTHDAYS(). Only today's month+day is matched, so
+           the year never matters and no extra network request is made.
+           The event behaves like a holiday: auto-applied for that day, listed
+           under "Happening today", removable by picking another theme, and gone
+           tomorrow. */
+        const BDAY_KEY = 'timawa.birthdays';
+        function birthdayList() {
+            try {
+                const raw = localStorage.getItem(BDAY_KEY);
+                const list = raw ? JSON.parse(raw) : [];
+                return Array.isArray(list) ? list : [];
+            } catch (e) { return []; }
+        }
+        function birthdayListOn(d) {
+            const md = pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+            return birthdayList().filter(x => x && x.md === md && x.name);
+        }
+        function birthdayToday() { return birthdayListOn(new Date()); }
+        function birthdayEventOn(d) {
+            const list = birthdayListOn(d);
+            if (!list.length) return null;
+            const names = list.map(x => String(x.name).trim()).filter(Boolean);
+            const who = names.length === 1 ? names[0]
+                : names.length === 2 ? names[0] + ' & ' + names[1]
+                : names.slice(0, 2).join(', ') + ' & ' + (names.length - 2) + ' more';
+            return {
+                id: 'birthday',
+                name: (who || 'A squad member') + (names.length > 1 ? "'s birthdays" : "'s birthday"),
+                emoji: '🎂',
+                theme: 'hbirthday',
+                on: (day) => !!birthdayEventOn(day)
+            };
+        }
+        function birthdayEvent() { return birthdayEventOn(new Date()); }
+        let bdaySignature = null;
+        const eventsOn = d => {
+            const b = birthdayEventOn(d);
+            return (b ? [b] : []).concat(EVENTS.filter(x => x.on(d)));
+        };
+        const find = d => {
+            const b = birthdayEventOn(d);
+            if (b) return b;
+            for (let i = 0; i < EVENTS.length; i++) if (EVENTS[i].on(d)) return EVENTS[i];
+            return null;
+        };
+        function syncBirthdayTheme() {
+            const list = birthdayToday();
+            const sig = list.map(x => x.name + '@' + x.md).sort().join('|');
+            if (sig === bdaySignature) return;
+            bdaySignature = sig;
+            if (window.__twReal) window.applyTheme(window.__twReal);
+            else syncThemes();
+            if (window.__twHolUI) window.__twHolUI();
+        }
+        window.__twBirthdaySync = syncBirthdayTheme;
+        window.TIMAWA_SYNC_BIRTHDAYS = function (list) {
+            if (!Array.isArray(list)) return;
+            const clean = [];
+            const seen = {};
+            list.forEach(item => {
+                if (!item) return;
+                const name = String(item.name || '').trim();
+                let md = String(item.md || '').trim();
+                if (!name || !/^\d{2}-\d{2}$/.test(md)) return;
+                if (md === '02-29') return;              // never auto-fires in a non-leap year
+                if (seen[md + name]) return;
+                seen[md + name] = 1;
+                clean.push({ name: name, md: md });
+            });
+            try { localStorage.setItem(BDAY_KEY, JSON.stringify(clean)); } catch (e) { /* storage blocked */ }
+            syncBirthdayTheme();
+        };
         const enabled = () => { try { return localStorage.getItem(KEY) !== 'off'; } catch (e) { return true; } };
         const skipKey = (ev, d) => ev.id + '@' + ymd(d);
         const skipped = (ev, d) => { try { return localStorage.getItem(SKIP) === skipKey(ev, d); } catch (e) { return false; } };
@@ -1908,7 +2034,7 @@
             if (!grid || document.getElementById('twHol')) return;
             const card = document.createElement('div');
             card.className = 'tw-hol'; card.id = 'twHol';
-            card.innerHTML = '<span class="tw-hol-e" id="twHolE">🎉</span><div class="tw-hol-t"><b>Auto holiday themes</b><small id="twHolS"></small></div><label class="tw-sw" title="Auto holiday themes"><input type="checkbox" id="twHolChk"><i></i></label>';
+            card.innerHTML = '<span class="tw-hol-e" id="twHolE">🎉</span><div class="tw-hol-t"><b>Auto themes</b><small id="twHolS"></small></div><label class="tw-sw" title="Auto themes for holidays and birthdays"><input type="checkbox" id="twHolChk"><i></i></label>';
             grid.parentNode.insertBefore(card, grid);
             card.querySelector('#twHolChk').addEventListener('change', e => {
                 try { localStorage.setItem(KEY, e.target.checked ? 'on' : 'off'); } catch (er) { /* ignore */ }
@@ -1922,7 +2048,7 @@
             if (chk) chk.checked = enabled();
             const now = new Date(), ev = find(now);
             let txt, e = '🎉';
-            if (!enabled()) txt = 'Off — your own theme is always used. Turn on to switch to a special theme on holidays like Valentine\'s, Halloween and Christmas.';
+            if (!enabled()) txt = 'Off — your own theme is always used. Turn on to switch to a special theme on holidays like Valentine\'s, Halloween and Christmas, and on squad birthdays.';
             else if (ev && skipped(ev, now)) { e = ev.emoji; txt = "It's " + ev.name + ' — you picked your own theme today. The special theme is under "Happening today" and auto themes resume tomorrow.'; }
             else if (ev) { e = ev.emoji; txt = "It's " + ev.name + '! Its special theme is on for today (and listed under "Happening today"). It disappears tomorrow and your own theme returns.'; }
             else { const nx = nextEvent(); if (nx) { e = nx.ev.emoji; txt = 'Next: ' + nx.ev.name + ' on ' + nx.date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' }) + '. A special theme appears only that day.'; } else txt = 'Special themes appear only on holidays.'; }
@@ -1937,6 +2063,8 @@
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => window.__twHolUI()); else window.__twHolUI();
         window.TW_HOLIDAY = {
             events: EVENTS.map(x => ({ id: x.id, name: x.name, emoji: x.emoji, theme: x.theme })),
+            birthday: () => birthdayEvent(),
+            birthdays: birthdayList,
             today: () => find(new Date()), next: nextEvent,
             set: on => { try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch (e) { /* ignore */ } if (window.__twReal) window.applyTheme(window.__twReal); },
             preview: id => { forced = id ? (EVENTS.filter(x => x.id === id)[0] || null) : null; if (window.__twReal) window.applyTheme(window.__twReal); }

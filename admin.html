@@ -73,6 +73,19 @@
             --admin-success-soft: #dcfce7;
             --admin-warn: #d97706;
             --admin-warn-soft: #fef3c7;
+
+            /* The launch screen and shared components read the theme tokens.
+               This panel has no theme picker, so its own palette fills them. */
+            --theme-primary: #7c3aed;
+            --theme-accent: #8b5cf6;
+            --theme-primary-dark: #6d28d9;
+            --theme-bg: #f8faff;
+            --theme-bg-soft: #f5f3ff;
+            --theme-card: #ffffff;
+            --theme-text: #1a1a2e;
+            --theme-text-muted: #555555;
+            --theme-text-dim: #888888;
+            --theme-border: #eef2f7;
         }
 
         body {
@@ -1060,6 +1073,12 @@
             box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
         }
         .user-card .user-avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-initials {
+            width: 100%; height: 100%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+            color: #fff; line-height: 1;
+        }
         .user-card .user-card-body { flex: 1; min-width: 0; }
         .user-card .user-card-name {
             font-weight: 700; font-size: 15px;
@@ -2028,25 +2047,181 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--admin-border); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: var(--admin-gradient); border-radius: 10px; }
+
+        /* ================================================================
+           MODERN ADMIN LAYER
+           ----------------------------------------------------------------
+           A calmer, more contemporary shell on top of the panel's original
+           styles: softer depth, tighter type scale, pill navigation that
+           scrolls on phones, and controls with a consistent radius. Every rule
+           here is an override, so nothing in the markup had to move.
+           ================================================================ */
+        :root {
+            --admin-radius: 20px;
+            --admin-radius-sm: 13px;
+            --admin-ring: 0 0 0 4px color-mix(in srgb, var(--admin-primary) 16%, transparent);
+            --admin-lift: 0 18px 40px -26px rgba(45, 22, 96, 0.55);
+        }
+
+        body {
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            letter-spacing: -0.006em;
+        }
+
+        /* nav: glass instead of a solid slab */
+        .navbar {
+            background: color-mix(in srgb, var(--admin-card) 82%, transparent);
+            -webkit-backdrop-filter: saturate(150%) blur(16px);
+            backdrop-filter: saturate(150%) blur(16px);
+            border-bottom: 1px solid color-mix(in srgb, var(--admin-border) 80%, transparent);
+            box-shadow: 0 10px 30px -24px rgba(30, 10, 70, 0.5);
+        }
+        .navbar .logo span { letter-spacing: -0.02em; }
+
+        /* tab rail: horizontal scroll on small screens, active pill in brand gradient */
+        .admin-tabs {
+            gap: 6px;
+            padding: 8px;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--admin-border) 90%, transparent);
+            background: color-mix(in srgb, var(--admin-card) 92%, transparent);
+            box-shadow: var(--admin-lift);
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            scrollbar-width: none;
+        }
+        .admin-tabs::-webkit-scrollbar { display: none; }
+        .admin-tab {
+            flex: 0 0 auto;
+            border-radius: 999px;
+            padding: 10px 16px;
+            font-weight: 650;
+            font-size: 13px;
+            color: var(--admin-text-muted);
+            background: transparent;
+            transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+        }
+        .admin-tab:hover { background: var(--admin-bg-soft); color: var(--admin-primary); transform: none; }
+        .admin-tab.active {
+            color: #fff;
+            background: var(--admin-gradient);
+            box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--admin-primary) 70%, transparent);
+        }
+        .admin-tab.active .tab-badge { background: rgba(255,255,255,0.22); color: #fff; }
+
+        /* cards */
+        .admin-card {
+            border-radius: var(--admin-radius);
+            border: 1px solid color-mix(in srgb, var(--admin-border) 88%, transparent);
+            box-shadow: 0 14px 38px -30px rgba(40, 18, 90, 0.55);
+            transition: box-shadow 0.25s ease, transform 0.25s ease;
+        }
+        .admin-card:hover { box-shadow: 0 22px 50px -34px rgba(40, 18, 90, 0.6); }
+        .admin-card .card-header { gap: 12px; align-items: center; }
+        .admin-card .card-header h3 { letter-spacing: -0.02em; }
+        .admin-card .card-header .count {
+            border-radius: 999px;
+            padding: 4px 11px;
+            font-weight: 700;
+        }
+
+        /* controls */
+        .btn-primary, .btn-secondary { border-radius: 999px; font-weight: 700; letter-spacing: 0.005em; }
+        .btn-primary { box-shadow: 0 12px 26px -14px color-mix(in srgb, var(--admin-primary) 80%, transparent); }
+        .btn-primary:hover { transform: translateY(-1px); }
+        .btn-primary:active, .btn-secondary:active, .btn-danger:active, .btn-edit:active { transform: scale(0.97); }
+        /* Text buttons ("Delete Expired", "Refresh") keep their normal shape;
+           only the icon-only actions inside cards get the compact square. */
+        .btn-danger, .btn-edit, .btn-success { border-radius: 12px; }
+        .item-card .btn-danger, .item-card .btn-edit,
+        .user-card .btn-danger, .user-card .btn-edit,
+        .announcement-card .btn-danger, .announcement-card .btn-edit,
+        .highlight-card .btn-danger, .highlight-card .btn-edit,
+        .chat-card .btn-danger, .chat-card .btn-edit,
+        .note-card .btn-danger, .note-card .btn-edit,
+        .comment-card .btn-danger, .comment-card .btn-edit,
+        .story-card .btn-danger, .story-card .btn-edit {
+            width: 34px; height: 34px; padding: 0;
+            justify-content: center; font-size: 13px;
+        }
+        .btn-danger:hover, .btn-edit:hover, .btn-success:hover { transform: translateY(-1px); }
+
+        input[type="text"], input[type="email"], input[type="password"], input[type="date"],
+        input[type="number"], input[type="url"], select, textarea {
+            border-radius: var(--admin-radius-sm);
+            transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+        }
+        input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
+            outline: none;
+            box-shadow: var(--admin-ring);
+            border-color: var(--admin-primary) !important;
+        }
+
+        /* grids + cards inside sections */
+        .items-grid { gap: 16px; }
+        .item-card, .user-card, .announcement-card, .highlight-card, .chat-card, .note-card, .comment-card, .story-card {
+            border-radius: 18px;
+            border: 1px solid color-mix(in srgb, var(--admin-border) 88%, transparent);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .item-card:hover, .user-card:hover, .announcement-card:hover, .highlight-card:hover,
+        .chat-card:hover, .note-card:hover, .comment-card:hover, .story-card:hover {
+            transform: translateY(-2px);
+            border-color: color-mix(in srgb, var(--admin-primary) 26%, var(--admin-border));
+            box-shadow: var(--admin-lift);
+        }
+
+        /* modals */
+        .modal-content, .announcement-view-modal .modal-content, .announcement-popup {
+            border-radius: 24px;
+        }
+        .modal-content { box-shadow: 0 40px 90px -40px rgba(18, 6, 45, 0.7); }
+        .modal-header h2, .modal-title { letter-spacing: -0.02em; }
+
+        /* upload area + progress */
+        .image-upload-area {
+            border-radius: 18px;
+            border-style: dashed;
+            transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+        }
+        .image-upload-area:hover { transform: translateY(-1px); border-color: var(--admin-primary); }
+        .admin-upload-progress { border-radius: 999px; overflow: hidden; }
+        .admin-upload-progress span { border-radius: 999px; }
+
+        /* empty + toasts */
+        .empty-state { border-radius: 18px; }
+        .toast { border-radius: 14px; box-shadow: 0 18px 40px -24px rgba(20, 8, 50, 0.6); }
+
+        /* small screens */
+        @media (max-width: 768px) {
+            .admin-tabs { border-radius: 18px; padding: 6px; }
+            .admin-tab { padding: 9px 13px; font-size: 12px; }
+            .admin-card { border-radius: 18px; }
+            .main-container { padding: 0 14px; }
+            .hero-banner { border-radius: 20px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .admin-card, .item-card, .user-card, .announcement-card, .highlight-card,
+            .chat-card, .note-card, .comment-card, .story-card, .btn-primary, .admin-tab {
+                transition: none !important;
+            }
+        }
     </style>
     <link rel="stylesheet" href="stories.css?v=1.11.6" />
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="launch.css?v=1.0.0" />
+    <link rel="stylesheet" href="launch.css?v=1.1.0" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
-    <div class="loading-overlay active" id="loadingOverlay" aria-hidden="false">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" class="pl" aria-hidden="true">
-            <defs>
-                <linearGradient y2="1" x2="0" y1="0" x1="0" id="pl-grad">
-                    <stop class="pl__grad-stop-1" stop-color="#7c3aed" offset="0%"></stop>
-                    <stop class="pl__grad-stop-2" stop-color="#8b5cf6" offset="100%"></stop>
-                </linearGradient>
-            </defs>
-            <circle stroke-linecap="round" stroke-width="16" stroke="currentColor" fill="none" cy="64" cx="64" r="56" class="pl__ring" style="color: rgba(139, 92, 246, 0.15);"></circle>
-            <path stroke-dashoffset="10" stroke-dasharray="44 1111" stroke-linejoin="round" stroke-linecap="round" stroke-width="16" stroke="url(#pl-grad)" fill="none" d="M92,15.492S78.194,4.967,66.743,16.887c-17.231,17.938-28.26,96.974-28.26,96.974L119.85,59.892l-99-31.588,57.528,89.832L97.8,19.349,13.636,88.51l89.012,16.015S81.908,38.332,66.1,22.337C50.114,6.156,36,15.492,36,15.492a56,56,0,1,0,56,0Z" class="pl__worm"></path>
-        </svg>
-        <div class="loading-text" id="loadingText">Loading admin panel…</div>
+    <div class="loading-overlay t-splash active" id="loadingOverlay" aria-hidden="false">
+        <div class="t-splash-stage">
+            <div class="t-splash-mark" aria-hidden="true"><span class="t-splash-ring"></span><b>T</b></div>
+            <div class="t-splash-word" aria-hidden="true">TIMAWA</div>
+            <div class="t-splash-sub" aria-hidden="true">Squad Hub</div>
+            <div class="t-splash-bar" aria-hidden="true"><i></i></div>
+            <div class="loading-text" id="loadingText" role="status">Loading TIMAWA…</div>
+        </div>
     </div>
 
     <!-- ===== TOAST STACK ===== -->
@@ -3530,6 +3705,82 @@
         }
 
         // ================================================================
+        // ===== AVATARS THAT FOLLOW THE LIVE PROFILE =====
+        // ================================================================
+        // Author caches store the profile they saw when the list was built. A
+        // member who changes their photo leaves the old Cloudinary file behind —
+        // and the cleanup deletes it — so those cached URLs start returning 404
+        // and the admin sees a broken image next to the same member's new photo.
+        // Every avatar carries its uid; the live users snapshot repoints it, and
+        // a URL that still fails degrades to initials instead of a broken icon.
+        function avatarInitials(name) {
+            const letters = String(name || '?').trim().split(/\s+/).map(n => n[0] || '').join('').toUpperCase().slice(0, 2);
+            return letters || '?';
+        }
+
+        function livePhotoFor(uid) {
+            if (!uid) return '';
+            const live = (allAppUsers || []).find(u => u.id === uid);
+            if (live) return live.photoURL || '';
+            const cache = highlightAuthorCache[uid] || chatUserCache[uid] || noteUserCache[uid] || commentAuthorCache[uid];
+            return (cache && cache.photoURL) || '';
+        }
+
+        function showAvatarFallback(img) {
+            if (!img || img.dataset.avatarFallback === '1') return;
+            img.dataset.avatarFallback = '1';
+            img.style.display = 'none';
+            const parent = img.parentElement;
+            if (!parent || parent.querySelector('.avatar-initials')) return;
+            const span = document.createElement('span');
+            span.className = 'avatar-initials';
+            span.textContent = avatarInitials(img.getAttribute('alt'));
+            parent.appendChild(span);
+        }
+
+        function refreshAuthorAvatars() {
+            document.querySelectorAll('img[data-avatar-uid]').forEach(img => {
+                const url = livePhotoFor(img.getAttribute('data-avatar-uid'));
+                if (!url) { showAvatarFallback(img); return; }
+                const size = Number(img.getAttribute('data-avatar-size')) || 100;
+                const next = cloudinaryThumb(url, size);
+                if (img.getAttribute('src') !== next) {
+                    img.dataset.avatarFallback = '';
+                    img.style.display = '';
+                    img.setAttribute('src', next);
+                }
+                const parent = img.parentElement;
+                const fallback = parent && parent.querySelector('.avatar-initials');
+                if (fallback) fallback.remove();
+            });
+        }
+
+        function syncAuthorPhotoCaches() {
+            const byId = {};
+            (allAppUsers || []).forEach(u => { byId[u.id] = u; });
+            [highlightAuthorCache, chatUserCache, noteUserCache, commentAuthorCache].forEach(cache => {
+                if (!cache) return;
+                Object.keys(cache).forEach(uid => {
+                    const live = byId[uid];
+                    if (!live) return;
+                    cache[uid] = cache[uid] || {};
+                    cache[uid].photoURL = live.photoURL || '';
+                    cache[uid].displayName = live.displayName || live.email || cache[uid].displayName || 'Unknown';
+                });
+            });
+            refreshAuthorAvatars();
+        }
+
+        // Image errors do not bubble: capture them so a deleted file falls back
+        // to initials anywhere in the panel, not just in the lists above.
+        document.addEventListener('error', (event) => {
+            const target = event.target;
+            if (target && target.tagName === 'IMG' && target.hasAttribute('data-avatar-uid')) {
+                showAvatarFallback(target);
+            }
+        }, true);
+
+        // ================================================================
         // ===== CLOUDINARY CLEANUP QUEUE =====
         // ================================================================
         // The page cannot delete Cloudinary files. `/image/destroy` answers
@@ -3937,10 +4188,17 @@
             if (fill) fill.style.width = '0%';
         }
 
-        function handleUserImageUpload(event) {
-            const file = event.target.files[0];
+        async function handleUserImageUpload(event) {
+            let file = event.target.files[0];
             if (!file) return;
-            if (file.size > 5 * 1024 * 1024) { showToast('Image size should be under 5MB', 'warn'); return; }
+            if (file.size > 10 * 1024 * 1024) { showToast('Image size should be under 10MB', 'warn'); return; }
+            // Members see this picture in a circle everywhere; let the admin size
+            // it against that same circle before it is uploaded.
+            if (window.TimawaAvatarCrop) {
+                const picked = await window.TimawaAvatarCrop.open(file, { size: 640 });
+                if (!picked) { event.target.value = ''; return; }
+                file = picked;
+            }
             selectedUserImageFile = file;
 
             const reader = new FileReader();
@@ -4218,7 +4476,7 @@
             const imageCount = imageUrls.length;
             const initials = (author.displayName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
             const authorAvatar = author.photoURL
-                ? `<img src="${cloudinaryThumb(author.photoURL, 60)}" alt="${escapeAttr(author.displayName)}" loading="lazy" />`
+                ? `<img src="${cloudinaryThumb(author.photoURL, 60)}" alt="${escapeAttr(author.displayName)}" data-avatar-uid="${escapeAttr(h.authorUid || '')}" data-avatar-size="60" loading="lazy" />`
                 : escapeHtml(initials);
 
             let timeLabel = '';
@@ -4676,7 +4934,7 @@
             const createdDate = chat.createdAt ? new Date(chat.createdAt.seconds ? chat.createdAt.seconds * 1000 : chat.createdAt) : new Date();
             const initials = (sender.displayName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
             const avatarContent = sender.photoURL
-                ? `<img src="${cloudinaryThumb(sender.photoURL, 100)}" alt="${escapeAttr(sender.displayName)}" loading="lazy" />`
+                ? `<img src="${cloudinaryThumb(sender.photoURL, 100)}" alt="${escapeAttr(sender.displayName)}" data-avatar-uid="${escapeAttr(chat.senderUid || '')}" data-avatar-size="100" loading="lazy" />`
                 : escapeHtml(initials);
 
             const hasMentions = Array.isArray(chat.mentions) && chat.mentions.length > 0;
@@ -5051,7 +5309,7 @@
             const minutesLeft = expireAt ? Math.max(0, Math.ceil((expireAt - now) / (1000 * 60))) : 0;
             const initials = (user.displayName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
             const avatarContent = user.photoURL
-                ? `<img src="${cloudinaryThumb(user.photoURL, 100)}" alt="${escapeAttr(user.displayName)}" loading="lazy" />`
+                ? `<img src="${cloudinaryThumb(user.photoURL, 100)}" alt="${escapeAttr(user.displayName)}" data-avatar-uid="${escapeAttr(note.uid || '')}" data-avatar-size="100" loading="lazy" />`
                 : escapeHtml(initials);
 
             let timeLabel = '';
@@ -5374,7 +5632,7 @@
             const minutesLeft = expireAt ? Math.max(0, Math.ceil((expireAt - now) / (1000 * 60))) : 0;
             const initials = (author.displayName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
             const avatarContent = author.photoURL
-                ? `<img src="${cloudinaryThumb(author.photoURL, 100)}" alt="${escapeAttr(author.displayName)}" loading="lazy" />`
+                ? `<img src="${cloudinaryThumb(author.photoURL, 100)}" alt="${escapeAttr(author.displayName)}" data-avatar-uid="${escapeAttr(comment.authorUid || '')}" data-avatar-size="100" loading="lazy" />`
                 : escapeHtml(initials);
 
             let timeLabel = '';
@@ -5802,6 +6060,7 @@
                 const todayDate = today.getDate();
                 const snap = await db.collection('users').limit(200).get();
                 const todayBirthdayUsers = [];
+                const allBirthdays = [];
                 snap.forEach(doc => {
                     const data = doc.data();
                     if (!data.birthday || typeof data.birthday !== 'string') return;
@@ -5810,10 +6069,17 @@
                     const bMonth = parseInt(parts[1], 10) - 1;
                     const bDay = parseInt(parts[2], 10);
                     if (isNaN(bMonth) || isNaN(bDay)) return;
+                    allBirthdays.push({
+                        name: data.displayName || data.email || 'Someone',
+                        md: String(parts[1]).padStart(2, '0') + '-' + String(parts[2]).padStart(2, '0')
+                    });
                     if (bMonth === todayMonth && bDay === todayDate) {
                         todayBirthdayUsers.push({ uid: doc.id, name: data.displayName || data.email || 'Someone' });
                     }
                 });
+                if (window.TIMAWA_SYNC_BIRTHDAYS) {
+                    try { window.TIMAWA_SYNC_BIRTHDAYS(allBirthdays); } catch (e) { /* theme cache only */ }
+                }
                 if (todayBirthdayUsers.length === 0) { markAutogenRunToday(currentUser.uid, 'birthdays_all'); return; }
 
                 // ✅ Use a LOCAL date-stamped referenceId for exact dedup.
@@ -6513,6 +6779,7 @@
                     allAppUsers = [];
                     snapshot.forEach(doc => allAppUsers.push({ id: doc.id, ...doc.data() }));
                     dataCache.users = allAppUsers.slice();
+                    syncAuthorPhotoCaches();         // repoint every cached avatar at the member's current photo
                     publishMemberCards(false);       // keep the visitor-visible member cards in step with the real accounts
                     if (countEl) countEl.textContent = `${allAppUsers.length} user${allAppUsers.length !== 1 ? 's' : ''}`;
                     filterUsers();
@@ -6599,7 +6866,7 @@
             const isAdmin = user.isAdmin === true;
             const isSelected = batchState.users.active && batchState.users.selected.has(user.id);
             const avatarContent = photoUrl
-                ? `<img src="${cloudinaryThumb(photoUrl, 120)}" alt="${escapeAttr(name)}" loading="lazy" />`
+                ? `<img src="${cloudinaryThumb(photoUrl, 120)}" alt="${escapeAttr(name)}" data-avatar-uid="${escapeAttr(user.id || '')}" data-avatar-size="120" loading="lazy" />`
                 : escapeHtml(initials);
             const interests = user.interests ? user.interests.split(',').map(t => t.trim()).filter(t => t).slice(0, 4) : [];
             const metaParts = [];
@@ -7200,6 +7467,7 @@
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="pwa.js?v=1.5.1" defer></script>
+    <script src="avatar-crop.js?v=1.0.0" defer></script>
+    <script src="pwa.js?v=1.5.12" defer></script>
 </body>
 </html>
