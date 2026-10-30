@@ -29,6 +29,7 @@ Rules implemented here (see PWA-PUSH-SETUP.md)
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import threading
 import time
@@ -48,9 +49,45 @@ except ImportError:  # imported as `tools.push_dispatcher` instead of run as a s
 COLLECTION = "pushSubscriptions"
 ANNOUNCEMENTS = "announcements"
 
+# Types where the notification is *about a person*, so their current profile
+# photo is a better icon than a generic glyph. Birthday notices use the
+# celebrant's photo; the rest use whoever caused the activity.
+AVATAR_TYPES = {"mention", "reaction", "chat", "birthday"}
+
+# One clean, colour-coded badge per notification family. Kept as PNG (not SVG
+# or an emoji) because Android renders `icon` as a bitmap and ignores glyphs.
+TYPE_ICONS = {
+    "mention": "icons/notif-mention.png",
+    "reaction": "icons/notif-reaction.png",
+    "chat": "icons/notif-chat.png",
+    "comment": "icons/notif-chat.png",
+    "birthday": "icons/notif-birthday.png",
+    "highlight": "icons/notif-highlight.png",
+    "story": "icons/notif-story.png",
+    "event": "icons/notif-event.png",
+    "member": "icons/notif-member.png",
+    "admin": "icons/notif-admin.png",
+    "note": "icons/notif-note.png",
+    "reply": "icons/notif-reply.png",
+    "squad": "icons/notif-admin.png",
+}
+DEFAULT_ICON = "icons/notif-default.png"
+
+# Leading emoji in a title duplicates the icon in the card. Strip it so the
+# notification reads like a native app alert instead of "📣 📣 Name...".
+_LEADING_EMOJI = re.compile(
+    "^[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D\u20E3\\s]+",
+    re.UNICODE,
+)
+
 # Guards against a burst of MODIFIED events double-sending the same doc.
 _handled: dict[str, float] = {}
 _DEDUPE_WINDOW_S = 8.0
+
+# Small profile cache so a thread of notifications does not re-read the same
+# user document for every pending announcement in one run.
+_actor_cache: dict[str, tuple[float, dict]] = {}
+_ACTOR_TTL_S = 300.0
 
 
 def log(*parts) -> None:
@@ -61,11 +98,71 @@ def log(*parts) -> None:
 # Payload + subscription helpers (same shapes as send_activity_push.py)
 # --------------------------------------------------------------------------- #
 
-def build_payload(doc_id: str, item: dict, default_url: str = "dashboard.html") -> dict:
+def _http_url(value) -> str:
+    """Only absolute http(s) URLs are valid notification images."""
+    if not isinstance(value, str):
+        return ""
+    value = value.strip()
+    return value if value.startswith(("https://", "http://")) else ""
+
+
+def _actor_uid(item: dict) -> str:
+    """Who the notification is about, across the older announcement shapes.
+
+    New notifications write `actorUid` directly. DM threads carry it in
+    `referenceId` (`dm_<senderUid>`), and birthday notices in
+    `<YYYY-MM-DD>_<memberUid>`, so older documents still get the right face.
+    """
+    explicit = item.get("actorUid")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()
+
+    ann_type = item.get("type")
+    reference = item.get("referenceId") or ""
+    if ann_type == "chat" and reference.startswith("dm_"):
+        return reference[3:]
+    if ann_type == "birthday" and isinstance(reference, str) and "_" in reference:
+        return reference.split("_", 1)[1]
+    # Older note mentions stored the author as `note_<uid>`.
+    if ann_type == "mention" and reference.startswith("note_"):
+        return reference[5:]
+    # Older highlight reactions stored `reaction_<highlightId>_<reactorUid>`.
+    if ann_type == "reaction" and reference.startswith("reaction_") and "_" in reference[9:]:
+        return reference.rsplit("_", 1)[1]
+    return ""
+
+
+def _actor(db, uid: str) -> dict:
+    """Current display name + photo, read once per run for repeated actors."""
+    if not uid or db is None:
+        return {}
+    cached = _actor_cache.get(uid)
+    if cached and time.time() - cached[0] < _ACTOR_TTL_S:
+        return cached[1]
+    try:
+        snap = db.collection("users").document(uid).get()
+        data = (snap.to_dict() or {}) if snap.exists else {}
+    except Exception as exc:  # noqa: BLE001 — a missing photo must never block a push
+        log(f"[{uid}] actor lookup failed: {exc}")
+        data = {}
+    data = {
+        "name": (data.get("displayName") or data.get("name") or "").strip(),
+        "photo": _http_url(data.get("photoURL") or data.get("photo") or data.get("avatar")),
+    }
+    _actor_cache[uid] = (time.time(), data)
+    return data
+
+
+def _clean_title(value: str) -> str:
+    title = _LEADING_EMOJI.sub("", (value or "").strip()).strip()
+    return title or "TIMAWA"
+
+
+def build_payload(doc_id: str, item: dict, default_url: str = "dashboard.html", db=None) -> dict:
     ann_type = item.get("type") or "ann"
     context = item.get("pushContext") or f"ann:{ann_type}"
     url = item.get("pushUrl") or item.get("link") or default_url
-    title = (item.get("title") or "TIMAWA").strip()
+    title = _clean_title(item.get("title") or "TIMAWA")
     body = (item.get("message") or "").strip() or "Open TIMAWA to see it."
 
     # THREADING: a conversation-scoped context (chat:<uid>, mention:squad, ...)
@@ -82,15 +179,33 @@ def build_payload(doc_id: str, item: dict, default_url: str = "dashboard.html") 
     if isinstance(count, int) and count > 1:
         body = f"{body} · {count} new"
 
+    actor_uid = _actor_uid(item)
+    actor = _actor(db, actor_uid)
+    actor_photo = _http_url(item.get("actorPhoto")) or actor.get("photo", "")
+    actor_name = actor.get("name") or (item.get("actorName") or "").strip()
+
+    # A face when the alert is about a person; a colour-coded badge otherwise.
+    uses_avatar = ann_type in AVATAR_TYPES and bool(actor_photo)
+    icon = actor_photo if uses_avatar else TYPE_ICONS.get(ann_type, DEFAULT_ICON)
+
     return {
         "title": title,
         "body": body if len(body) <= 160 else body[:157] + "...",
-        "icon": "icons/icon-192.png",
+        "icon": icon,
         "badge": "icons/badge-72.png",
         "url": url,
         "tag": tag,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "meta": {"context": context, "announcementId": doc_id, "type": ann_type},
+        # `iconKind` lets the service worker (and future clients) tell a photo
+        # from a category badge without another Firestore read.
+        "meta": {
+            "context": context,
+            "announcementId": doc_id,
+            "type": ann_type,
+            "actorUid": actor_uid,
+            "actorName": actor_name,
+            "iconKind": "avatar" if uses_avatar else "type",
+        },
     }
 
 
@@ -179,7 +294,7 @@ def handle(ref, item: dict, *, db, vapid_private, subject: str,
             pass
         return
 
-    payload = build_payload(doc_id, fresh)
+    payload = build_payload(doc_id, fresh, db=db)
     log(f"\n[{doc_id}] {payload['title']}")
     log(f"          {payload['body']}  ->  {payload['url']}  (context {payload['meta']['context']})")
 

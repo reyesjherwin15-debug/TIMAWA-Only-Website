@@ -117,7 +117,7 @@ def build_event_payload(event_id: str, data: dict, kind: str) -> dict:
     return {
         "title": heading,
         "body": body or "Tap to see the details.",
-        "icon": ICON,
+        "icon": "icons/notif-event.png",
         "badge": BADGE,
         "url": "calendar.html",
         "tag": tag,
@@ -132,7 +132,7 @@ def build_test_payload() -> dict:
     return {
         "title": "TIMAWA notifications are live",
         "body": "This is a test. Members will get alerts like this for new activities.",
-        "icon": ICON,
+        "icon": "icons/notif-default.png",
         "badge": BADGE,
         "url": "calendar.html",
         "tag": "timawa-test",
@@ -363,7 +363,7 @@ def main() -> int:
         payload = {
             "title": args.title,
             "body": args.body,
-            "icon": ICON,
+            "icon": "icons/notif-default.png",
             "badge": BADGE,
             "url": args.url,
             "tag": f"timawa-custom-{int(time.time())}",
