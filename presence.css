@@ -1,0 +1,54 @@
+/* ================================================================
+   presence.css · TIMAWA live member status
+   Shared dot + label styles for presence.js. Colours mirror the
+   existing available / away / offline status language.
+   ================================================================ */
+
+.presence-host { position: relative; }
+
+/* Floating dot injected onto an avatar wrapper. */
+.presence-dot.presence-float {
+    position: absolute;
+    right: 1px;
+    bottom: 1px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #9ca3af;
+    border: 2px solid var(--theme-card, #ffffff);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+    z-index: 3;
+    pointer-events: none;
+    transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.presence-dot.available,
+.presence-dot.online { background: #22c55e; }
+.presence-dot.away { background: #f59e0b; }
+.presence-dot.busy { background: #ef4444; }
+.presence-dot.dnd { background: #8b5cf6; }
+.presence-dot.offline { background: #9ca3af; }
+
+/* A quiet pulse so "Online" feels live without being noisy. */
+.presence-dot.available.presence-float,
+.presence-dot.online.presence-float {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+    animation: presencePulse 2.4s ease-out infinite;
+}
+@keyframes presencePulse {
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+    70% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+[data-presence-label] {
+    transition: color 0.25s ease;
+}
+[data-presence-label][data-presence="online"] { color: #22c55e; }
+[data-presence-label][data-presence="away"] { color: #f59e0b; }
+[data-presence-label][data-presence="offline"] { color: inherit; opacity: 0.68; }
+
+@media (prefers-reduced-motion: reduce) {
+    .presence-dot.available.presence-float,
+    .presence-dot.online.presence-float { animation: none; }
+}

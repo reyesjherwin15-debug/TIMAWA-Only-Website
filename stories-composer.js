@@ -17,7 +17,7 @@
 
     let C = null, root = null, q = {};
     const M = {
-        sheet: null, items: [], video: null, layout: '', fit: 'fill', dur: MIN_DUR,
+        sheet: null, items: [], video: null, layout: '', fit: 'fill', dur: MIN_DUR, slide: 0,
         texts: [], sel: null, caption: '', track: null, spotify: null, mstyle: 'bar',
         mpos: { x: 0.5, y: 0.54, scale: 1, rot: 0 },
         mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
@@ -88,6 +88,7 @@
               <div class="st-song" hidden></div>
               <button class="st-snd" type="button" data-k="sound" hidden aria-label="Turn on the video's sound"><i class="fas fa-volume-xmark"></i><span>Tap for sound</span></button>
               <div class="st-capv" hidden></div>
+              <div class="st-cslides" hidden></div>
               <button class="st-edit-done" type="button" data-k="editDone" hidden><i class="fas fa-check"></i> Done</button>
               <div class="st-pv" hidden style="position:absolute;left:12px;right:12px;bottom:12px;z-index:4;color:#fff;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
             </div></div>
@@ -98,7 +99,7 @@
         document.body.appendChild(root);
         q = { head: $('.st-ch'), stage: $('.st-cstage'), mw: $('.st-media-wrap'), bg: $('.st-bgblur'), tx: $('.st-texts'), tools: $('.st-tools'), sheet: $('.st-sheet'),
               sht: $('.st-sh-h b'), col: $('[data-k=collapse]'), shb: $('.st-sh-b'), file: $('input[type=file]'), bar: $('.st-bar'), barI: $('.st-bar i'), pub: $('[data-k=publish]'),
-              pv: $('.st-pv'), msk: $('.st-msticker'), song: $('.st-song'), capv: $('.st-capv'), snd: $('[data-k=sound]'), sT: $('.st-scrim-t'), sB: $('.st-scrim-b'), prevB: $('[data-k=preview]'), done: $('[data-k=editDone]') };
+              pv: $('.st-pv'), msk: $('.st-msticker'), song: $('.st-song'), capv: $('.st-capv'), slides: $('.st-cslides'), snd: $('[data-k=sound]'), sT: $('.st-scrim-t'), sB: $('.st-scrim-b'), prevB: $('[data-k=preview]'), done: $('[data-k=editDone]') };
         S.observeStage(q.stage);
         if ('ResizeObserver' in window) new ResizeObserver(measure).observe(q.sheet);
 
@@ -181,7 +182,7 @@
     function reset() {
         stopAudio(); revokeAll();
         Object.assign(M, {
-            sheet: null, items: [], video: null, layout: '', fit: 'fill', dur: MIN_DUR,
+            sheet: null, items: [], video: null, layout: '', fit: 'fill', dur: MIN_DUR, slide: 0,
             texts: [], sel: null, caption: '', track: null, spotify: null, mstyle: 'bar',
             mpos: { x: 0.5, y: 0.54, scale: 1, rot: 0 }, mcolor: '#ffffff',
             mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
@@ -259,7 +260,8 @@
     function renderStage() {
         q.mw.innerHTML = ''; q.bg.innerHTML = '';
         const n = M.items.length;
-        q.mw.className = 'st-media-wrap' + (n > 1 ? ' collage' : (M.fit === 'fit' ? ' fit' : ''));
+        if (M.slide >= n) M.slide = 0;
+        q.mw.className = 'st-media-wrap' + (M.fit === 'fit' ? ' fit' : '');
         if (M.video) {
             const v = document.createElement('video');
             v.src = M.video.url; v.loop = true; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', '');
@@ -279,15 +281,28 @@
                 v.play().catch(() => {});
             }
             if (M.fit === 'fit') q.mw.classList.add('fit');
-        } else if (n > 1) {
-            q.mw.innerHTML = S.collageHtml(M.items, M.layout, true);
-        } else if (n === 1) {
-            const i = new Image(); i.src = M.items[0].url; i.alt = ''; q.mw.appendChild(i);
-            const b = new Image(); b.src = M.items[0].url; b.alt = ''; q.bg.appendChild(b);
+        } else if (n >= 1) {
+            const item = M.items[Math.max(0, Math.min(n - 1, M.slide))];
+            const i = new Image(); i.src = item.url; i.alt = ''; i.decoding = 'async'; q.mw.appendChild(i);
+            const b = new Image(); b.src = item.url; b.alt = ''; q.bg.appendChild(b);
         }
+        renderSlideStrip();
         applyMT(); renderCaption(); renderTexts(); renderPv();
     }
     function applyMT() { S.applyMediaTransform(q.mw, canMT() ? M.mt : null); }
+    // Instagram-style film strip: every selected photo is its own frame, and
+    // tapping a thumbnail previews that frame without changing the order.
+    function renderSlideStrip() {
+        const n = M.items.length;
+        if (!q.slides) return;
+        q.slides.hidden = n < 2 || M.preview;
+        if (q.slides.hidden) { q.slides.innerHTML = ''; return; }
+        q.slides.innerHTML = M.items.map((it, i) =>
+            `<button type="button" class="st-cslide ${i === M.slide ? 'on' : ''}" data-k="slide" data-v="${i}" aria-label="Photo ${i + 1} of ${n}" aria-pressed="${i === M.slide}"><img src="${S.esc(it.url)}" alt="" draggable="false"><span>${i + 1}</span></button>`
+        ).join('');
+        const on = q.slides.querySelector('.st-cslide.on');
+        if (on && on.scrollIntoView) { try { on.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) {} }
+    }
     function showSoundChip(on) { if (q.snd) q.snd.hidden = !on; }
     // Attaching a song silences the video's own audio (the song replaces it);
     // removing the song gives the video its sound back straight away, without
@@ -351,6 +366,7 @@
         if (root) root.classList.toggle('pv', M.preview);
         renderEditDone();
         q.sT.hidden = q.sB.hidden = q.pv.hidden = !M.preview;
+        if (q.slides) q.slides.hidden = M.preview || M.items.length < 2;
         q.tx.style.pointerEvents = M.preview ? 'none' : '';
         if (!M.preview) { q.pv.innerHTML = ''; return; }
         q.pv.innerHTML = (M.spotify && !M.track ? musicCard(M.spotify, true) : '');
@@ -369,8 +385,8 @@
         const n = M.items.length, tools = [
             ['text', 'Aa', 'Text', M.texts.length > 0],
             ['music', '<i class="fas fa-music"></i>', 'Music', !!(M.track || M.spotify)],
-            n >= 2 ? ['layout', '<i class="fas fa-table-cells-large"></i>', 'Layout', false] : ['layout', '<i class="fas fa-expand"></i>', 'Framing', M.fit === 'fit'],
-            ...(!M.video ? [['time', '<i class="far fa-clock"></i>', 'Timing', false]] : []),
+            ['layout', '<i class="fas fa-expand"></i>', 'Framing', M.fit === 'fit'],
+            ...(!M.video && n < 2 ? [['time', '<i class="far fa-clock"></i>', 'Timing', false]] : []),
             ['caption', '<i class="far fa-message"></i>', 'Caption', !!M.caption]
         ];
         q.tools.innerHTML = tools.map(([k, ic, lab, dot]) => `<button type="button" class="st-tool ${M.sheet === k ? 'on' : ''}" data-k="tool" data-v="${k}" aria-label="${lab}" aria-pressed="${M.sheet === k}">${ic}${dot ? '<span class="dot"></span>' : ''}<span class="st-tool-lab">${lab}</span></button>`).join('');
@@ -409,7 +425,7 @@
         q.sheet.classList.toggle('collapsed', !!M.shCollapsed);
         q.col.innerHTML = '<i class="fas fa-chevron-' + (M.shCollapsed ? 'up' : 'down') + '"></i>';
         q.col.setAttribute('aria-expanded', String(!M.shCollapsed)); q.col.setAttribute('aria-label', M.shCollapsed ? 'Expand panel' : 'Collapse panel');
-        q.sht.textContent = M.sheet === 'layout' ? (M.items.length >= 2 ? 'Layout' : 'Framing') : SHEET_TITLES[M.sheet];
+        q.sht.textContent = M.sheet === 'layout' ? 'Framing' : SHEET_TITLES[M.sheet];
         q.shb.innerHTML = M.sheet === 'text' ? textSheet() : M.sheet === 'music' ? musicSheet() : M.sheet === 'layout' ? layoutSheet() : M.sheet === 'time' ? timeSheet() : captionSheet();
         requestAnimationFrame(measure);
     }
@@ -495,10 +511,11 @@
 
     function layoutSheet() {
         const n = M.items.length;
-        if (n >= 2) return `<div class="st-row2">${S.layoutsFor(n).map(L => `<button type="button" class="st-lay ${L.id === M.layout ? 'on' : ''}" data-k="layout" data-v="${L.id}" title="${S.esc(L.label)}" aria-label="Layout: ${S.esc(L.label)}">${S.miniLayoutHtml(L)}</button>`).join('')}</div>
-            <p class="st-hint">Photos appear in the order you selected them. To change photos, discard this story and pick again.</p>`;
         const z = Math.round(M.mt.scale * 100);
-        return `<div class="st-row2">${chips([['fill', 'Fill screen'], ['fit', 'Fit whole']], M.fit, 'fit')}</div>
+        const multiHint = n >= 2
+            ? `<p class="st-hint">Each photo becomes its own full-screen story frame, in the order you picked them. Tap a thumbnail on the story to preview one. Framing applies to every photo.</p>`
+            : '';
+        return `<div class="st-row2">${chips([['fill', 'Fill screen'], ['fit', 'Fit whole']], M.fit, 'fit')}</div>${multiHint}
             ${coarse() ? '' : `<div class="st-lab">Zoom</div><div class="st-row2 st-desk-only"><label class="st-range">Size <input type="range" min="50" max="300" step="1" value="${z}" data-in="mediaScale" aria-label="Zoom"><b class="st-zoomv" style="min-width:42px">${z}%</b></label><button type="button" class="st-btn ghost sm" data-k="resetMedia">Reset</button></div>`}
             <p class="st-hint">"Fit whole" shows the entire ${M.video ? 'video' : 'photo'} with a soft background.${coarse() ? ' Pinch to resize it, then drag to move it.' : ' Zoom, then drag the ' + (M.video ? 'video' : 'photo') + ' to move it.'}</p>`;
     }
@@ -949,6 +966,7 @@
                 break;
             }
             case 'layout': M.layout = v; renderStage(); renderSheet(); break;
+            case 'slide': M.slide = S.clamp(parseInt(v, 10) || 0, 0, Math.max(0, M.items.length - 1)); renderStage(); break;
             case 'resetMedia': M.mt = { scale: 1, x: 0, y: 0 }; applyMT(); renderSheet(); break;
             case 'fit': M.fit = v; renderStage(); renderSheet(); break;
             case 'dur': M.dur = S.clamp(Number(v), MIN_DUR, MAX_DUR); renderSheet(); break;
@@ -1261,6 +1279,8 @@
                 pushPending: true,
                 pushContext: 'story',
                 actorUid: C.me.uid,          // never push someone their own story
+                actorName: name,
+                actorPhoto: C.me.photo || '',
                 pushUrl: `index.html?story=${encodeURIComponent(storyId)}`,
                 title: `✨ ${name} shared a new story`,
                 message: caption ? `"${caption.slice(0, 80)}"` : 'Tap to watch it before it disappears.',
@@ -1298,6 +1318,9 @@
                     title: `📣 ${C.me.name} mentioned you in their story`,
                     message: `"${snippet}"`,
                     icon: '📣',
+                    actorUid: C.me.uid,
+                    actorName: C.me.name,
+                    actorPhoto: C.me.photo || '',
                     priority: 'info',
                     link: 'index.html',
                     linkLabel: 'View Story',
@@ -1391,7 +1414,12 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 expiresAt: exp
             };
-            if (multi) { doc.mediaItems = ups.map((u, i) => ({ url: urls[i], w: u.width || 0, h: u.height || 0 })); doc.layout = S.getLayout(M.layout, ups.length).id; }
+            if (multi) {
+                doc.mediaItems = ups.map((u, i) => ({ url: urls[i], w: u.width || 0, h: u.height || 0 }));
+                // 0 = per-frame timing: the viewer plays each photo for SLIDE_MS
+                // (5 s), exactly like Instagram, instead of one long collage.
+                doc.durationMs = 0;
+            }
             q.barI.style.width = '96%';
             try { await ref.set(doc); }
             catch (we) { await discardUploads(ups); throw we; }

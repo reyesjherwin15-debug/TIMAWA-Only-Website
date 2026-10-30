@@ -233,11 +233,35 @@ conversation (`dashboard.html#chat_<uid>`), which resolves it the same way.
 
 ---
 
+## 7b. How notifications look
+
+The dispatcher resolves who an alert is about and attaches the right artwork:
+
+| Alert | Artwork |
+| --- | --- |
+| Mention, reaction, DM, birthday | The member's **current profile photo** (`actorUid` → `users/{uid}.photoURL`) |
+| Highlight, story, event, new member, admin post, note, reply | Dedicated badge from `icons/notif-*.png` |
+
+The same faces/badges appear in the in-app notification centre on every page, so
+a member sees one consistent design whether the card is on the lock screen or in
+the bell menu. Sender fields are written on the announcement:
+
+```js
+actorUid: 'uid', actorName: 'Maya', actorPhoto: 'https://res.cloudinary.com/...'
+```
+
+Older queued announcements without those fields still work: the dispatcher reads
+`users/{uid}` when it can, and falls back to the category badge instead of a
+broken image. On iPhone/iPad, WebKit always displays the app icon on the lock
+screen; the profile photo is shown inside the in-app notification list.
+
+---
+
 ## 8. How it behaves
 
 * **Offline:** pages a member has already opened are served from cache; anything
   else falls back to `offline.html`. Firestore keeps working from its own cache.
-* **Updates:** `sw.js` caches under `timawa-shell-v1.0.3`. After editing any
+* **Updates:** `sw.js` caches under `timawa-shell-v1.5.17`. After editing any
   cached file, bump `CACHE_VERSION` so phones pick up the new shell.
 * **Not cached:** Firebase, Cloudinary and CDN requests — those always go to the
   network, so data stays live and the cache stays small.
@@ -308,7 +332,9 @@ conversation (`dashboard.html#chat_<uid>`), which resolves it the same way.
   OneDrive still syncs them — treat that folder as private.
 * Members can only read/write their own subscription rows (with the new rules).
 * Push payloads contain the activity title, date, place and a trimmed
-  description. No emails, no birthdays, no private profile fields.
+  description. No emails, no birthday dates, no private profile fields. Person
+  alerts also carry the sender's display name and public Cloudinary photo URL so
+  the notification can show their face.
 * If a private key leaks: `python tools/generate_vapid_keys.py --force`, redeploy
   `push-config.js`, and members re-enable notifications.
 

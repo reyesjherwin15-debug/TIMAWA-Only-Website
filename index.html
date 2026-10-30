@@ -44,6 +44,7 @@
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
     <link rel="stylesheet" href="pwa.css?v=1.3.0" />
+    <link rel="stylesheet" href="presence.css?v=1.0.0" />
     <title>TIMAWA - Friend Hub</title>
 
     <!-- Firebase SDKs -->
@@ -56,7 +57,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.11.7" />
+    <link rel="stylesheet" href="stories.css?v=1.11.8" />
     <script src="theme.js?v=1.1.0"></script>
 
     <!-- JSZip for ZIP downloads -->
@@ -241,6 +242,9 @@
         .announcement-icon.type-comment { background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%); }
         .announcement-icon.type-reaction { background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%); }
         .announcement-icon.type-squad { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+        .announcement-icon img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+        .announcement-icon.has-avatar { padding: 0; overflow: hidden; border-radius: 50%; background: var(--theme-bg-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-primary) 22%, transparent); }
+        .announcement-icon.has-avatar img { border-radius: 50%; }
         .announcement-body { flex: 1; min-width: 0; }
         .announcement-title {
             font-size: 13px; font-weight: 600; color: var(--theme-text);
@@ -536,6 +540,7 @@
         .member-card .avatar-container .member-actions .member-download { background: rgba(0,0,0,0.75); }
         .member-card .avatar-container .member-actions .member-download:hover { background: var(--theme-primary); transform: scale(1.1); }
 
+        .status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: 0 0 auto; background: #9ca3af; }
         .member-card .avatar-container .avatar-status {
             position: absolute;
             bottom: calc(50% - 75px - 4px);
@@ -597,6 +602,7 @@
             min-width: 0;
         }
         .member-card .member-body .member-name { font-size: 18px; font-weight: 700; color: var(--theme-text); margin-bottom: 4px; line-height: 1.3; overflow-wrap: anywhere; word-break: break-word; }
+        .member-card .member-body .member-presence { font-size: 11px; font-weight: 700; color: var(--theme-text-dim); letter-spacing: .01em; margin: -2px 0 6px; }
         .member-card .member-body .member-location { font-size: 13px; color: var(--theme-text-dim); display: inline-flex; align-items: center; justify-content: center; gap: 5px; margin-bottom: 10px; overflow-wrap: anywhere; }
         .member-card .member-body .member-location i { color: var(--theme-primary); font-size: 12px; }
         .member-card .member-body .member-meta-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 10px; }
@@ -3936,7 +3942,9 @@
                 }
 
                 let reactorName = 'Someone';
+                let reactorPhoto = '';
                 const reactorProfile = userProfileCache[reactorUid];
+                if (reactorProfile) reactorPhoto = reactorProfile.photoURL || '';
                 if (reactorProfile && reactorProfile.displayName) {
                     reactorName = reactorProfile.displayName;
                 } else {
@@ -3945,6 +3953,7 @@
                         if (uDoc.exists) {
                             const u = uDoc.data();
                             reactorName = u.displayName || u.email || 'Someone';
+                            reactorPhoto = u.photoURL || reactorPhoto;
                             userProfileCache[reactorUid] = { id: reactorUid, ...u };
                         }
                     } catch (e) { /* ignore */ }
@@ -3964,6 +3973,9 @@
                     title: `${emoji} ${reactorName} reacted to your highlight`,
                     message: messageText,
                     icon: emoji,
+                    actorUid: reactorUid,
+                    actorName: reactorName,
+                    actorPhoto: reactorPhoto || '',
                     priority: 'info',
                     link: 'index.html#highlights',
                     linkLabel: 'View Highlight',
@@ -4601,6 +4613,9 @@
                         title: `📣 ${noteOwnerName} mentioned you in their note`,
                         message: `"${snippet}"`,
                         icon: '📣',
+                        actorUid: titaCurrentUser.uid,
+                        actorName: noteOwnerName,
+                        actorPhoto: titaCurrentUser.photoURL || '',
                         priority: 'info',
                         link: 'index.html#members-section',
                         linkLabel: 'View Note',
@@ -4978,7 +4993,7 @@ function startReplyTo(commentId, authorName) {
                             pushContext: `mention:note_${noteUid}`,
                             title: `@ ${replierName} mentioned you`,
                             message: `In ${noteOwnerName}'s note: "${noteSnippet}"\n\n"${replySnippet}"`,
-                            icon: '📣', priority: 'info',
+                            icon: '📣', actorUid: replierUid, actorName: replierName, actorPhoto: (userProfileCache[replierUid] && userProfileCache[replierUid].photoURL) || '', priority: 'info',
                             link: 'index.html#members-section', linkLabel: 'View Mention',
                             targetUid: uid, referenceId: noteUid, readBy: [],
                             createdBy: 'system', createdByName: 'System',
@@ -5735,7 +5750,7 @@ function startHighlightReply(commentId, authorName) {
                             message: captionSnippet
                                 ? `On ${highlightOwnerName}'s highlight: "${captionSnippet}"\n\n"${commentSnippet}"`
                                 : `"${commentSnippet}"`,
-                            icon: '📣', priority: 'info',
+                            icon: '📣', actorUid: commenterUid, actorName: commenterName, actorPhoto: (userProfileCache[commenterUid] && userProfileCache[commenterUid].photoURL) || '', priority: 'info',
                             link: 'index.html#highlights', linkLabel: 'View Mention',
                             targetUid: uid, referenceId: highlightId, readBy: [],
                             createdBy: 'system', createdByName: 'System',
@@ -5772,8 +5787,43 @@ function startHighlightReply(commentId, authorName) {
             'squad':     { icon: '📢', cls: 'type-squad',     label: 'Squad Alert' }
         };
 
+        const ANNOUNCEMENT_ICON_FILES = {
+            admin: 'icons/notif-admin.png',
+            birthday: 'icons/notif-birthday.png',
+            event: 'icons/notif-event.png',
+            highlight: 'icons/notif-highlight.png',
+            member: 'icons/notif-member.png',
+            reply: 'icons/notif-reply.png',
+            mention: 'icons/notif-mention.png',
+            chat: 'icons/notif-chat.png',
+            reaction: 'icons/notif-reaction.png',
+            comment: 'icons/notif-chat.png',
+            note: 'icons/notif-note.png',
+            story: 'icons/notif-story.png',
+            squad: 'icons/notif-admin.png'
+        };
+        const ANNOUNCEMENT_AVATAR_TYPES = new Set(['mention', 'reaction', 'chat', 'birthday']);
+
         function getAnnouncementMeta(type) {
             return ANNOUNCEMENT_TYPE_META[type] || ANNOUNCEMENT_TYPE_META['admin'];
+        }
+
+        // One visual language for the notification centre and the lock-screen
+        // push: faces for person-driven activity, a coloured badge for the rest.
+        function announcementVisual(item, meta) {
+            const type = item.type || 'admin';
+            const cached = item.actorUid && typeof userProfileCache === 'object' && userProfileCache
+                ? userProfileCache[item.actorUid]
+                : null;
+            const photo = String(item.actorPhoto || (cached && cached.photoURL) || '').trim();
+            if (ANNOUNCEMENT_AVATAR_TYPES.has(type) && /^https?:\/\//i.test(photo)) {
+                return `<span class="announcement-icon ${meta.cls} has-avatar" aria-hidden="true"><img src="${escapeAttr(photo)}" alt="" loading="lazy" onerror="this.parentElement.classList.remove('has-avatar');this.style.display='none';this.parentElement.textContent='${meta.icon}'"></span>`;
+            }
+            const file = ANNOUNCEMENT_ICON_FILES[type];
+            if (file) {
+                return `<span class="announcement-icon ${meta.cls}" aria-hidden="true"><img src="${file}" alt="" loading="lazy" onerror="this.style.display='none';this.parentElement.textContent='${meta.icon}'"></span>`;
+            }
+            return `<span class="announcement-icon ${meta.cls}" aria-hidden="true">${meta.icon}</span>`;
         }
 
         function loadAnnouncementReadCache(uid) {
@@ -5947,7 +5997,7 @@ function startHighlightReply(commentId, authorName) {
 
                 html += `
                     <div class="announcement-item ${isUnread ? 'unread' : ''}" data-announcement-id="${escapeAttr(item.id)}" onclick="handleAnnouncementClick('${escapeAttr(item.id)}')">
-                        <div class="announcement-icon ${meta.cls}">${item.icon || meta.icon}</div>
+                        ${announcementVisual(item, meta)}
                         <div class="announcement-body">
                             <div class="announcement-title">
                                 ${escapeHtml(item.title || 'Announcement')}
@@ -6184,7 +6234,8 @@ function startHighlightReply(commentId, authorName) {
                     if (bMonth === todayMonth && bDay === todayDate) {
                         todayBirthdayUsers.push({
                             uid: doc.id,
-                            name: data.displayName || data.email || 'Someone'
+                            name: data.displayName || data.email || 'Someone',
+                            photoURL: data.photoURL || ''
                         });
                     }
                 });
@@ -6244,6 +6295,9 @@ function startHighlightReply(commentId, authorName) {
                         title: `🎂 It's ${person.name}'s Birthday Today!`,
                         message: `Don't forget to greet ${person.name} a happy birthday! 🎉`,
                         icon: '🎂',
+                        actorUid: person.uid,
+                        actorName: person.name,
+                        actorPhoto: person.photoURL || '',
                         priority: 'urgent',
                         link: 'calendar.html',
                         linkLabel: 'View Calendar',
@@ -7172,14 +7226,9 @@ function startHighlightReply(commentId, authorName) {
                 let metaHtml = '';
                 metaHtml += `
                     <div class="member-modal-meta-item full-width">
-                        <i class="fas fa-circle" style="color:${
-                            member.status === 'available' ? '#22c55e' :
-                            member.status === 'busy' ? '#ef4444' :
-                            member.status === 'away' ? '#f59e0b' :
-                            member.status === 'dnd' ? '#8b5cf6' : '#9ca3af'
-                        };"></i>
+                        <span class="status-dot ${member.status || 'offline'}" data-presence-uid="${escapeAttr(memberId)}" data-presence-manual="${escapeAttr(member.status || '')}"></span>
                         <span class="meta-label">Status</span>
-                        <span class="meta-value">${statusInfo.label}</span>
+                        <span class="meta-value" data-presence-uid="${escapeAttr(memberId)}" data-presence-manual="${escapeAttr(member.status || '')}" data-presence-label>${statusInfo.label}</span>
                     </div>
                 `;
                 if (birthdayFormatted) {
@@ -7690,7 +7739,7 @@ function startHighlightReply(commentId, authorName) {
                     <div class="member-card" data-member-id="${memberIdSafe}">
                         <div class="avatar-container">
                             ${noteBubbleHtml}
-                            ${isUserLoggedIn ? `<span class="avatar-status ${status}" title="${statusInfo.label}"></span>` : ''}
+                            ${isUserLoggedIn ? `<span class="avatar-status ${status}" data-presence-uid="${memberIdSafe}" data-presence-manual="${escapeAttr(status)}" title="${statusInfo.label}"></span>` : ''}
                             <div class="avatar-circle">${avatarContent}</div>
                             <div class="member-actions">
                                 <button class="member-view" title="View profile" onclick="event.stopPropagation(); openMemberModal('${memberIdSafe}')"><i class="fas fa-expand"></i></button>
@@ -7699,6 +7748,7 @@ function startHighlightReply(commentId, authorName) {
                         </div>
                         <div class="member-body">
                             <div class="member-name">${escapeHtml(name)}</div>
+                            ${isUserLoggedIn ? `<div class="member-presence" data-presence-uid="${memberIdSafe}" data-presence-manual="${escapeAttr(status)}" data-presence-label>${statusInfo.label}</div>` : ''}
                             ${locationRow}
                             ${metaChipsHtml ? `<div class="member-meta-chips">${metaChipsHtml}</div>` : ''}
                             ${loveLifeRow}
@@ -8876,15 +8926,16 @@ function startHighlightReply(commentId, authorName) {
         }
     </script>
 
-    <script src="stories-shared.js?v=1.11.3"></script>
+    <script src="stories-shared.js?v=1.11.4"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.8"></script>
+    <script src="stories.js?v=1.12.10"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="mobile-nav.js?v=1.3.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
+    <script src="presence.js?v=1.0.0" defer></script>
     <script src="pwa.js?v=1.5.12" defer></script>
 </body>
 </html>

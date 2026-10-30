@@ -12,9 +12,15 @@
         modern:  { label: 'Modern', css: "'Poppins',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif", normal: 500, bold: 800 },
         display: { label: 'Bold',   css: "'Bebas Neue',Impact,'Arial Narrow',sans-serif",                  normal: 400, bold: 400, upper: true },
         hand:    { label: 'Hand',   css: "'Caveat','Segoe Script','Bradley Hand',cursive",                 normal: 600, bold: 700 },
-        serif:   { label: 'Serif',  css: "'Playfair Display',Georgia,'Times New Roman',serif",             normal: 600, bold: 800 }
+        serif:   { label: 'Serif',  css: "'Playfair Display',Georgia,'Times New Roman',serif",             normal: 600, bold: 800 },
+        elegant: { label: 'Elegant', css: "'Cormorant Garamond',Garamond,'Times New Roman',serif",         normal: 600, bold: 700 },
+        marker:  { label: 'Marker', css: "'Permanent Marker','Comic Sans MS',cursive",                    normal: 400, bold: 400 },
+        type:    { label: 'Type',   css: "'Courier New',Courier,monospace",                               normal: 700, bold: 700 },
+        rounded: { label: 'Rounded', css: "'Trebuchet MS','Segoe UI',Verdana,sans-serif",                  normal: 600, bold: 800 },
+        mono:    { label: 'Mono',   css: "'Space Mono','Courier New',monospace",                           normal: 400, bold: 700 },
+        retro:   { label: 'Retro',  css: "'Righteous','Trebuchet MS',sans-serif",                          normal: 400, bold: 400 }
     };
-    const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Caveat:wght@600;700&family=Playfair+Display:ital,wght@0,600;0,800;1,600;1,800&family=Poppins:ital,wght@0,500;0,800;1,500;1,800&display=swap';
+    const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Caveat:wght@600;700&family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,600;0,800;1,600;1,800&family=Poppins:ital,wght@0,500;0,800;1,500;1,800&family=Righteous&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap';
 
     let fontsLoaded = false;
     function loadFonts() {

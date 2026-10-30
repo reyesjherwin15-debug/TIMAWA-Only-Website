@@ -1,0 +1,215 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function stIsSignedIn() { return request.auth != null; }
+    function stIsAdmin() {
+      return stIsSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Your existing behavior, unchanged for every collection EXCEPT "stories",
+    // "publicProfiles", "pushSubscriptions" and "pushLog" — those three have their
+    // own rules below and must not be covered by this blanket rule.
+    match /{collection}/{path=**} {
+      allow read, write: if request.auth != null
+        && collection != 'stories'
+        && collection != 'publicProfiles'
+        && collection != 'pushSubscriptions'
+        && collection != 'pushLog'
+        && collection != 'presence';
+    }
+
+    // ==================================================================
+    // VISITOR VIEW of index.html  (NEW)
+    // Read-only for everyone, no sign-in needed. Write access is still
+    // exactly what the blanket rule above gives signed-in members.
+    // ==================================================================
+    match /highlights/{highlightId}                         { allow read: if true; }
+    match /highlights/{highlightId}/reactions/{reactorUid}  { allow read: if true; }   // reaction counts
+    match /coffeeShops/{id}                                 { allow read: if true; }
+    match /favoritePlaces/{id}                              { allow read: if true; }
+    match /thingsToDo/{id}                                  { allow read: if true; }
+    match /notes/{noteUid}                                  { allow read: if true; }   // note text + song only
+
+    // The member card visitors may see: name, bio, occupation, interests, photo.
+    // public-profile.js (dashboard / profile / calendar / admin) and index.html write it from the member's own
+    // profile whenever that profile changes; admin.html can publish every member's card at once.
+    // Full profiles (email, birthday, location, socials...) stay in "users" = signed-in members only.
+    match /publicProfiles/{profileUid} {
+      allow read: if true;
+      // Written by the member from their own profile (or by an admin when publishing everyone's card).
+      allow create, update: if stIsSignedIn()
+        && (request.auth.uid == profileUid || stIsAdmin())
+        && request.resource.data.uid == profileUid
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'bio', 'occupation', 'interests', 'photoURL', 'updatedAt'])
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() <= 60
+        && request.resource.data.bio is string && request.resource.data.bio.size() <= 300
+        && request.resource.data.occupation is string && request.resource.data.occupation.size() <= 80
+        && request.resource.data.photoURL is string && request.resource.data.photoURL.size() <= 500
+        && (request.resource.data.interests is string || request.resource.data.interests is list)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if stIsSignedIn() && (request.auth.uid == profileUid || stIsAdmin());
+    }
+
+    // ==================================================================
+    // NEW: Spin & Poll — wheel options and vote state
+    //   - squadWheel   => {docId} holds a member's saved wheel options   (timawa doc id on this app today)
+    //   - squadPolls   => {docId} is food|place|date ; options + voters
+    // No composite indexes needed — every read is a single document.
+    // ==================================================================
+    match /squadWheel/{docId} {
+      allow read: if stIsSignedIn();
+      allow create, update, delete: if stIsSignedIn() && request.auth.uid == docId;
+    }
+
+    match /squadPolls/{docId} {
+      allow read: if stIsSignedIn();
+      allow create: if stIsSignedIn() && docId in ['food', 'place', 'date'];
+      allow update, delete: if stIsSignedIn() && docId in ['food', 'place', 'date'];
+    }
+
+    // ==================================================================
+    // Calendar plot from Spin & Poll writes to the existing "events" collection.
+    // The in-app "Create Event" form already governs events; that same blanket
+    // rule above applies, so no new match is required. If admin.html or the app
+    // later needs tighter control, add an explicit /events block here.
+    // ==================================================================
+
+    // ==================================================================
+    // Web Push subscriptions — one document per device.
+    //   Document id = SHA-256 of the push endpoint, so a device that
+    //   re-subscribes overwrites its own row instead of piling up copies.
+    //   A member can only see / remove their own rows. The sender script uses
+    //   the Admin SDK, which bypasses these rules entirely.
+    // ==================================================================
+    match /pushSubscriptions/{subId} {
+      allow read, delete: if stIsSignedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if stIsSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.endpoint is string
+        && request.resource.data.endpoint.size() < 1200
+        && request.resource.data.keys.p256dh is string
+        && request.resource.data.keys.auth is string
+        && request.resource.data.enabled == true;
+    }
+
+    // Sender bookkeeping only (which activity already produced a reminder).
+    match /pushLog/{docId} {
+      allow read, write: if stIsAdmin();
+    }
+
+    // ==================================================================
+    // Live presence — one tiny heartbeat document per member.
+    //   Read: any signed-in member (so cards can show Online/Away).
+    //   Write: only your own document, and only the expected fields.
+    //   Visitors never see member activity status.
+    // ==================================================================
+    match /presence/{uid} {
+      allow read: if stIsSignedIn();
+      allow create, update: if stIsSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.state in ['online', 'away']
+        && request.resource.data.lastActiveAt == request.time
+        && request.resource.data.keys().hasOnly([
+             'uid', 'name', 'photoURL', 'state', 'lastActiveAt', 'updatedAt', 'clientAt', 'sessionId'
+           ]);
+      allow delete: if stIsSignedIn() && request.auth.uid == uid;
+    }
+
+    // Stories: strict rules
+    match /stories/{storyId} {
+      allow read: if true;      // visitors can watch stories (view-only); reactions / views / replies stay signed-in
+
+      allow create: if stIsSignedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time + duration.value(23, 'h')
+        && request.resource.data.expiresAt <= request.time + duration.value(25, 'h')
+        && request.resource.data.mediaType in ['image', 'video']
+        && request.resource.data.mediaUrl.matches('^https://res\\.cloudinary\\.com/ooq99nlw/.*')
+        && (!('caption' in request.resource.data) || request.resource.data.caption.size() <= 200)
+        && (!('textOverlays' in request.resource.data) || request.resource.data.textOverlays.size() <= 8)
+
+        // how long the story plays (photos 15-60 s, video = its own length, max 60 s)
+        && (!('durationMs' in request.resource.data)
+            || (request.resource.data.durationMs is number
+                && request.resource.data.durationMs >= 0
+                && request.resource.data.durationMs <= 60000
+                && (request.resource.data.mediaType == 'video'
+                    || request.resource.data.durationMs == 0
+                    || request.resource.data.durationMs >= 15000)))
+        // multi-photo story frames (images only, max 6 photos, never on a video story)
+        && (!('mediaItems' in request.resource.data)
+            || (request.resource.data.mediaType == 'image'
+                && request.resource.data.mediaItems is list
+                && request.resource.data.mediaItems.size() <= 6))
+        && (!('layout' in request.resource.data)
+            || (request.resource.data.layout is string && request.resource.data.layout.size() <= 12))
+        // v1.4: music is either a YouTube clip (validated video id) or a legacy Apple 30 s preview
+        && (!('music' in request.resource.data)
+            || request.resource.data.music == null
+            || (request.resource.data.music is map
+                && ((request.resource.data.music.get('provider', 'itunes') == 'youtube'
+                     && request.resource.data.music.videoId is string
+                     && request.resource.data.music.videoId.matches('^[A-Za-z0-9_-]{11}$')
+                     && request.resource.data.music.startSec is number
+                     && request.resource.data.music.clipSec is number
+                     && request.resource.data.music.clipSec >= 1
+                     && request.resource.data.music.clipSec <= 60)
+                    || (request.resource.data.music.get('provider', 'itunes') != 'youtube'
+                        && request.resource.data.music.previewUrl.matches('^https://[A-Za-z0-9.-]+\\.(mzstatic\\.com|itunes\\.apple\\.com)/.*')))))
+        && (!('muteVideo' in request.resource.data) || request.resource.data.muteVideo is bool);
+
+      allow update: if stIsAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'removedAt', 'removedBy', 'removalReason'])
+        && request.resource.data.status in ['active', 'removed'];
+
+      // Owner, admin can delete. (Expired stories are cleaned up by the app runtime.)
+      allow delete: if stIsSignedIn()
+        && (resource.data.ownerUid == request.auth.uid || stIsAdmin());
+
+      // Reactions subcollection (one reaction per user per story).
+      match /reactions/{reactorUid} {
+        allow read: if stIsSignedIn();
+        allow create, update: if stIsSignedIn()
+          && request.auth.uid == reactorUid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.emoji is string
+          && request.resource.data.emoji.size() <= 16
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.status == 'active'
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.expiresAt > request.time;
+        allow delete: if stIsSignedIn() && (
+          request.auth.uid == reactorUid
+          || get(/databases/$(database)/documents/stories/$(storyId)).data.ownerUid == request.auth.uid
+          || stIsAdmin());
+      }
+
+      // Views subcollection — records who watched a story.
+      //   - each viewer can read/write their own view doc
+      //   - the story owner can read every view doc (for the "who watched" sheet)
+      //   - admins can read/delete any view doc
+      match /views/{viewerUid} {
+        allow read: if stIsSignedIn() && (
+          request.auth.uid == viewerUid
+          || get(/databases/$(database)/documents/stories/$(storyId)).data.ownerUid == request.auth.uid
+          || stIsAdmin()
+        );
+        allow create: if stIsSignedIn()
+          && request.auth.uid == viewerUid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.viewedAt == request.time;
+        allow update: if stIsSignedIn() && request.auth.uid == viewerUid;
+        allow delete: if stIsSignedIn() && (
+          request.auth.uid == viewerUid
+          || get(/databases/$(database)/documents/stories/$(storyId)).data.ownerUid == request.auth.uid
+          || stIsAdmin()
+        );
+      }
+    }
+  }
+}

@@ -11,7 +11,7 @@
      stories/{id}                     ownerUid, ownerName, ownerPhoto, mediaType,
                                       mediaUrl, thumbUrl, mediaFit, caption,
                                       textOverlays[], spotifyTrack?, status,
-                                      mediaItems[] + layout (photo collage, images only),
+                                      mediaItems[] (multi-photo frames, images only),
                                       durationMs (how long it plays: 15-60s for photos,
                                       auto for video), music? (30s clip + start/length
                                       + sticker {x,y,scale,rot}), muteVideo,
@@ -31,8 +31,9 @@
 
     const CFG = Object.assign({
         IMAGE_MS: 6000,
+        SLIDE_MS: 5000,
         MAX_REPLY: 300,
-        composerSrc: 'stories-composer.js?v=1.13.2',
+        composerSrc: 'stories-composer.js?v=1.13.4',
         spotifySearchUrl: '',
         allowStoryDelete: true,        // pages can override via window.STORIES_CONFIG
         allowStoryViews: true          // pages can override via window.STORIES_CONFIG
@@ -282,7 +283,7 @@
     }, true);
 
     // ------------------------------------------------------------ viewer
-    const V = { open: false, el: null, order: [], gi: 0, si: 0, story: null, paused: new Set(), raf: 0, last: 0, el_ms: 0, dur: 0, video: null, ready: false,
+    const V = { open: false, el: null, order: [], gi: 0, si: 0, slide: 0, segStart: 0, story: null, paused: new Set(), raf: 0, last: 0, el_ms: 0, dur: 0, video: null, ready: false,
                 unsubR: null, reactions: [], trayMore: false, returnFocus: null, pushed: false, sy: 0,
                 audio: null, clip: null, userMuted: false, musicBlocked: false, muteVid: false,
                 closing: false, anim: null, bdAnim: null, views: [], unsubV: null };
@@ -509,6 +510,7 @@
         if (startId) si = Math.max(0, g.stories.findIndex(s => s.id === startId));
         else { const firstUnseen = g.stories.findIndex(s => !st.seen[s.id]); si = firstUnseen > -1 ? firstUnseen : 0; }
         V.si = si;
+        V.slide = 0;
         const o = originEl && originEl.getBoundingClientRect ? originEl.getBoundingClientRect() : findOrigin(uid);
         V.returnFocus = document.activeElement;
         V.el.hidden = false; V.open = true;
@@ -568,13 +570,18 @@
     function curGroup() { return st.byOwner.get(V.order[V.gi]); }
     function next() {
         const g = curGroup();
-        if (g && V.si < g.stories.length - 1) { V.si++; renderSlide(); return; }
+        const s = g && g.stories[V.si];
+        if (s && slideUrls(s).length > 1 && V.slide < slideUrls(s).length - 1) { gotoSlide(V.slide + 1); return; }
+        if (g && V.si < g.stories.length - 1) { V.si++; V.slide = 0; renderSlide(); return; }
         // next member with active stories
         for (let i = V.gi + 1; i < V.order.length; i++) if (st.byOwner.has(V.order[i])) { V.gi = i; V.si = 0; renderSlide(); return; }
         close();
     }
     function prev() {
-        if (V.si > 0) { V.si--; renderSlide(); return; }
+        const g0 = curGroup();
+        const s0 = g0 && g0.stories[V.si];
+        if (s0 && slideUrls(s0).length > 1 && V.slide > 0) { gotoSlide(V.slide - 1); return; }
+        if (V.si > 0) { V.si--; V.slide = 0; renderSlide(); return; }
         for (let i = V.gi - 1; i >= 0; i--) { const g = st.byOwner.get(V.order[i]); if (g) { V.gi = i; V.si = g.stories.length - 1; renderSlide(); return; } }
         restartSlide();
     }
@@ -583,7 +590,7 @@
         V.el_ms = 0;
         if (V.video) { try { V.video.currentTime = 0; } catch (e) { /* ignore */ } }
         syncAudio(true);
-        const seg = V.q.prog.children[V.si]; if (seg && seg.firstChild) seg.firstChild.style.transform = 'scaleX(0)';
+        const seg = V.q.prog.children[V.segStart + V.slide]; if (seg && seg.firstChild) seg.firstChild.style.transform = 'scaleX(0)';
         if (!V.paused.size && V.ready) { if (V.video) V.video.play().catch(() => {}); playMusic(); }
         restartTimer();
     }
@@ -616,20 +623,105 @@
     }
     function syncPauseIcon() { V.q.pauseB.innerHTML = `<i class="fas fa-${V.paused.has('user') ? 'play' : 'pause'}"></i>`; V.q.pauseB.setAttribute('aria-label', V.paused.has('user') ? 'Play' : 'Pause'); }
 
+    // Every selected photo is its own full-screen frame, Instagram-style.
+    // Older collage documents are read the same way: their mediaItems become
+    // the frames, in the order the author picked them.
+    function slideUrls(s) {
+        if (!s || s.mediaType !== 'image') return [];
+        const list = Array.isArray(s.mediaItems) ? s.mediaItems.map(x => x && x.url).filter(Boolean) : [];
+        return list.length ? list : (s.mediaUrl ? [s.mediaUrl] : []);
+    }
+    function slideCount(s) { return Math.max(1, slideUrls(s).length); }
+    function paintProgress() {
+        const g = curGroup(); if (!g || !V.q) return;
+        let index = 0;
+        const html = g.stories.map((x, i) => {
+            const parts = [];
+            for (let j = 0; j < slideCount(x); j++) {
+                const done = i < V.si || (i === V.si && j < V.slide);
+                const now = i === V.si && j === V.slide;
+                parts.push(`<div class="st-seg ${done ? 'done' : ''}${now ? ' now' : ''}"><i></i></div>`);
+                index += 1;
+            }
+            return parts.join('');
+        }).join('');
+        V.q.prog.innerHTML = html;
+        let start = 0;
+        for (let i = 0; i < V.si; i++) start += slideCount(g.stories[i]);
+        V.segStart = start;
+    }
+    function renderSlideMedia(s) {
+        const q = V.q;
+        cancelAnimationFrame(V.raf);
+        const photos = slideUrls(s);
+        const multi = photos.length > 1;
+        if (V.slide >= photos.length) V.slide = 0;
+        const src = photos.length ? photos[V.slide] : s.mediaUrl;
+        q.mw.className = 'st-media-wrap' + (multi ? ' st-slide' : '') + (s.mediaFit === 'fit' ? ' fit' : '');
+        q.mw.innerHTML = ''; q.bg.innerHTML = ''; q.load.hidden = false; q.err.hidden = true;
+        S.applyMediaTransform(q.mw, multi ? null : s.mediaTransform);
+        paintProgress();
+
+        V.dur = multi ? (CFG.SLIDE_MS || 5000)
+            : (s.durationMs > 0 ? Math.min(s.durationMs, S.MAX_SHOW_MS) : CFG.IMAGE_MS);
+        const im = new Image(); im.alt = s.caption || 'Story'; im.decoding = 'async';
+        const resized = S.cloudResize(src, 960);
+        // Each frame needs its OWN placeholder. Reusing the story-level
+        // thumbUrl showed photo 1 until photo 2 finished downloading.
+        const thumb = (!multi && S.safeMediaUrl(s.thumbUrl)) || (resized === src ? src : resized);
+        // The thumb -> full-resolution swap reassigns im.src, which fires
+        // onload a second time. Without these one-shot guards that second
+        // load restarted the clock (and could re-swap itself), so the story
+        // sat frozen instead of advancing to the next one.
+        let swapped = thumb === src, readyShown = false;
+        const showFullResolution = () => {
+            // A late load from the previous frame must not start this frame's
+            // clock (that is what made multi-photo stories freeze).
+            if (V.story !== s || !V.open || !q.mw.contains(im)) return;
+            if (!readyShown) { readyShown = true; onReady(null); }
+            if (!swapped) {
+                swapped = true;
+                const full = new Image(); full.decoding = 'async';
+                full.onload = () => { if (V.story === s && V.open && q.mw.contains(im)) im.src = src; };
+                full.src = src;
+            }
+        };
+        im.onload = showFullResolution; im.onerror = () => {
+            if (!q.mw.contains(im)) return;
+            if (thumb !== src) { im.onload = null; im.onerror = onError; im.src = src; }
+            else onError();
+        };
+        im.src = thumb; q.mw.appendChild(im);
+        const b = new Image(); b.src = S.cloudResize(src, 64); b.alt = ''; q.bg.appendChild(b);
+
+        // Warm the next frame so a swipe never shows the previous photo again.
+        const nextSrc = photos[V.slide + 1];
+        if (nextSrc) { const p = new Image(); p.src = S.cloudResize(nextSrc, 960); }
+    }
+    function gotoSlide(index) {
+        const s = V.story; if (!s) return;
+        const count = slideCount(s);
+        V.slide = Math.max(0, Math.min(count - 1, index));
+        V.ready = false; V.el_ms = 0;
+        renderSlideMedia(s);
+    }
+
     function renderSlide() {
         teardownSlide();
         const g = curGroup();
         if (!g) { close(); return; }
         if (V.si >= g.stories.length) V.si = g.stories.length - 1;
         const s = g.stories[V.si];
+        const prevId = V.story && V.story.id;
+        if (prevId !== s.id) V.slide = 0;
         V.story = s;
         const q = V.q, mine = !!st.me && s.ownerUid === st.me.uid;
 
-        // header + progress
+        // header + progress (one segment per photo, like Instagram)
         q.av.innerHTML = avatarHtml(g.name, g.photo, 80);
         q.who.textContent = mine ? 'Your story' : g.name;
         q.when.textContent = S.timeAgo(s.createdAtMs) + ' · expires in ' + Math.max(1, Math.ceil((s.expiresAtMs - now()) / 3600000)) + 'h';
-        q.prog.innerHTML = g.stories.map((x, i) => `<div class="st-seg ${i < V.si ? 'done' : ''}"><i></i></div>`).join('');
+        paintProgress();
         q.delB.hidden = !mine || !CFG.allowStoryDelete;
         q.muteB.hidden = true;
         syncPauseIcon();
@@ -645,15 +737,14 @@
         markSeen(s.id);
         if (!mine && firstSeen) recordView(s);
 
-        // media (single photo | photo collage | one video)
-        const collage = s.mediaType === 'image' && s.mediaItems.length > 1 ? s.mediaItems : null;
-        q.mw.className = 'st-media-wrap' + (collage ? ' collage' : (s.mediaFit === 'fit' ? ' fit' : ''));
-        q.mw.innerHTML = ''; q.bg.innerHTML = ''; q.load.hidden = false;
-        S.applyMediaTransform(q.mw, collage ? null : s.mediaTransform);     // size / position chosen in the editor
+        // media (one photo frame at a time | one video)
         S.renderTexts(q.tx, s.textOverlays);
         q.cap.textContent = s.caption; q.cap.style.display = s.caption ? '' : 'none';
         V.muteVid = !!(s.music || s.muteVideo);          // music added to a video mutes the video's own audio
         if (s.mediaType === 'video') {
+            q.mw.className = 'st-media-wrap' + (s.mediaFit === 'fit' ? ' fit' : '');
+            q.mw.innerHTML = ''; q.bg.innerHTML = ''; q.load.hidden = false;
+            S.applyMediaTransform(q.mw, s.mediaTransform);
             const v = document.createElement('video');
             v.playsInline = true; v.preload = 'auto'; v.controls = false; v.setAttribute('playsinline', '');
             v.muted = V.muteVid || V.userMuted;
@@ -664,53 +755,16 @@
             v.addEventListener('error', () => onError());
             q.mw.appendChild(v); V.video = v;
         } else {
-            V.dur = s.durationMs > 0 ? Math.min(s.durationMs, S.MAX_SHOW_MS) : CFG.IMAGE_MS;
-            if (collage) {
-                q.mw.innerHTML = S.collageHtml(collage, s.layout);
-                waitImages(q.mw.querySelectorAll('img'), s);
-            } else {
-                const im = new Image(); im.alt = s.caption || 'Story'; im.decoding = 'async';
-                const resized = S.cloudResize(s.mediaUrl, 960);
-                const thumb = S.safeMediaUrl(s.thumbUrl) || (resized === s.mediaUrl ? s.mediaUrl : resized);
-                // The thumb -> full-resolution swap reassigns im.src, which fires
-                // onload a second time. Without these one-shot guards that second
-                // load restarted the clock (and could re-swap itself), so the
-                // story sat frozen instead of advancing to the next one.
-                let swapped = thumb === s.mediaUrl, readyShown = false;
-                const showFullResolution = () => {
-                    if (V.story !== s || !V.open) return;
-                    if (!readyShown) { readyShown = true; onReady(null); }
-                    if (!swapped) {
-                        swapped = true;
-                        const full = new Image(); full.decoding = 'async';
-                        full.onload = () => { if (V.story === s && V.open) im.src = s.mediaUrl; };
-                        full.src = s.mediaUrl;
-                    }
-                };
-                im.onload = showFullResolution; im.onerror = () => {
-                    if (thumb !== s.mediaUrl) { im.onload = null; im.onerror = onError; im.src = s.mediaUrl; }
-                    else onError();
-                };
-                im.src = thumb; q.mw.appendChild(im);
-                const b = new Image(); b.src = S.cloudResize(s.mediaUrl, 64); b.alt = ''; q.bg.appendChild(b);       // soft backdrop shows when the photo is shrunk / moved
-            }
+            renderSlideMedia(s);
         }
         setupMusic(s);
         q.muteB.hidden = !(V.audio || (V.video && !V.muteVid));
         syncMuteIcon();
         renderMusic(s);
         renderInteract(s, mine);
-        // prefetch next image
-        const nx = g.stories[V.si + 1]; if (nx && nx.mediaType === 'image') { const p = new Image(); p.src = nx.mediaUrl; }
-    }
-    function waitImages(imgs, s) {
-        const list = [...imgs]; let left = list.length, failed = 0;
-        if (!left) { onError(); return; }
-        const done = () => { if (--left > 0 || V.story !== s || !V.open) return; failed >= list.length ? onError() : onReady(null); };
-        list.forEach(im => {
-            if (im.complete) { if (!im.naturalWidth) failed++; done(); return; }
-            im.onload = done; im.onerror = () => { failed++; done(); };
-        });
+        // prefetch the next story's first photo
+        const nx = g.stories[V.si + 1];
+        if (nx && nx.mediaType === 'image') { const p = new Image(); p.src = S.cloudResize(slideUrls(nx)[0] || nx.mediaUrl, 960); }
     }
     function onError() { V.q.load.hidden = true; V.q.err.hidden = false; }
     function onReady(v) {
@@ -728,7 +782,7 @@
     }
     function restartTimer() {
         cancelAnimationFrame(V.raf);
-        const segs = V.q.prog.children, seg = segs[V.si] && segs[V.si].firstChild;
+        const segs = V.q.prog.children, seg = segs[V.segStart + V.slide] && segs[V.segStart + V.slide].firstChild;
         const s = V.story;
         const tick = t => {
             if (!V.open || V.story !== s) return;
@@ -1023,6 +1077,7 @@
             // so reactions to one story thread together and replies thread with
             // that member's other messages.
             const base = { priority: 'info', targetUid: s.ownerUid, referenceId: id, readBy: [], createdBy: 'system', createdByName: 'System',
+                           actorUid: me.uid, actorName: who, actorPhoto: me.photo || '',
                            pushPending: true, createdAt: firebase.firestore.FieldValue.serverTimestamp(), expiresAt: new Date(Date.now() + 24 * 3600 * 1000) };
             let data;
             if (kind === 'reaction') {

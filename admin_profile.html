@@ -36,6 +36,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
     <link rel="stylesheet" href="pwa.css?v=1.3.0" />
+    <link rel="stylesheet" href="presence.css?v=1.0.0" />
     <title>TIMAWA - Admin Profile</title>
 
     <!-- Firebase SDKs -->
@@ -1893,7 +1894,8 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                     if (bMonth === todayMonth && bDay === todayDate) {
                         todayBirthdayUsers.push({
                             uid: doc.id,
-                            name: data.displayName || data.email || 'Someone'
+                            name: data.displayName || data.email || 'Someone',
+                            photoURL: data.photoURL || ''
                         });
                     }
                 });
@@ -1949,6 +1951,9 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                         message: `Don't forget to greet ${person.name} a happy birthday! 🎉`,
                         icon: '🎂',
                         priority: 'urgent',
+                        actorUid: person.uid,
+                        actorName: person.name,
+                        actorPhoto: person.photoURL || '',
                         link: 'calendar.html',
                         linkLabel: 'View Calendar',
                         targetUid: '',
@@ -2862,6 +2867,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
     <script src="avatar-crop.js?v=1.0.0" defer></script>
+    <script src="presence.js?v=1.0.0" defer></script>
     <script src="pwa.js?v=1.5.12" defer></script>
 </body>
 </html>

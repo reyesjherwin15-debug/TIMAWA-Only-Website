@@ -8,7 +8,7 @@
    Bump CACHE_VERSION whenever the shell files change.
    ========================================================================== */
 
-const CACHE_VERSION = 'v1.5.16';
+const CACHE_VERSION = 'v1.5.18';
 const SHELL_CACHE = `timawa-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `timawa-runtime-${CACHE_VERSION}`;
 const MAX_RUNTIME_ENTRIES = 60;
@@ -26,6 +26,8 @@ const SHELL_ASSETS = [
     './launch.css',
     './pwa.js',
     './push-config.js',
+    './presence.css',
+    './presence.js',
     './squad-wheel.html',
     './theme.css',
     './theme.js',
@@ -35,7 +37,19 @@ const SHELL_ASSETS = [
     './icons/icon-512.png',
     './icons/badge-72.png',
     './icons/apple-touch-icon-180.png',
-    './icons/favicon-32.png'
+    './icons/favicon-32.png',
+    './icons/notif-default.png',
+    './icons/notif-mention.png',
+    './icons/notif-reaction.png',
+    './icons/notif-chat.png',
+    './icons/notif-birthday.png',
+    './icons/notif-highlight.png',
+    './icons/notif-story.png',
+    './icons/notif-event.png',
+    './icons/notif-member.png',
+    './icons/notif-admin.png',
+    './icons/notif-note.png',
+    './icons/notif-reply.png'
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -209,19 +223,73 @@ function normalizeTarget(raw) {
     }
 }
 
+function normalizeAsset(raw, fallbackPath) {
+    const base = appBase();
+    const fallback = new URL(fallbackPath || 'icons/notif-default.png', base).href;
+    if (!raw || typeof raw !== 'string') return fallback;
+    try {
+        const url = new URL(raw, base);
+        return /^https?:$/.test(url.protocol) ? url.href : fallback;
+    } catch (_) {
+        return fallback;
+    }
+}
+
+// Category art for alerts that are not about one person. Kept in the worker as
+// a last-resort map so older queued payloads get the modern card too.
+const NOTIF_ASSETS = {
+    mention: 'icons/notif-mention.png',
+    reaction: 'icons/notif-reaction.png',
+    chat: 'icons/notif-chat.png',
+    comment: 'icons/notif-chat.png',
+    birthday: 'icons/notif-birthday.png',
+    highlight: 'icons/notif-highlight.png',
+    story: 'icons/notif-story.png',
+    event: 'icons/notif-event.png',
+    member: 'icons/notif-member.png',
+    admin: 'icons/notif-admin.png',
+    squad: 'icons/notif-admin.png',
+    note: 'icons/notif-note.png',
+    reply: 'icons/notif-reply.png'
+};
+const IMAGE_PATH_RE = /^https?:\/\/|^(\.\/)?[\w./-]+\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i;
+
+const NOTIF_AVATAR_TYPES = new Set(['mention', 'reaction', 'chat', 'comment', 'birthday']);
+
+function notificationIcon(data) {
+    const kind = data && data.type;
+    // A person-driven alert prefers the face even if an older payload also
+    // carried a category badge.
+    const candidates = NOTIF_AVATAR_TYPES.has(kind)
+        ? [data && data.actorPhoto, data && data.icon]
+        : [data && data.icon, data && data.actorPhoto];
+    const candidate = candidates.find(value => typeof value === 'string' && IMAGE_PATH_RE.test(value.trim()));
+    if (candidate) {
+        return normalizeAsset(candidate.trim(), NOTIF_ASSETS[kind] || 'icons/notif-default.png');
+    }
+    return normalizeAsset(NOTIF_ASSETS[kind] || 'icons/notif-default.png', 'icons/notif-default.png');
+}
+
 async function renderNotification(payload) {
     const data = payload && typeof payload === 'object' ? payload : {};
     const title = clamp(data.title || 'TIMAWA', 120);
+    const kind = data.type || (data.meta && data.meta.type) || '';
     const options = {
         body: clamp(data.body || 'New activity from the squad.', 400),
-        icon: data.icon || './icons/icon-192.png',
+        // A face for mentions, reactions, DMs and birthdays; a colour-coded
+        // badge for every other kind. The dispatcher already chose this, but
+        // resolving it here also fixes notifications sent before this deploy.
+        icon: notificationIcon(data),
         tag: data.tag || `timawa-${Date.now()}`,
+        lang: 'en',
+        dir: 'auto',
         // `context` binds the notification to the screen that owns it
         // (chat:<uid>, event:<id>, ann:<type>) so the page can close it as
         // soon as the member arrives there, even without tapping.
         data: Object.assign({
             url: normalizeTarget(data.url),
-            context: data.context || (data.meta && data.meta.context) || ''
+            context: data.context || (data.meta && data.meta.context) || '',
+            type: kind
         }, data.meta || {})
     };
     // Actions, vibrate, badge, image and timestamp are Android/Chrome extras.
@@ -231,14 +299,21 @@ async function renderNotification(payload) {
         // Threaded notifications: with a tag + renotify, Android alerts again
         // when a later message replaces the card instead of staying silent.
         options.renotify = true;
-        options.badge = data.badge || './icons/badge-72.png';
+        options.badge = normalizeAsset(data.badge || 'icons/badge-72.png', 'icons/badge-72.png');
         options.timestamp = data.timestamp ? (Date.parse(data.timestamp) || Date.now()) : Date.now();
-        options.vibrate = [90, 50, 90];
+        options.vibrate = kind === 'birthday' ? [80, 60, 80, 60, 140] : [90, 50, 90];
+        const primaryAction = kind === 'birthday' ? 'Greet'
+            : kind === 'chat' ? 'Reply'
+            : kind === 'mention' ? 'View'
+            : kind === 'reaction' ? 'See it'
+            : 'Open';
         options.actions = [
-            { action: 'open', title: 'View' },
+            { action: 'open', title: primaryAction },
             { action: 'close', title: 'Dismiss' }
         ];
-        if (data.image) options.image = data.image;
+        if (IMAGE_PATH_RE.test(String(data.image || '').trim())) {
+            options.image = normalizeAsset(data.image, 'icons/icon-512.png');
+        }
     }
     return self.registration.showNotification(title, options);
 }

@@ -43,6 +43,7 @@
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
     <link rel="stylesheet" href="pwa.css?v=1.3.0" />
+    <link rel="stylesheet" href="presence.css?v=1.0.0" />
     <title>TIMAWA - Dashboard</title>
 
     <!-- Firebase SDKs -->
@@ -56,7 +57,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.11.7" />
+    <link rel="stylesheet" href="stories.css?v=1.11.8" />
     <script src="theme.js?v=1.1.0"></script>
 
     <!-- Cloudinary Upload Widget -->
@@ -488,6 +489,9 @@
         .announcement-icon.type-comment { background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%); }
         /* ★ NEW: reaction type icon */
         .announcement-icon.type-reaction { background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%); }
+        .announcement-icon img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+        .announcement-icon.has-avatar { padding: 0; overflow: hidden; border-radius: 50%; background: var(--theme-bg-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-primary) 22%, transparent); }
+        .announcement-icon.has-avatar img { border-radius: 50%; }
 
         .announcement-body {
             flex: 1;
@@ -9015,7 +9019,7 @@
                     <div class="activity-row" data-uid="${escapeAttr(row.uid)}">
                         <div class="activity-avatar">
                             ${avatarContent}
-                            <span class="status-dot ${row.status}"></span>
+                            <span class="status-dot ${row.status}" data-presence-uid="${escapeAttr(row.uid)}" data-presence-manual="${escapeAttr(row.status || '')}"></span>
                         </div>
                         <div class="activity-info">
                             <div class="activity-name">${escapeHtml(row.name)}</div>
@@ -9546,6 +9550,7 @@
                 const photoUrl = member.photoURL || '';
                 const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
                 const status = member.status || 'offline';
+                const liveStatus = (window.TimawaPresence ? window.TimawaPresence.statusFor(member.id, status) : null);
                 const unread = chatUnreadByUser[member.id] || 0;
                 const last = chatLastMessages[member.id];
 
@@ -9557,12 +9562,12 @@
                     uid: member.id,
                     isGroup: false,
                     name: name,
-                    avatarHtml: avatarContent + `<span class="status-dot ${status}"></span>`,
+                    avatarHtml: avatarContent + `<span class="status-dot ${liveStatus ? liveStatus.cls : status}" data-presence-uid="${escapeAttr(member.id)}" data-presence-manual="${escapeAttr(status)}"></span>`,
                     avatarClass: '',
                     status: status,
                     unread: unread,
                     last: last,
-                    previewFallback: status === 'available' ? '🟢 Online' : 'Tap to message'
+                    previewFallback: liveStatus && liveStatus.online ? '🟢 Online' : 'Tap to message'
                 });
             });
 
@@ -10205,17 +10210,10 @@
             }
 
             document.getElementById('chatHeaderName').textContent = name;
+            const live = window.TimawaPresence ? window.TimawaPresence.statusFor(activeChatUid, status) : null;
             document.getElementById('chatHeaderStatus').innerHTML = `
-                <span class="status-dot ${status}" style="background:${
-                    status === 'available' ? '#22c55e' :
-                    status === 'busy' ? '#ef4444' :
-                    status === 'away' ? '#f59e0b' :
-                    status === 'dnd' ? '#8b5cf6' : '#9ca3af'
-                };"></span>
-                ${status === 'available' ? 'Available' :
-                  status === 'busy' ? 'Busy' :
-                  status === 'away' ? 'Away' :
-                  status === 'dnd' ? 'Do Not Disturb' : 'Offline'}
+                <span class="status-dot ${live ? live.cls : status}"${live ? '' : ' style="background:#9ca3af;"'} data-presence-uid="${escapeAttr(activeChatUid)}" data-presence-manual="${escapeAttr(status)}"></span>
+                <span data-presence-uid="${escapeAttr(activeChatUid)}" data-presence-manual="${escapeAttr(status)}" data-presence-label>${live ? live.label : 'Offline'}</span>
             `;
 
             if (inputTextarea) {
@@ -11241,6 +11239,9 @@
                 update.pushContext = pushContext;
                 update.pushUrl = pushUrl;
                 update.pushCount = pushCount;
+                update.actorUid = senderUid;
+                update.actorName = senderName;
+                update.actorPhoto = (userProfileCache[senderUid] && userProfileCache[senderUid].photoURL) || '';
                 await docRef.update(update);
             } else {
                 await db.collection('announcements').add({
@@ -11248,6 +11249,9 @@
                     title: `💬 ${senderName} has a new message for you`,
                     message: `"${snippet}"`,
                     icon: '💬',
+                    actorUid: senderUid,
+                    actorName: senderName,
+                    actorPhoto: (userProfileCache[senderUid] && userProfileCache[senderUid].photoURL) || '',
                     priority: 'info',
                     link: pushUrl,
                     pushUrl: pushUrl,
@@ -11364,7 +11368,7 @@
                     <div class="new-msg-user" onclick="startNewMessageWith('${escapeAttr(member.id)}')">
                         <div class="nm-avatar">
                             ${avatarContent}
-                            <span class="status-dot ${status}"></span>
+                            <span class="status-dot ${status}" data-presence-uid="${escapeAttr(member.id)}" data-presence-manual="${escapeAttr(status)}"></span>
                         </div>
                         <div class="nm-info">
                             <div class="nm-name">${escapeHtml(name)}</div>
@@ -11695,6 +11699,9 @@
                         title: titleText,
                         message: `"${snippet}"`,
                         icon: '📣',
+                        actorUid: senderUid,
+                        actorName: senderName,
+                        actorPhoto: (userProfileCache[senderUid] && userProfileCache[senderUid].photoURL) || '',
                         priority: 'info',
                         link: conversationUrl,
                         linkLabel: 'Open Chat',
@@ -11737,6 +11744,9 @@
                     title: `📢 ${senderName} called the whole squad!`,
                     message: `"${snippet}"`,
                     icon: '📢',
+                    actorUid: senderUid,
+                    actorName: senderName,
+                    actorPhoto: (userProfileCache[senderUid] && userProfileCache[senderUid].photoURL) || '',
                     priority: 'urgent',
                     link: 'dashboard.html',
                     linkLabel: 'Open Group Chat',
@@ -11939,6 +11949,7 @@
                             title: `💬 ${replierName} replied to your note`,
                             message: `"${noteSnippet}"\n\n"${replySnippet}"`,
                             icon: '💬',
+                            actorUid: replierUid, actorName: replierName, actorPhoto: (userProfileCache[replierUid] && userProfileCache[replierUid].photoURL) || '',
                             priority: 'info',
                             link: 'index.html#members-section',
                             linkLabel: 'View Reply',
@@ -11961,6 +11972,7 @@
                             title: `💬 ${replierName} replied to your reply`,
                             message: `On ${noteOwnerName}'s note: "${noteSnippet}"\n\n"${replySnippet}"`,
                             icon: '💬',
+                            actorUid: replierUid, actorName: replierName, actorPhoto: (userProfileCache[replierUid] && userProfileCache[replierUid].photoURL) || '',
                             priority: 'info',
                             link: 'index.html#members-section',
                             linkLabel: 'View Reply',
@@ -11988,6 +12000,7 @@
                             title: `📣 ${replierName} mentioned you`,
                             message: `In ${noteOwnerName}'s note: "${noteSnippet}"\n\n"${replySnippet}"`,
                             icon: '📣',
+                            actorUid: replierUid, actorName: replierName, actorPhoto: (userProfileCache[replierUid] && userProfileCache[replierUid].photoURL) || '',
                             priority: 'info',
                             link: 'index.html#members-section',
                             linkLabel: 'View Mention',
@@ -12599,6 +12612,9 @@ function startHighlightReply(commentId, authorName) {
                                 ? `On ${highlightOwnerName}'s highlight: "${captionSnippet}"\n\n"${snippet}"`
                                 : `"${snippet}"`,
                             icon: '📣',
+                            actorUid: commenterUid,
+                            actorName: commenterName,
+                            actorPhoto: (userProfileCache[commenterUid] && userProfileCache[commenterUid].photoURL) || '',
                             priority: 'info',
                             link: 'index.html#highlights',
                             linkLabel: 'View Mention',
@@ -13317,7 +13333,9 @@ function startHighlightReply(commentId, authorName) {
 
                 // Get reactor's display name
                 let reactorName = 'Someone';
+                let reactorPhoto = '';
                 const reactorProfile = userProfileCache[reactorUid];
+                if (reactorProfile) reactorPhoto = reactorProfile.photoURL || '';
                 if (reactorProfile && reactorProfile.displayName) {
                     reactorName = reactorProfile.displayName;
                 } else {
@@ -13326,6 +13344,7 @@ function startHighlightReply(commentId, authorName) {
                         if (uDoc.exists) {
                             const u = uDoc.data();
                             reactorName = u.displayName || u.email || 'Someone';
+                            reactorPhoto = u.photoURL || reactorPhoto;
                             userProfileCache[reactorUid] = { id: reactorUid, ...u };
                         }
                     } catch (e) { /* ignore */ }
@@ -13344,6 +13363,9 @@ function startHighlightReply(commentId, authorName) {
                     title: `${emoji} ${reactorName} reacted to your highlight`,
                     message: messageText,
                     icon: emoji,
+                    actorUid: reactorUid,
+                    actorName: reactorName,
+                    actorPhoto: reactorPhoto || '',
                     priority: 'info',
                     link: 'index.html#highlights',
                     linkLabel: 'View Highlight',
@@ -13804,6 +13826,9 @@ function startHighlightReply(commentId, authorName) {
                         title: `📣 ${noteOwnerName} mentioned you in their note`,
                         message: `"${snippet}"`,
                         icon: '📣',
+                        actorUid: titaCurrentUser.uid,
+                        actorName: noteOwnerName,
+                        actorPhoto: titaCurrentUser.photoURL || '',
                         priority: 'info',
                         link: `index.html#members-section`,
                         linkLabel: 'View Note',
@@ -14090,8 +14115,43 @@ function startReplyTo(commentId, authorName) {
             'reaction':  { icon: '👍', cls: 'type-reaction',  label: 'Reaction' }
         };
 
+        const ANNOUNCEMENT_ICON_FILES = {
+            admin: 'icons/notif-admin.png',
+            birthday: 'icons/notif-birthday.png',
+            event: 'icons/notif-event.png',
+            highlight: 'icons/notif-highlight.png',
+            member: 'icons/notif-member.png',
+            reply: 'icons/notif-reply.png',
+            mention: 'icons/notif-mention.png',
+            chat: 'icons/notif-chat.png',
+            reaction: 'icons/notif-reaction.png',
+            comment: 'icons/notif-chat.png',
+            note: 'icons/notif-note.png',
+            story: 'icons/notif-story.png',
+            squad: 'icons/notif-admin.png'
+        };
+        const ANNOUNCEMENT_AVATAR_TYPES = new Set(['mention', 'reaction', 'chat', 'birthday']);
+
         function getAnnouncementMeta(type) {
             return ANNOUNCEMENT_TYPE_META[type] || ANNOUNCEMENT_TYPE_META['admin'];
+        }
+
+        // Faces for person-driven alerts, colour-coded badges for the rest —
+        // the same artwork the web-push card uses on the lock screen.
+        function announcementVisual(item, meta) {
+            const type = item.type || 'admin';
+            const cached = item.actorUid && typeof userProfileCache === 'object' && userProfileCache
+                ? userProfileCache[item.actorUid]
+                : null;
+            const photo = String(item.actorPhoto || (cached && cached.photoURL) || '').trim();
+            if (ANNOUNCEMENT_AVATAR_TYPES.has(type) && /^https?:\/\//i.test(photo)) {
+                return `<span class="announcement-icon ${meta.cls} has-avatar" aria-hidden="true"><img src="${escapeAttr(photo)}" alt="" loading="lazy" onerror="this.parentElement.classList.remove('has-avatar');this.style.display='none';this.parentElement.textContent='${meta.icon}'"></span>`;
+            }
+            const file = ANNOUNCEMENT_ICON_FILES[type];
+            if (file) {
+                return `<span class="announcement-icon ${meta.cls}" aria-hidden="true"><img src="${file}" alt="" loading="lazy" onerror="this.style.display='none';this.parentElement.textContent='${meta.icon}'"></span>`;
+            }
+            return `<span class="announcement-icon ${meta.cls}" aria-hidden="true">${meta.icon}</span>`;
         }
 
         function loadAnnouncementReadCache(uid) {
@@ -14267,7 +14327,7 @@ function startReplyTo(commentId, authorName) {
 
                 html += `
                     <div class="announcement-item ${isUnread ? 'unread' : ''}" data-announcement-id="${escapeAttr(item.id)}" onclick="handleAnnouncementClick('${escapeAttr(item.id)}')">
-                        <div class="announcement-icon ${meta.cls}">${item.icon || meta.icon}</div>
+                        ${announcementVisual(item, meta)}
                         <div class="announcement-body">
                             <div class="announcement-title">
                                 ${escapeHtml(item.title || 'Announcement')}
@@ -14492,7 +14552,8 @@ function startReplyTo(commentId, authorName) {
                     if (bMonth === todayMonth && bDay === todayDate) {
                         todayBirthdayUsers.push({
                             uid: doc.id,
-                            name: data.displayName || data.email || 'Someone'
+                            name: data.displayName || data.email || 'Someone',
+                            photoURL: data.photoURL || ''
                         });
                     }
                 });
@@ -14547,6 +14608,9 @@ function startReplyTo(commentId, authorName) {
                         title: `🎂 It's ${person.name}'s Birthday Today!`,
                         message: `Don't forget to greet ${person.name} a happy birthday! 🎉`,
                         icon: '🎂',
+                        actorUid: person.uid,
+                        actorName: person.name,
+                        actorPhoto: person.photoURL || '',
                         priority: 'urgent',
                         link: 'calendar.html',
                         linkLabel: 'View Calendar',
@@ -16465,7 +16529,7 @@ function startReplyTo(commentId, authorName) {
                     pushContext: 'mention',
                     title: `📣 ${authorName} mentioned you in a highlight`,
                     message: `“${snippet}”`,
-                    icon: '📣', priority: 'info',
+                    icon: '📣', actorUid: currentUser.uid, actorName: authorName, actorPhoto: currentUser.photoURL || '', priority: 'info',
                     link: 'dashboard.html#highlights', linkLabel: 'View Highlight',
                     targetUid: uid, referenceId: highlightId, readBy: [],
                     createdBy: 'system', createdByName: 'System',
@@ -16746,8 +16810,8 @@ function startReplyTo(commentId, authorName) {
                                 ${loveLifeInfo ? `<div class="lovelife-badge ${loveLifeInfo.cls}"><i class="fas ${loveLifeInfo.icon}"></i> ${loveLifeInfo.label}</div>` : ''}
                             </div>
                             <div class="status-wrapper">
-                                <span class="status-dot ${status}"></span>
-                                <span class="status-label">${statusInfo.label}</span>
+                                <span class="status-dot ${status}" data-presence-uid="${memberIdSafe}" data-presence-manual="${escapeAttr(status)}"></span>
+                                <span class="status-label" data-presence-uid="${memberIdSafe}" data-presence-manual="${escapeAttr(status)}" data-presence-label>${statusInfo.label}</span>
                             </div>
                         </div>
                         ${noteBubbleHtml}
@@ -16797,12 +16861,7 @@ function startReplyTo(commentId, authorName) {
             const badgesEl = document.getElementById('memberDetailBadges');
             let badgesHtml = '';
             const statusInfo = getStatusLabel(data.status || 'offline');
-            badgesHtml += `<span class="status-badge ${statusInfo.cls}"><span class="status-dot ${data.status || 'offline'}" style="background:${
-                data.status === 'available' ? '#22c55e' :
-                data.status === 'busy' ? '#ef4444' :
-                data.status === 'away' ? '#f59e0b' :
-                data.status === 'dnd' ? '#8b5cf6' : '#9ca3af'
-            };"></span> ${statusInfo.label}</span>`;
+            badgesHtml += `<span class="status-badge ${statusInfo.cls}"><span class="status-dot ${data.status || 'offline'}" data-presence-uid="${escapeAttr(memberId)}" data-presence-manual="${escapeAttr(data.status || '')}"></span> <span data-presence-uid="${escapeAttr(memberId)}" data-presence-manual="${escapeAttr(data.status || '')}" data-presence-label>${statusInfo.label}</span></span>`;
 
             const loveLifeInfo = getLoveLifeLabel(data.loveLife);
             if (loveLifeInfo) {
@@ -17478,6 +17537,17 @@ function startReplyTo(commentId, authorName) {
                 });
                 window.visualViewport.addEventListener('scroll', keepActiveInputVisible);
             }
+
+            // Presence changes repaint the chat list dots and the open header
+            // without a page reload. The list keeps its scroll position.
+            if (window.TimawaPresence) {
+                window.TimawaPresence.subscribe(function () {
+                    try {
+                        renderChatUserList();
+                        if (activeChatUid) renderChatHeader();
+                    } catch (e) { /* page still booting */ }
+                });
+            }
         });
 
         let lastIsMobile = isMobile();
@@ -17521,9 +17591,9 @@ function startReplyTo(commentId, authorName) {
         }, true);
     </script>
 
-    <script src="stories-shared.js?v=1.11.3"></script>
+    <script src="stories-shared.js?v=1.11.4"></script>
     <script src="notes-music.js?v=1.2.0"></script>
-    <script src="stories.js?v=1.12.8"></script>
+    <script src="stories.js?v=1.12.10"></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.1"></script>
@@ -17531,6 +17601,7 @@ function startReplyTo(commentId, authorName) {
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
+    <script src="presence.js?v=1.0.0" defer></script>
     <script src="pwa.js?v=1.5.12" defer></script>
 </body>
 </html>
