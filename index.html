@@ -56,7 +56,7 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.11.5" />
+    <link rel="stylesheet" href="stories.css?v=1.11.6" />
     <script src="theme.js"></script>
 
     <!-- JSZip for ZIP downloads -->
@@ -8355,15 +8355,19 @@ function startHighlightReply(commentId, authorName) {
                 const textChanged = noteText !== oldText || (noteMusic ? noteMusic.trackId : '') !== NoteMusic.idOf(existingNote);
                 const hadNote = NoteMusic.hasContent(existingNote);
                 const willHaveNote = !!noteText || !!noteMusic;
+                // A confirmed Replace is a promise to the member: saving it restarts
+                // the 24-hour timer even when the new text happens to match the old.
+                const shouldWrite = textChanged || (replacing && willHaveNote);
 
-                if (textChanged) {
+                if (shouldWrite) {
                     if (hadNote && replacing) {
                         await purgeCommentsForNote(titaCurrentUser.uid);
                     }
 
                     if (willHaveNote) {
-                        // A brand-new or expired note gets a fresh 24h. Edits and song changes keep an active note's expiry.
-                        const freshNote = !NoteMusic.isActive(existingNote);
+                        // A brand-new note, an expired one, or a confirmed Replace all get
+                        // a fresh 24h. Only an ordinary edit of a live note keeps its expiry.
+                        const freshNote = replacing || !NoteMusic.isActive(existingNote);
                         const expireTs = freshNote
                             ? firebase.firestore.Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
                             : existingNote.expireAt;

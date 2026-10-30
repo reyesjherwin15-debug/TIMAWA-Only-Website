@@ -157,11 +157,28 @@ html.st-lock, html.st-lock body { overflow: hidden !important; }
 .st-comp { position: fixed; inset: 0; z-index: 10040; display: flex; flex-direction: column; background: var(--theme-bg, #fff); color: var(--theme-text, #1a1a2e); font-family: inherit; }
 .st-comp[hidden] { display: none; }
 /* Full-screen story surfaces follow the visible area (--kb-height is published
-   by mobile-nav.js), so the composer sheet and the story reply field stay above
-   the software keyboard instead of behind it. */
-.st-comp,
-.st-viewer {
+   by mobile-nav.js) while a keyboard is up, so the composer sheet and the story
+   reply field stay above it instead of behind it. */
+.st-comp {
     bottom: auto;
+    height: 100dvh;
+    max-height: 100dvh;
+}
+/* Only shrink to the visible area while a keyboard is actually open — a stale
+   --kb-height (it keeps the last keyboard's height until the next resize)
+   would otherwise leave the composer short, with the page showing underneath. */
+body.kb-open .st-comp {
+    height: var(--kb-height, 100dvh);
+    max-height: var(--kb-height, 100dvh);
+}
+
+/* The viewer, though, is always the WHOLE screen. --kb-height is the visible
+   area and goes stale: it keeps the height measured while a keyboard was open
+   until the next resize, so a story opened right after closing a chat sat in a
+   short box — a scrollbar on the right, and a strip of the page showing at the
+   bottom. Only follow it while a keyboard is genuinely open. */
+.st-viewer { overflow: hidden; }
+body.kb-open .st-viewer {
     height: var(--kb-height, 100dvh);
     max-height: var(--kb-height, 100dvh);
 }
@@ -603,7 +620,9 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 }
 @media (max-width: 640px) {
     .st-viewer { align-items: stretch; }
-    .st-frame { height: var(--st-vv-height, 100dvh); min-height: var(--st-vv-height, 100dvh); }
+    /* Follow the viewer box exactly (100% of the fixed, inset:0 overlay) —
+       no vh/dvh/visualViewport number can be out of step with it. */
+    .st-frame { width: 100%; height: 100%; min-height: 0; }
     .st-bottom .st-caption { padding-right: 44px; text-align: left; }
     .st-viewer .st-rsum { right: 12px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); max-width: 45%; }
 }
@@ -739,6 +758,25 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 .st-edit-done i { font-size: 11px; }
 @keyframes stDoneIn { from { opacity: 0; transform: translateX(-50%) translateY(-6px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .st-edit-done { animation: none; } }
+
+/* Sound chip: only appears when the browser refused to autoplay the video
+   preview with sound, so the audio is one tap away instead of impossible. */
+.st-snd {
+    position: absolute; left: 10px; top: 10px; z-index: 9;
+    display: inline-flex; align-items: center; gap: 7px;
+    min-height: 36px; padding: 0 13px; border: 0; border-radius: 999px;
+    background: rgba(9, 16, 30, .66); color: #fff;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    font: inherit; font-size: 12px; font-weight: 800; letter-spacing: .2px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .32), inset 0 0 0 1px rgba(255, 255, 255, .16);
+    cursor: pointer; touch-action: manipulation;
+    animation: stSndIn .18s cubic-bezier(.22, .9, .28, 1);
+}
+.st-snd[hidden] { display: none; }
+.st-snd:active { transform: scale(.96); }
+.st-snd i { font-size: 12px; }
+@keyframes stSndIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .st-snd { animation: none; } }
 
 /* Bottom bar: compact, primary action with a soft glow */
 .st-comp .st-bb {

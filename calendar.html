@@ -4497,12 +4497,16 @@
                 const oldText = existingNote?.text || '';
                 const noteMusic = NoteMusic.getDraftForSave();
                 const replacing = NoteMusic.isReplacing();
-                const textChanged = replacing || noteText !== oldText || (noteMusic ? noteMusic.trackId : '') !== NoteMusic.idOf(existingNote);
+                const textChanged = noteText !== oldText || (noteMusic ? noteMusic.trackId : '') !== NoteMusic.idOf(existingNote);
                 const hadNote = NoteMusic.hasContent(existingNote);
                 const willHaveNote = !!noteText || !!noteMusic;
+                // A confirmed Replace is a promise to the member: saving it restarts
+                // the 24-hour timer even when the new text happens to match the old.
+                const shouldWrite = textChanged || (replacing && willHaveNote);
 
-                if (textChanged) {
-                    if (hadNote) {
+                if (shouldWrite) {
+                    // Replies belong to the note being replaced — a plain edit keeps them.
+                    if (hadNote && replacing) {
                         try {
                             const snap = await db.collection('noteComments')
                                 .where('noteUid', '==', titaCurrentUser.uid)

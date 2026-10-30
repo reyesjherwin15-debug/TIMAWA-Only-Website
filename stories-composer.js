@@ -86,6 +86,7 @@
               <div class="st-bgblur"></div><div class="st-media-wrap"></div><div class="st-texts"></div><div class="st-msticker"></div>
                             <div class="st-scrim-t" hidden></div><div class="st-scrim-b" hidden></div>
               <div class="st-song" hidden></div>
+              <button class="st-snd" type="button" data-k="sound" hidden aria-label="Turn on the video's sound"><i class="fas fa-volume-xmark"></i><span>Tap for sound</span></button>
               <div class="st-capv" hidden></div>
               <button class="st-edit-done" type="button" data-k="editDone" hidden><i class="fas fa-check"></i> Done</button>
               <div class="st-pv" hidden style="position:absolute;left:12px;right:12px;bottom:12px;z-index:4;color:#fff;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
@@ -97,7 +98,7 @@
         document.body.appendChild(root);
         q = { head: $('.st-ch'), stage: $('.st-cstage'), mw: $('.st-media-wrap'), bg: $('.st-bgblur'), tx: $('.st-texts'), tools: $('.st-tools'), sheet: $('.st-sheet'),
               sht: $('.st-sh-h b'), col: $('[data-k=collapse]'), shb: $('.st-sh-b'), file: $('input[type=file]'), bar: $('.st-bar'), barI: $('.st-bar i'), pub: $('[data-k=publish]'),
-              pv: $('.st-pv'), msk: $('.st-msticker'), song: $('.st-song'), capv: $('.st-capv'),              sT: $('.st-scrim-t'), sB: $('.st-scrim-b'), prevB: $('[data-k=preview]'), done: $('[data-k=editDone]') };
+              pv: $('.st-pv'), msk: $('.st-msticker'), song: $('.st-song'), capv: $('.st-capv'), snd: $('[data-k=sound]'), sT: $('.st-scrim-t'), sB: $('.st-scrim-b'), prevB: $('[data-k=preview]'), done: $('[data-k=editDone]') };
         S.observeStage(q.stage);
         if ('ResizeObserver' in window) new ResizeObserver(measure).observe(q.sheet);
 
@@ -190,6 +191,7 @@
             editing: null, sheetBeforeEdit: null
         });
         if (root) { root.classList.remove('editing', 'sheet'); if (q.done) q.done.hidden = true; }
+        showSoundChip(false);
     }
     function dirty() { return !!(hasMedia() || M.texts.length || M.track || M.spotify); }
     let closing = false;
@@ -259,8 +261,23 @@
         const n = M.items.length;
         q.mw.className = 'st-media-wrap' + (n > 1 ? ' collage' : (M.fit === 'fit' ? ' fit' : ''));
         if (M.video) {
-            const v = document.createElement('video'); v.src = M.video.url; v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', '');
-            q.mw.appendChild(v); v.play().catch(() => {});
+            const v = document.createElement('video');
+            v.src = M.video.url; v.loop = true; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', '');
+            // A video story is mostly its sound, so the preview is audible too.
+            // Only an attached song is allowed to replace the video's own audio.
+            v.muted = !!(M.track || M.spotify);
+            q.mw.appendChild(v);
+            showSoundChip(false);
+            if (!v.muted) {
+                // Browsers may refuse to start a video with sound without a fresh
+                // gesture: keep it muted and offer the tap-to-unmute chip instead
+                // of leaving the preview permanently silent.
+                v.play().then(() => { if (!v.muted) showSoundChip(false); }).catch(() => {
+                    v.muted = true; showSoundChip(true); v.play().catch(() => {});
+                });
+            } else {
+                v.play().catch(() => {});
+            }
             if (M.fit === 'fit') q.mw.classList.add('fit');
         } else if (n > 1) {
             q.mw.innerHTML = S.collageHtml(M.items, M.layout, true);
@@ -271,6 +288,18 @@
         applyMT(); renderCaption(); renderTexts(); renderPv();
     }
     function applyMT() { S.applyMediaTransform(q.mw, canMT() ? M.mt : null); }
+    function showSoundChip(on) { if (q.snd) q.snd.hidden = !on; }
+    // Attaching a song silences the video's own audio (the song replaces it);
+    // removing the song gives the video its sound back straight away, without
+    // waiting for the stage to be rebuilt by some other action.
+    function syncVideoSound() {
+        const v = q.mw && q.mw.querySelector('video');
+        if (!v) return;
+        const silent = !!(M.track || M.spotify);
+        v.muted = silent;
+        if (silent) showSoundChip(false);
+        v.play().catch(() => {});
+    }
     function renderCaption() {
         const c = (M.caption || '').trim();
         q.capv.textContent = c; q.capv.hidden = !c;
@@ -602,6 +631,7 @@
         st.addEventListener('pointerdown', e => {
             if (M.preview || e.target.closest('.st-tools')) return;
             if (e.target.closest('.st-edit-done')) return;   // the pill's own click
+            if (e.target.closest('.st-snd')) return;         // the sound chip's own click
             // Any tap outside the text being typed into ends editing and opens
             // the formatting again — one step, no hunting for a button.
             if (M.editing) { finishEdit(); e.preventDefault(); return; }
@@ -817,7 +847,7 @@
             } else { M.mt.scale = S.clamp(P.sc0 * k, 0.5, 3); applyMT(); }
         }
         st.addEventListener('pointerdown', e => {
-            if (M.preview || e.target.closest('.st-tools')) return;
+            if (M.preview || e.target.closest('.st-tools') || e.target.closest('.st-snd')) return;
             ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, tgt: targetOf(e.target) });
             if (ptrs.size === 2 && !P) { if (begin()) { e.stopPropagation(); e.preventDefault(); } return; }
             if (P) { e.stopPropagation(); e.preventDefault(); return; }
@@ -912,6 +942,12 @@
             case 'collapse': M.shCollapsed = !M.shCollapsed; renderSheet(); break;
             case 'tool': M.sheet === v ? closeSheet() : openSheet(v); break;
             case 'preview': setPreview(!M.preview); break;
+            case 'sound': {
+                const v = q.mw.querySelector('video');
+                if (v) { v.muted = false; v.play().catch(() => {}); }
+                showSoundChip(false);
+                break;
+            }
             case 'layout': M.layout = v; renderStage(); renderSheet(); break;
             case 'resetMedia': M.mt = { scale: 1, x: 0, y: 0 }; applyMT(); renderSheet(); break;
             case 'fit': M.fit = v; renderStage(); renderSheet(); break;
@@ -944,6 +980,7 @@
                 M.track = Object.assign({}, r, { startSec: 0, clipSec: clip });
                 M.spotify = null; M.results = []; M.msg = ''; M.changing = false;
                 M.mSel = true;
+                syncVideoSound();
                 renderSticker(); renderSheet(); playClip(); renderSheet();
                 break;
             }
@@ -951,9 +988,9 @@
             case 'playClip': toggleClip(); break;
             case 'changeSong': stopAudio(); M.changing = true; M.results = []; M.msg = ''; renderSheet(); break;
             case 'keepSong': stopAudio(); M.changing = false; renderSheet(); break;
-            case 'rmTrack': stopAudio(); M.track = null; M.mSel = false; M.changing = false; renderSticker(); renderSheet(); break;
+            case 'rmTrack': stopAudio(); M.track = null; M.mSel = false; M.changing = false; syncVideoSound(); renderSticker(); renderSheet(); break;
             case 'spotifyGo': spotifyGo(); break;
-            case 'rmSpotify': M.spotify = null; renderSheet(); renderPv(); break;
+            case 'rmSpotify': M.spotify = null; syncVideoSound(); renderSheet(); renderPv(); break;
             case 'resetSticker': M.mpos = { x: 0.5, y: 0.54, scale: 1, rot: 0 }; M.mSel = true; renderSticker(); renderSheet(); break;
             case 'centerSticker': M.mpos.x = 0.5; M.mpos.y = 0.54; renderSticker(); renderSheet(); break;
             case 'publish': publish(); break;
@@ -989,6 +1026,7 @@
         } catch (e) {}
         stopAudio(); M.track = null; M.changing = false; M.spq = '';
         M.spotify = { trackId: id, url, title, artist: '', thumbnail }; M.msg = '';
+        syncVideoSound();
         renderSheet(); renderPv();
     }
 
