@@ -1,5 +1,5 @@
 /* ================================================================
-   stories-composer.js · TIMAWA / Barkada Stories  (lazy-loaded, v1.11)
+   stories-composer.js · TIMAWA / Barkada Stories  (lazy-loaded, v1.12)
    ================================================================ */
 (function () {
     'use strict';
@@ -17,7 +17,7 @@
 
     let C = null, root = null, q = {};
     const M = {
-        sheet: null, items: [], video: null, layout: '', fit: 'fill', dur: MIN_DUR, slide: 0,
+        sheet: null, items: [], video: null, layout: '', format: 'frames', selCell: 0, panCell: null, fit: 'fill', dur: MIN_DUR, slide: 0,
         texts: [], sel: null, caption: '', track: null, spotify: null, mstyle: 'bar',
         mpos: { x: 0.5, y: 0.54, scale: 1, rot: 0 },
         mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
@@ -41,6 +41,9 @@
     // touch screens: pinch / twist + drag. Mouse screens: sliders (size, rotate, zoom) in the sheets.
     const coarse = () => !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
     const canMT = () => !!M.video || M.items.length === 1;     // size/position only applies to single photo or video
+    // Instagram-style Layout: several photos share one story frame instead of
+    // each becoming its own 5-second frame.
+    const layoutOn = () => !M.video && M.items.length >= 2 && M.format === 'layout';
     const vidSec = () => M.video ? Math.min(MAX_DUR, Math.round(M.video.dur || 0)) : 0;
     const storyDur = () => M.video ? vidSec() : (M.track ? M.track.clipSec : M.dur);
     const clampStickerX = v => S.clamp(v, STICKER_X_MIN, STICKER_X_MAX);
@@ -182,7 +185,7 @@
     function reset() {
         stopAudio(); revokeAll();
         Object.assign(M, {
-            sheet: null, items: [], video: null, layout: '', fit: 'fill', dur: MIN_DUR, slide: 0,
+            sheet: null, items: [], video: null, layout: '', format: 'frames', selCell: 0, panCell: null, fit: 'fill', dur: MIN_DUR, slide: 0,
             texts: [], sel: null, caption: '', track: null, spotify: null, mstyle: 'bar',
             mpos: { x: 0.5, y: 0.54, scale: 1, rot: 0 }, mcolor: '#ffffff',
             mt: { scale: 1, x: 0, y: 0 }, pan: null, shCollapsed: false,
@@ -219,8 +222,7 @@
     // ---------------- media ----------------
     function readImage(f) {
         return new Promise((res, rej) => {
-            const url = URL.createObjectURL(f), im = new Image();
-            im.onload = () => res({ id: rid(), file: f, url, w: im.naturalWidth, h: im.naturalHeight });
+            const url = URL.createObjectURL(f), im = new Image();                im.onload = () => res({ id: rid(), file: f, url, w: im.naturalWidth, h: im.naturalHeight, tr: { scale: 1, x: 0, y: 0, rot: 0 } });
             im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('read')); };
             im.src = url;
         });
@@ -236,7 +238,13 @@
             v.src = url;
         });
     }
-    function fixLayout() { M.layout = M.items.length >= 2 ? S.getLayout(M.layout, M.items.length).id : ''; }
+    function fixLayout() {
+        const n = M.items.length;
+        if (n < 2) { M.format = 'frames'; M.layout = ''; M.selCell = 0; return; }
+        M.layout = S.getLayout(M.layout, n).id;
+        M.items.forEach(it => { if (!it.tr) it.tr = { scale: 1, x: 0, y: 0, rot: 0 }; });
+        if (M.selCell >= n) M.selCell = 0;
+    }
     async function addFiles(files) {
         const vids = files.filter(f => f.type.startsWith('video/')), imgs = files.filter(f => f.type.startsWith('image/'));
         if (!vids.length && !imgs.length) return C.toast('Please choose photos or a video.', 'warn');
@@ -261,7 +269,9 @@
         q.mw.innerHTML = ''; q.bg.innerHTML = '';
         const n = M.items.length;
         if (M.slide >= n) M.slide = 0;
-        q.mw.className = 'st-media-wrap' + (M.fit === 'fit' ? ' fit' : '');
+        if (M.selCell >= n) M.selCell = Math.max(0, n - 1);
+        const collage = layoutOn();
+        q.mw.className = 'st-media-wrap' + (collage ? ' collage' : '') + (M.fit === 'fit' ? ' fit' : '');
         if (M.video) {
             const v = document.createElement('video');
             v.src = M.video.url; v.loop = true; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', '');
@@ -281,8 +291,12 @@
                 v.play().catch(() => {});
             }
             if (M.fit === 'fit') q.mw.classList.add('fit');
+        } else if (collage) {
+            q.mw.innerHTML = S.collageHtml(M.items, M.layout, true, { fit: M.fit, active: M.selCell, size: 900 });
+            const b = new Image(); b.src = M.items[Math.max(0, Math.min(n - 1, M.selCell))].url; b.alt = ''; q.bg.appendChild(b);
         } else if (n >= 1) {
             const item = M.items[Math.max(0, Math.min(n - 1, M.slide))];
+            if (!item.tr) item.tr = { scale: 1, x: 0, y: 0, rot: 0 };
             const i = new Image(); i.src = item.url; i.alt = ''; i.decoding = 'async'; q.mw.appendChild(i);
             const b = new Image(); b.src = item.url; b.alt = ''; q.bg.appendChild(b);
         }
@@ -290,12 +304,29 @@
         applyMT(); renderCaption(); renderTexts(); renderPv();
     }
     function applyMT() { S.applyMediaTransform(q.mw, canMT() ? M.mt : null); }
+    // Updating one cell in place keeps the other photos decoded: a full stage
+    // rebuild on every drag frame reloaded every image and stuttered.
+    function paintCell(i) {
+        const cell = q.mw.querySelector(`.st-cell[data-cell="${i}"]`);
+        const it = M.items[i];
+        if (!cell || !it) return;
+        const img = cell.querySelector('img');
+        const tr = S.cleanCellTransform(it.tr);
+        if (img) img.style.transform = `translate(${(tr.x * 100).toFixed(2)}%,${(tr.y * 100).toFixed(2)}%) scale(${tr.scale.toFixed(3)}) rotate(${tr.rot.toFixed(1)}deg)`;
+    }
+    function selectCell(i) {
+        i = S.clamp(parseInt(i, 10) || 0, 0, Math.max(0, M.items.length - 1));
+        if (M.selCell === i) return;
+        M.selCell = i;
+        q.mw.querySelectorAll('.st-cell').forEach(c => c.classList.toggle('on', Number(c.dataset.cell) === i));
+        if (M.sheet === 'layout') renderSheet();
+    }
     // Instagram-style film strip: every selected photo is its own frame, and
     // tapping a thumbnail previews that frame without changing the order.
     function renderSlideStrip() {
         const n = M.items.length;
         if (!q.slides) return;
-        q.slides.hidden = n < 2 || M.preview;
+        q.slides.hidden = layoutOn() || n < 2 || M.preview;
         if (q.slides.hidden) { q.slides.innerHTML = ''; return; }
         q.slides.innerHTML = M.items.map((it, i) =>
             `<button type="button" class="st-cslide ${i === M.slide ? 'on' : ''}" data-k="slide" data-v="${i}" aria-label="Photo ${i + 1} of ${n}" aria-pressed="${i === M.slide}"><img src="${S.esc(it.url)}" alt="" draggable="false"><span>${i + 1}</span></button>`
@@ -366,7 +397,7 @@
         if (root) root.classList.toggle('pv', M.preview);
         renderEditDone();
         q.sT.hidden = q.sB.hidden = q.pv.hidden = !M.preview;
-        if (q.slides) q.slides.hidden = M.preview || M.items.length < 2;
+        if (q.slides) q.slides.hidden = layoutOn() || M.preview || M.items.length < 2;
         q.tx.style.pointerEvents = M.preview ? 'none' : '';
         if (!M.preview) { q.pv.innerHTML = ''; return; }
         q.pv.innerHTML = (M.spotify && !M.track ? musicCard(M.spotify, true) : '');
@@ -385,8 +416,8 @@
         const n = M.items.length, tools = [
             ['text', 'Aa', 'Text', M.texts.length > 0],
             ['music', '<i class="fas fa-music"></i>', 'Music', !!(M.track || M.spotify)],
-            ['layout', '<i class="fas fa-expand"></i>', 'Framing', M.fit === 'fit'],
-            ...(!M.video && n < 2 ? [['time', '<i class="far fa-clock"></i>', 'Timing', false]] : []),
+            ['layout', '<i class="fas fa-table-cells-large"></i>', n >= 2 ? 'Layout' : 'Framing', n >= 2 ? M.format === 'layout' : M.fit === 'fit'],
+            ...(!M.video && (n < 2 || layoutOn()) ? [['time', '<i class="far fa-clock"></i>', 'Timing', false]] : []),
             ['caption', '<i class="far fa-message"></i>', 'Caption', !!M.caption]
         ];
         q.tools.innerHTML = tools.map(([k, ic, lab, dot]) => `<button type="button" class="st-tool ${M.sheet === k ? 'on' : ''}" data-k="tool" data-v="${k}" aria-label="${lab}" aria-pressed="${M.sheet === k}">${ic}${dot ? '<span class="dot"></span>' : ''}<span class="st-tool-lab">${lab}</span></button>`).join('');
@@ -425,7 +456,7 @@
         q.sheet.classList.toggle('collapsed', !!M.shCollapsed);
         q.col.innerHTML = '<i class="fas fa-chevron-' + (M.shCollapsed ? 'up' : 'down') + '"></i>';
         q.col.setAttribute('aria-expanded', String(!M.shCollapsed)); q.col.setAttribute('aria-label', M.shCollapsed ? 'Expand panel' : 'Collapse panel');
-        q.sht.textContent = M.sheet === 'layout' ? 'Framing' : SHEET_TITLES[M.sheet];
+        q.sht.textContent = M.sheet === 'layout' ? (M.items.length >= 2 ? 'Layout' : 'Framing') : SHEET_TITLES[M.sheet];
         q.shb.innerHTML = M.sheet === 'text' ? textSheet() : M.sheet === 'music' ? musicSheet() : M.sheet === 'layout' ? layoutSheet() : M.sheet === 'time' ? timeSheet() : captionSheet();
         requestAnimationFrame(measure);
     }
@@ -511,13 +542,44 @@
 
     function layoutSheet() {
         const n = M.items.length;
+        const collage = layoutOn();
         const z = Math.round(M.mt.scale * 100);
-        const multiHint = n >= 2
-            ? `<p class="st-hint">Each photo becomes its own full-screen story frame, in the order you picked them. Tap a thumbnail on the story to preview one. Framing applies to every photo.</p>`
-            : '';
-        return `<div class="st-row2">${chips([['fill', 'Fill screen'], ['fit', 'Fit whole']], M.fit, 'fit')}</div>${multiHint}
-            ${coarse() ? '' : `<div class="st-lab">Zoom</div><div class="st-row2 st-desk-only"><label class="st-range">Size <input type="range" min="50" max="300" step="1" value="${z}" data-in="mediaScale" aria-label="Zoom"><b class="st-zoomv" style="min-width:42px">${z}%</b></label><button type="button" class="st-btn ghost sm" data-k="resetMedia">Reset</button></div>`}
-            <p class="st-hint">"Fit whole" shows the entire ${M.video ? 'video' : 'photo'} with a soft background.${coarse() ? ' Pinch to resize it, then drag to move it.' : ' Zoom, then drag the ' + (M.video ? 'video' : 'photo') + ' to move it.'}</p>`;
+        const sel = collage ? (M.items[M.selCell] || M.items[0]) : null;
+        const tr = sel ? S.cleanCellTransform(sel.tr) : { scale: 1, x: 0, y: 0, rot: 0 };
+        let h = '';
+
+        // Multi-photo stories can either keep the Instagram-style separate
+        // frames or share one Layout frame (the collage mode).
+        if (n >= 2 && !M.video) {
+            h += `<div class="st-lab">Story format</div><div class="st-row2">${chips([['frames', 'Separate frames'], ['layout', 'Layout']], M.format, 'format')}</div>
+                <p class="st-hint">${M.format === 'layout' ? 'All photos share one story frame, like Instagram Layout.' : 'Each photo becomes its own full-screen story frame.'}</p>`;
+        }
+
+        if (collage) {
+            h += `<div class="st-lab" style="margin-top:12px">Choose a layout</div><div class="st-layouts">`
+                + S.layoutsFor(n).map(L => `<div class="st-layout-opt"><button type="button" class="st-lay ${M.layout === L.id ? 'on' : ''}" data-k="layout" data-v="${L.id}" aria-label="${L.label}" aria-pressed="${M.layout === L.id}" title="${L.label}">${S.miniLayoutHtml(L)}</button><small>${L.label}</small></div>`).join('')
+                + `</div>
+                <p class="st-hint">Tap a photo to select it. ${coarse() ? 'Drag it to reposition, pinch and twist to zoom and rotate.' : 'Drag it to reposition, or use the sliders below.'}</p>
+                <div class="st-lab">Selected photo ${Math.min(M.selCell + 1, n)} of ${n}</div>`;
+            if (!coarse()) {
+                h += `<div class="st-row2 st-desk-only">
+                    <label class="st-range">Zoom <input type="range" min="50" max="400" step="1" value="${Math.round(tr.scale * 100)}" data-in="cellScale" aria-label="Selected photo zoom"><b class="st-cellzoomv" style="min-width:44px">${Math.round(tr.scale * 100)}%</b></label>
+                    <label class="st-range">Rotate <input type="range" min="-180" max="180" step="1" value="${Math.round(tr.rot)}" data-in="cellRot" aria-label="Selected photo rotation"></label>
+                </div>
+                <div class="st-row2"><button type="button" class="st-btn ghost sm" data-k="cellReset"><i class="fas fa-rotate-left"></i> Reset selected photo</button></div>`;
+            }
+        }
+
+        h += `<div class="st-lab" style="margin-top:12px">Framing</div><div class="st-row2">${chips([['fill', 'Fill screen'], ['fit', 'Fit whole']], M.fit, 'fit')}</div>`;
+
+        if (collage) {
+            h += `<p class="st-hint">"Fit whole" keeps each photo fully visible inside its cell; Fill crops it to the cell. Photos can be rearranged freely in the preview.</p>`;
+        } else {
+            h += `${n >= 2 ? `<p class="st-hint">Each photo becomes its own full-screen story frame, in the order you picked them. Tap a thumbnail on the story to preview one. Framing applies to every photo.</p>` : ''}
+                ${coarse() ? '' : `<div class="st-lab">Zoom</div><div class="st-row2 st-desk-only"><label class="st-range">Size <input type="range" min="50" max="300" step="1" value="${z}" data-in="mediaScale" aria-label="Zoom"><b class="st-zoomv" style="min-width:42px">${z}%</b></label><button type="button" class="st-btn ghost sm" data-k="resetMedia">Reset</button></div>`}
+                <p class="st-hint">"Fit whole" shows the entire ${M.video ? 'video' : 'photo'} with a soft background.${coarse() ? ' Pinch to resize it, then drag to move it.' : ' Zoom, then drag the ' + (M.video ? 'video' : 'photo') + ' to move it.'}</p>`;
+        }
+        return h;
     }
     function timeSheet() {
         if (M.track) return `<p class="st-hint" style="margin:0">With music attached your story lasts exactly as long as the song clip: <b>${M.track.clipSec}s</b>. Change the clip length in <b>Music</b>.</p>`;
@@ -838,6 +900,7 @@
         const targetOf = el => {
             const t = el.closest && el.closest('.st-t'); if (t) return { k: 'text', id: t.dataset.id };
             if (el.closest && el.closest('.st-mwrap')) return { k: 'sticker' };
+            const cell = el.closest && el.closest('.st-cell'); if (cell) return { k: 'cell', i: Number(cell.dataset.cell) || 0 };
             return { k: 'bg' };
         };
         function begin() {
@@ -849,6 +912,14 @@
             q.stage.classList.add('drag');
             const t = tg.k === 'text' ? find(tg.id) : null;
             if (tg.k === 'text' && !t) return false;
+            if (tg.k === 'cell') {
+                const it = M.items[tg.i];
+                if (!it) return false;
+                selectCell(tg.i);
+                const tr = S.cleanCellTransform(it.tr);
+                P = { tg, d0: dist(a, b) || 1, a0: ang(a, b), size0: 0, rot0: 0, sc0: 1, sr0: 0, cs0: tr.scale, cr0: tr.rot };
+                return true;
+            }
             P = { tg, d0: dist(a, b) || 1, a0: ang(a, b), size0: t ? t.size : 0, rot0: t ? t.rot : 0, sc0: tg.k === 'sticker' ? M.mpos.scale : M.mt.scale, sr0: M.mpos.rot };
             if (t && M.sel !== t.id) { M.sel = t.id; q.tx.querySelectorAll('.st-t').forEach(el => el.classList.toggle('sel', el.dataset.id === t.id)); }
             return true;
@@ -861,6 +932,12 @@
                 t.size = S.clamp(P.size0 * k, 0.035, 0.18); t.rot = S.clamp(Math.round(wrap(P.rot0 + dr)), -180, 180); refreshEl(t);
             } else if (P.tg.k === 'sticker') {
                 M.mpos.scale = S.clamp(P.sc0 * k, 0.25, 4); M.mpos.rot = S.clamp(Math.round(wrap(P.sr0 + dr)), -180, 180); paintStickerSoon();
+            } else if (P.tg.k === 'cell') {
+                const it = M.items[P.tg.i]; if (!it) return;
+                const tr = S.cleanCellTransform(it.tr);
+                tr.scale = S.clamp(P.cs0 * k, 0.5, 4);
+                tr.rot = S.clamp(Math.round(wrap(P.cr0 + dr)), -180, 180);
+                it.tr = tr; paintCell(P.tg.i);
             } else { M.mt.scale = S.clamp(P.sc0 * k, 0.5, 3); applyMT(); }
         }
         st.addEventListener('pointerdown', e => {
@@ -874,11 +951,35 @@
                 const r = st.getBoundingClientRect();
                 M.pan = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: M.mt.x, oy: M.mt.y, w: r.width, h: r.height, moved: false };
             }
+            if (p.tgt.k === 'cell' && !P) {
+                const cell = e.target.closest('.st-cell');
+                const it = M.items[p.tgt.i];
+                if (cell && it) {
+                    selectCell(p.tgt.i);
+                    const r = cell.getBoundingClientRect();
+                    const tr = S.cleanCellTransform(it.tr);
+                    M.panCell = { i: p.tgt.i, id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: tr.x, oy: tr.y, w: r.width || 1, h: r.height || 1, moved: false };
+                }
+            }
         }, true);
         st.addEventListener('pointermove', e => {
             const p = ptrs.get(e.pointerId); if (!p) return;
             p.x = e.clientX; p.y = e.clientY;
             if (P) { if (ptrs.size >= 2) apply(); e.stopPropagation(); e.preventDefault(); return; }
+            const pc = M.panCell;
+            if (pc && pc.id === e.pointerId) {
+                const dx = e.clientX - pc.sx, dy = e.clientY - pc.sy;
+                if (!pc.moved && Math.hypot(dx, dy) < 4) { e.preventDefault(); return; }
+                pc.moved = true; st.classList.add('drag');
+                const it = M.items[pc.i];
+                if (it) {
+                    const tr = S.cleanCellTransform(it.tr);
+                    tr.x = S.clamp(pc.ox + dx / pc.w, -1, 1);
+                    tr.y = S.clamp(pc.oy + dy / pc.h, -1, 1);
+                    it.tr = tr; paintCell(pc.i);
+                }
+                e.preventDefault(); return;
+            }
             const pn = M.pan;
             if (pn && pn.id === e.pointerId) {
                 const dx = e.clientX - pn.sx, dy = e.clientY - pn.sy;
@@ -892,6 +993,7 @@
             if (!ptrs.has(e.pointerId)) return;
             ptrs.delete(e.pointerId);
             if (M.pan && M.pan.id === e.pointerId) { M.pan = null; st.classList.remove('drag'); }
+            if (M.panCell && M.panCell.id === e.pointerId) { M.panCell = null; st.classList.remove('drag'); if (M.sheet === 'layout') renderSheet(); }
             if (P && ptrs.size < 2) { const was = P; P = null; st.classList.remove('drag'); pushHist(); if (was.tg.k !== 'media') renderSheet(); else if (M.sheet === 'layout') renderSheet(); }
         };
         st.addEventListener('pointerup', up, true);
@@ -940,6 +1042,14 @@
         const k = e.target.dataset.in, t = selT();
         if (k === 'caption') { M.caption = e.target.value.slice(0, MAX_CAPTION); detectCaptionMention(e.target); renderTools(); renderCaption(); }
         else if (k === 'mediaScale') { M.mt.scale = S.clamp(Number(e.target.value) / 100, 0.5, 3); applyMT(); const z = $('.st-zoomv'); if (z) z.textContent = Math.round(M.mt.scale * 100) + '%'; }
+        else if (k === 'cellScale') {
+            const it = M.items[M.selCell];
+            if (it) { it.tr = S.cleanCellTransform(Object.assign({}, it.tr, { scale: Number(e.target.value) / 100 })); paintCell(M.selCell); const b = $('.st-cellzoomv'); if (b) b.textContent = Math.round(it.tr.scale * 100) + '%'; }
+        }
+        else if (k === 'cellRot') {
+            const it = M.items[M.selCell];
+            if (it) { it.tr = S.cleanCellTransform(Object.assign({}, it.tr, { rot: Number(e.target.value) })); paintCell(M.selCell); }
+        }
         else if (k === 'music') { M.query = e.target.value; }
         else if (k === 'spotify') { M.spq = e.target.value; }
         else if (k === 'dur') { M.dur = S.clamp(Math.round(e.target.value), MIN_DUR, MAX_DUR); const b = $('.st-durv'); if (b) b.textContent = M.dur + 's'; }
@@ -965,7 +1075,19 @@
                 showSoundChip(false);
                 break;
             }
-            case 'layout': M.layout = v; renderStage(); renderSheet(); break;
+            case 'format':
+                M.format = v === 'layout' ? 'layout' : 'frames';
+                fixLayout();
+                renderStage(); renderSheet(); break;
+            case 'layout':
+                M.layout = S.getLayout(v, M.items.length).id;
+                M.format = 'layout';
+                renderStage(); renderSheet(); break;
+            case 'cellReset': {
+                const it = M.items[M.selCell];
+                if (it) it.tr = { scale: 1, x: 0, y: 0, rot: 0 };
+                renderStage(); renderSheet(); break;
+            }
             case 'slide': M.slide = S.clamp(parseInt(v, 10) || 0, 0, Math.max(0, M.items.length - 1)); renderStage(); break;
             case 'resetMedia': M.mt = { scale: 1, x: 0, y: 0 }; applyMT(); renderSheet(); break;
             case 'fit': M.fit = v; renderStage(); renderSheet(); break;
@@ -1384,11 +1506,13 @@
             const ref = C.db.collection('stories').doc();
             const exp = firebase.firestore.Timestamp.fromMillis((C.now ? C.now() : Date.now()) + S.DURATION_MS);
             const multi = !isV && ups.length > 1;
+            const layoutMode = multi && layoutOn();
             const vSec = Math.min(MAX_DUR, first.duration || (M.video && M.video.dur) || 0);
             const doc = {
                 ownerUid: C.me.uid, ownerName: C.me.name, ownerPhoto: C.me.photo || '',
                 mediaType: isV ? 'video' : 'image', mediaUrl: url, mediaPublicId: first.public_id || '', thumbUrl: S.safeMediaUrl(thumb),
                 mediaFit: M.fit, mediaW: first.width || 0, mediaH: first.height || 0,
+                layout: layoutMode ? M.layout : '',
                 mediaTransform: canMT() ? { scale: +M.mt.scale.toFixed(3), x: +M.mt.x.toFixed(4), y: +M.mt.y.toFixed(4) } : { scale: 1, x: 0, y: 0 },
                 durationMs: isV ? Math.round(vSec * 1000) : Math.round(storyDur() * 1000),
                 caption: M.caption.trim().slice(0, MAX_CAPTION),
@@ -1415,10 +1539,17 @@
                 expiresAt: exp
             };
             if (multi) {
-                doc.mediaItems = ups.map((u, i) => ({ url: urls[i], w: u.width || 0, h: u.height || 0 }));
-                // 0 = per-frame timing: the viewer plays each photo for SLIDE_MS
-                // (5 s), exactly like Instagram, instead of one long collage.
-                doc.durationMs = 0;
+                doc.mediaItems = ups.map((u, i) => {
+                    const tr = layoutMode ? S.cleanCellTransform((M.items[i] || {}).tr) : null;
+                    return tr
+                        ? { url: urls[i], w: u.width || 0, h: u.height || 0, transform: { scale: +tr.scale.toFixed(3), x: +tr.x.toFixed(4), y: +tr.y.toFixed(4), rot: Math.round(tr.rot) } }
+                        : { url: urls[i], w: u.width || 0, h: u.height || 0 };
+                });
+                // Layout shares one frame (normal duration). Separate frames use
+                // per-frame timing: the viewer plays each photo for SLIDE_MS
+                // (5 s), exactly like Instagram.
+                if (layoutMode) doc.layout = M.layout;
+                else doc.durationMs = 0;
             }
             q.barI.style.width = '96%';
             try { await ref.set(doc); }

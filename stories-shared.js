@@ -1,5 +1,5 @@
 /* ================================================================
-   stories-shared.js  ·  TIMAWA / Barkada Stories   (v1.8)
+   stories-shared.js  ·  TIMAWA / Barkada Stories   (v1.9)
    Tiny shared layer used by the viewer, composer and admin preview.
    The renderer produces IDENTICAL markup in every context, so what
    the composer shows is exactly what the viewer paints.
@@ -143,15 +143,23 @@
         return list.find(l => l.id === id) || list[0];
     }
     const pc = v => (v * 100).toFixed(3) + '%';
-    function collageHtml(items, layoutId, allowBlob) {
+    function collageHtml(items, layoutId, allowBlob, opts) {
+        opts = opts || {};
         const list = (items || []).slice(0, MAX_PHOTOS);
         const L = getLayout(layoutId, list.length);
+        const fit = opts.fit === 'fit';
+        const size = opts.size || 720;
+        const active = Number(opts.active);
         return L.cells.map((c, i) => {
             const it = list[i]; if (!it) return '';
             let u = safeMediaUrl(it.url);
             if (!u && allowBlob && /^blob:/.test(it.url || '')) u = it.url;
             if (!u) return '';
-            return `<div class="st-cell" style="left:${pc(c[0])};top:${pc(c[1])};width:${pc(c[2])};height:${pc(c[3])}"><img src="${esc(cloudResize(u, 720))}" alt="" draggable="false"></div>`;
+            const tr = cleanCellTransform(it.transform || it.tr);
+            const imgStyle = `object-fit:${fit ? 'contain' : 'cover'};` +
+                `transform:translate(${(tr.x * 100).toFixed(2)}%,${(tr.y * 100).toFixed(2)}%) ` +
+                `scale(${tr.scale.toFixed(3)}) rotate(${tr.rot.toFixed(1)}deg);`;
+            return `<div class="st-cell${fit ? ' fit' : ''}${i === active ? ' on' : ''}" data-cell="${i}" style="left:${pc(c[0])};top:${pc(c[1])};width:${pc(c[2])};height:${pc(c[3])}"><img src="${esc(cloudResize(u, size))}" alt="" draggable="false" style="${imgStyle}"></div>`;
         }).join('');
     }
     function miniLayoutHtml(L) {
@@ -290,6 +298,13 @@
         t = t && typeof t === 'object' ? t : {};
         return { scale: clamp(t.scale || 1, 0.5, 3), x: clamp(t.x, -1, 1), y: clamp(t.y, -1, 1) };
     }
+    // One photo inside a layout cell. x/y are fractions of the photo's own
+    // size; rot is degrees. Kept apart from cleanMediaTransform so a single
+    // photo and a layout photo can never borrow each other's values.
+    function cleanCellTransform(t) {
+        t = t && typeof t === 'object' ? t : {};
+        return { scale: clamp(t.scale || 1, 0.5, 4), x: clamp(t.x, -1, 1), y: clamp(t.y, -1, 1), rot: clamp(t.rot, -180, 180) };
+    }
     function applyMediaTransform(el, t) {
         if (!el) return;
         const m = cleanMediaTransform(t);
@@ -354,7 +369,7 @@
         textStyle, textHtml, renderTexts, observeStage, timeAgo, cloudAvatar, cloudResize, fmtSec,
         layoutsFor, getLayout, collageHtml, miniLayoutHtml, searchMusic, cleanMusic, attachClipLoop,
         MUSIC_STYLES, normStyle, musicSticker, musicStickerInner, cleanSticker, musicLine,
-        cleanMediaTransform, applyMediaTransform, confirm: confirmDialog,
+        cleanMediaTransform, cleanCellTransform, applyMediaTransform, confirm: confirmDialog,
         DURATION_MS: 24 * 60 * 60 * 1000,
         MIN_SHOW_MS: 15 * 1000, MAX_SHOW_MS: 60 * 1000
     };

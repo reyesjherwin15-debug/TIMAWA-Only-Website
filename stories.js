@@ -1,5 +1,5 @@
 /* ================================================================
-   stories.js · TIMAWA / Barkada Stories  (core, v1.6)
+   stories.js · TIMAWA / Barkada Stories  (core, v1.7)
    One module shared by index.html and dashboard.html:
      - ONE realtime listener on `stories` (active ones only)
      - Stories row (mounted into #storiesMount) + rings on squad avatars
@@ -33,7 +33,7 @@
         IMAGE_MS: 6000,
         SLIDE_MS: 5000,
         MAX_REPLY: 300,
-        composerSrc: 'stories-composer.js?v=1.13.4',
+        composerSrc: 'stories-composer.js?v=1.14.0',
         spotifySearchUrl: '',
         allowStoryDelete: true,        // pages can override via window.STORIES_CONFIG
         allowStoryViews: true          // pages can override via window.STORIES_CONFIG
@@ -101,7 +101,7 @@
             id: doc.id, ownerUid: d.ownerUid, ownerName: d.ownerName || 'Member', ownerPhoto: d.ownerPhoto || '',
             mediaType: d.mediaType === 'video' ? 'video' : 'image', mediaUrl: S.safeMediaUrl(d.mediaUrl), thumbUrl: S.safeMediaUrl(d.thumbUrl),
             mediaFit: d.mediaFit === 'fit' ? 'fit' : 'fill', mediaTransform: S.cleanMediaTransform(d.mediaTransform), durationMs: Number(d.durationMs) || 0,
-            mediaItems: Array.isArray(d.mediaItems) ? d.mediaItems.map(x => ({ url: S.safeMediaUrl(x && x.url) })).filter(x => x.url).slice(0, S.MAX_PHOTOS) : [],
+            mediaItems: Array.isArray(d.mediaItems) ? d.mediaItems.map(x => ({ url: S.safeMediaUrl(x && x.url), transform: S.cleanCellTransform(x && x.transform) })).filter(x => x.url).slice(0, S.MAX_PHOTOS) : [],
             layout: typeof d.layout === 'string' ? d.layout.slice(0, 12) : '', muteVideo: !!d.muteVideo, music: S.cleanMusic(d.music),
             caption: d.caption || '', textOverlays: Array.isArray(d.textOverlays) ? d.textOverlays : [],
             spotifyTrack: d.spotifyTrack || null, status: d.status || 'active', createdAtMs: created, expiresAtMs: exp
@@ -623,11 +623,17 @@
     }
     function syncPauseIcon() { V.q.pauseB.innerHTML = `<i class="fas fa-${V.paused.has('user') ? 'play' : 'pause'}"></i>`; V.q.pauseB.setAttribute('aria-label', V.paused.has('user') ? 'Play' : 'Pause'); }
 
-    // Every selected photo is its own full-screen frame, Instagram-style.
-    // Older collage documents are read the same way: their mediaItems become
-    // the frames, in the order the author picked them.
+    // Layout stories keep every photo in ONE frame. Separate-frame stories
+    // (the default) keep the Instagram-style one-photo-per-frame behaviour.
+    function isCollage(s) {
+        if (!s || s.mediaType !== 'image' || !s.layout) return false;
+        const items = Array.isArray(s.mediaItems) ? s.mediaItems : [];
+        if (items.length < 2) return false;
+        return S.getLayout(s.layout, items.length).id === s.layout;
+    }
     function slideUrls(s) {
         if (!s || s.mediaType !== 'image') return [];
+        if (isCollage(s)) return [s.mediaUrl];
         const list = Array.isArray(s.mediaItems) ? s.mediaItems.map(x => x && x.url).filter(Boolean) : [];
         return list.length ? list : (s.mediaUrl ? [s.mediaUrl] : []);
     }
@@ -654,13 +660,41 @@
         const q = V.q;
         cancelAnimationFrame(V.raf);
         const photos = slideUrls(s);
+        const collage = isCollage(s);
         const multi = photos.length > 1;
         if (V.slide >= photos.length) V.slide = 0;
         const src = photos.length ? photos[V.slide] : s.mediaUrl;
-        q.mw.className = 'st-media-wrap' + (multi ? ' st-slide' : '') + (s.mediaFit === 'fit' ? ' fit' : '');
+        q.mw.className = 'st-media-wrap' + (multi ? ' st-slide' : '') + (collage ? ' collage' : '') + (s.mediaFit === 'fit' ? ' fit' : '');
         q.mw.innerHTML = ''; q.bg.innerHTML = ''; q.load.hidden = false; q.err.hidden = true;
-        S.applyMediaTransform(q.mw, multi ? null : s.mediaTransform);
+        S.applyMediaTransform(q.mw, multi || collage ? null : s.mediaTransform);
         paintProgress();
+
+        // Layout story: every photo is already in the one frame, so the clock
+        // runs once for the whole story and there are no photo swipes.
+        if (collage) {
+            q.mw.innerHTML = S.collageHtml(s.mediaItems, s.layout, false, { fit: s.mediaFit, size: 960 });
+            const b = new Image();
+            b.src = S.cloudResize(s.mediaItems[0].url, 64); b.alt = ''; q.bg.appendChild(b);
+            V.dur = s.durationMs > 0 ? Math.min(s.durationMs, S.MAX_SHOW_MS) : CFG.IMAGE_MS;
+            const imgs = Array.from(q.mw.querySelectorAll('img'));
+            if (!imgs.length) { onError(); return; }
+            let left = imgs.length, shown = false, failed = 0;
+            const settle = (img, ok) => {
+                if (!img || img.dataset.ready) return;
+                img.dataset.ready = '1';
+                if (!ok) failed += 1;
+                left -= 1;
+                if (left > 0 || shown) return;
+                shown = true;
+                if (failed === imgs.length) onError(); else onReady(null);
+            };
+            imgs.forEach(img => {
+                if (img.complete) { settle(img, img.naturalWidth > 0); return; }
+                img.addEventListener('load', () => settle(img, true), { once: true });
+                img.addEventListener('error', () => settle(img, false), { once: true });
+            });
+            return;
+        }
 
         V.dur = multi ? (CFG.SLIDE_MS || 5000)
             : (s.durationMs > 0 ? Math.min(s.durationMs, S.MAX_SHOW_MS) : CFG.IMAGE_MS);
