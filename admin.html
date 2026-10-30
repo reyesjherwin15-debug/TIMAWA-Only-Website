@@ -1076,8 +1076,23 @@
         .avatar-initials {
             width: 100%; height: 100%;
             display: inline-flex; align-items: center; justify-content: center;
-            font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+            font-size: inherit; font-weight: 800; letter-spacing: 0.02em;
             color: #fff; line-height: 1;
+        }
+        .avatar-slot {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            border-radius: inherit;
+            font-size: inherit;
+            line-height: 1;
+        }
+        .avatar-slot img {
+            width: 100%; height: 100%; object-fit: cover;
+            display: block; border-radius: inherit;
         }
         .user-card .user-card-body { flex: 1; min-width: 0; }
         .user-card .user-card-name {
@@ -2201,6 +2216,88 @@
             .main-container { padding: 0 14px; }
             .hero-banner { border-radius: 20px; }
         }
+        /* ---------- tabs on phones -------------------------------------------------
+           The old mobile rule centred a no-wrap rail, so the first tabs were clipped
+           off the left edge with no way to scroll to them. The rail now starts at
+           the left, scrolls with momentum/snap, and its buttons never shrink. */
+        @media (max-width: 768px) {
+            .admin-tabs {
+                justify-content: flex-start !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-x: contain;
+                scroll-snap-type: x proximity;
+                scroll-padding-inline: 8px;
+                padding: 6px 8px;
+                gap: 6px;
+                border-radius: 16px;
+            }
+            .admin-tab {
+                flex: 0 0 auto !important;
+                white-space: nowrap;
+                scroll-snap-align: start;
+            }
+            .admin-tab i { margin-right: 6px; }
+            .admin-tab .tab-badge { margin-left: 6px; }
+        }
+
+        /* ---------- one dropdown language ----------------------------------------
+           Filter dropdowns, story filters and modal fields all share the same
+           height, radius, chevron and focus ring now. */
+        select,
+        .comments-filter-bar select,
+        .modal-content .input-group select,
+        #storiesStatusFilter {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 42px;
+            max-width: 100%;
+            padding: 0 38px 0 14px;
+            border-radius: 12px;
+            border: 1.5px solid var(--admin-border-input);
+            background-color: var(--admin-card);
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%237c3aed' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 12px 8px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--admin-text);
+            cursor: pointer;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+        }
+        select:hover,
+        .comments-filter-bar select:hover,
+        .modal-content .input-group select:hover,
+        #storiesStatusFilter:hover {
+            border-color: color-mix(in srgb, var(--admin-primary) 40%, var(--admin-border-input));
+        }
+        select:focus,
+        .comments-filter-bar select:focus,
+        .modal-content .input-group select:focus,
+        #storiesStatusFilter:focus {
+            outline: none;
+            border-color: var(--admin-primary);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--admin-primary) 16%, transparent);
+        }
+        select:disabled { opacity: 0.6; cursor: not-allowed; }
+        .comments-filter-bar select { flex: 1 1 170px; }
+
+        @media (max-width: 640px) {
+            .comments-filter-bar {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                padding: 12px;
+            }
+            .comments-filter-bar label { grid-column: 1 / -1; }
+            .comments-filter-bar select { width: 100%; min-width: 0; }
+            #storiesStatusFilter { flex: 1 1 100%; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .admin-card, .item-card, .user-card, .announcement-card, .highlight-card,
             .chat-card, .note-card, .comment-card, .story-card, .btn-primary, .admin-tab {
@@ -3726,31 +3823,84 @@
             return (cache && cache.photoURL) || '';
         }
 
+        /* Every tab renders the same avatar slot, keyed by uid. It starts with
+           the member's current photo (live users list first, then the cache the
+           tab loaded) and can be repointed in place when that member uploads a
+           new picture — no page reload, no stale/broken image, and a member who
+           had no photo can gain one without re-rendering the tab. */
+        function avatarSlot(uid, name, fallbackUrl, size) {
+            const safeName = name || 'Unknown';
+            const px = Math.max(24, Number(size) || 100);
+            const url = (uid && livePhotoFor(uid)) || fallbackUrl || '';
+            const initials = `<span class="avatar-initials">${escapeHtml(avatarInitials(safeName))}</span>`;
+            if (!uid) {
+                return url
+                    ? `<img src="${cloudinaryThumb(url, px)}" alt="${escapeAttr(safeName)}" loading="lazy" />`
+                    : initials;
+            }
+            return `<span class="avatar-slot" data-avatar-uid="${escapeAttr(uid)}" data-avatar-size="${px}" data-avatar-name="${escapeAttr(safeName)}">`
+                + (url ? `<img src="${cloudinaryThumb(url, px)}" alt="${escapeAttr(safeName)}" loading="lazy" />` : initials)
+                + '</span>';
+        }
+
         function showAvatarFallback(img) {
             if (!img || img.dataset.avatarFallback === '1') return;
             img.dataset.avatarFallback = '1';
             img.style.display = 'none';
-            const parent = img.parentElement;
-            if (!parent || parent.querySelector('.avatar-initials')) return;
+            const holder = img.closest('[data-avatar-uid]') || img.parentElement;
+            if (!holder || holder.querySelector('.avatar-initials')) return;
             const span = document.createElement('span');
             span.className = 'avatar-initials';
-            span.textContent = avatarInitials(img.getAttribute('alt'));
-            parent.appendChild(span);
+            span.textContent = avatarInitials(img.getAttribute('alt') || holder.getAttribute('data-avatar-name'));
+            holder.appendChild(span);
         }
 
         function refreshAuthorAvatars() {
-            document.querySelectorAll('img[data-avatar-uid]').forEach(img => {
-                const url = livePhotoFor(img.getAttribute('data-avatar-uid'));
-                if (!url) { showAvatarFallback(img); return; }
-                const size = Number(img.getAttribute('data-avatar-size')) || 100;
+            document.querySelectorAll('[data-avatar-uid]').forEach(node => {
+                const uid = node.getAttribute('data-avatar-uid');
+                const size = Number(node.getAttribute('data-avatar-size')) || 100;
+                const name = node.getAttribute('data-avatar-name') || '';
+                const url = livePhotoFor(uid);
+
+                // Legacy direct <img data-avatar-uid> elements.
+                if (node.tagName === 'IMG') {
+                    if (!url) { showAvatarFallback(node); return; }
+                    const next = cloudinaryThumb(url, size);
+                    if (node.getAttribute('src') !== next) {
+                        node.dataset.avatarFallback = '';
+                        node.style.display = '';
+                        node.setAttribute('src', next);
+                    }
+                    const oldInitials = node.parentElement && node.parentElement.querySelector('.avatar-initials');
+                    if (oldInitials) oldInitials.remove();
+                    return;
+                }
+
+                let img = node.querySelector('img');
+                if (!url) {
+                    if (img) img.remove();
+                    if (!node.querySelector('.avatar-initials')) {
+                        const span = document.createElement('span');
+                        span.className = 'avatar-initials';
+                        span.textContent = avatarInitials(name);
+                        node.appendChild(span);
+                    }
+                    return;
+                }
+
                 const next = cloudinaryThumb(url, size);
+                if (!img) {
+                    img = document.createElement('img');
+                    img.alt = name;
+                    img.loading = 'lazy';
+                    node.prepend(img);
+                }
                 if (img.getAttribute('src') !== next) {
                     img.dataset.avatarFallback = '';
-                    img.style.display = '';
                     img.setAttribute('src', next);
                 }
-                const parent = img.parentElement;
-                const fallback = parent && parent.querySelector('.avatar-initials');
+                img.style.display = '';
+                const fallback = node.querySelector('.avatar-initials');
                 if (fallback) fallback.remove();
             });
         }
@@ -3775,9 +3925,8 @@
         // to initials anywhere in the panel, not just in the lists above.
         document.addEventListener('error', (event) => {
             const target = event.target;
-            if (target && target.tagName === 'IMG' && target.hasAttribute('data-avatar-uid')) {
-                showAvatarFallback(target);
-            }
+            if (!target || target.tagName !== 'IMG') return;
+            if (target.closest('[data-avatar-uid]')) showAvatarFallback(target);
         }, true);
 
         // ================================================================
@@ -4475,9 +4624,7 @@
             const thumb = firstImage ? cloudinaryThumb(firstImage, 400) : '';
             const imageCount = imageUrls.length;
             const initials = (author.displayName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-            const authorAvatar = author.photoURL
-                ? `<img src="${cloudinaryThumb(author.photoURL, 60)}" alt="${escapeAttr(author.displayName)}" data-avatar-uid="${escapeAttr(h.authorUid || '')}" data-avatar-size="60" loading="lazy" />`
-                : escapeHtml(initials);
+            const authorAvatar = avatarSlot(h.authorUid, author.displayName, author.photoURL, 60);
 
             let timeLabel = '';
             if (isExpired) timeLabel = `<span class="highlight-card-expired-badge">Expired</span>`;
@@ -4933,9 +5080,7 @@
 
             const createdDate = chat.createdAt ? new Date(chat.createdAt.seconds ? chat.createdAt.seconds * 1000 : chat.createdAt) : new Date();
             const initials = (sender.displayName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-            const avatarContent = sender.photoURL
-                ? `<img src="${cloudinaryThumb(sender.photoURL, 100)}" alt="${escapeAttr(sender.displayName)}" data-avatar-uid="${escapeAttr(chat.senderUid || '')}" data-avatar-size="100" loading="lazy" />`
-                : escapeHtml(initials);
+            const avatarContent = avatarSlot(chat.senderUid, sender.displayName, sender.photoURL, 100);
 
             const hasMentions = Array.isArray(chat.mentions) && chat.mentions.length > 0;
             const mentionBadge = hasMentions ? `<span class="mention-badge"><i class="fas fa-at"></i> ${chat.mentions.length} mention${chat.mentions.length !== 1 ? 's' : ''}</span>` : '';
@@ -5308,9 +5453,7 @@
             const hoursLeft = expireAt ? Math.max(0, Math.ceil((expireAt - now) / (1000 * 60 * 60))) : 0;
             const minutesLeft = expireAt ? Math.max(0, Math.ceil((expireAt - now) / (1000 * 60))) : 0;
             const initials = (user.displayName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-            const avatarContent = user.photoURL
-                ? `<img src="${cloudinaryThumb(user.photoURL, 100)}" alt="${escapeAttr(user.displayName)}" data-avatar-uid="${escapeAttr(note.uid || '')}" data-avatar-size="100" loading="lazy" />`
-                : escapeHtml(initials);
+            const avatarContent = avatarSlot(note.uid, user.displayName, user.photoURL, 100);
 
             let timeLabel = '';
             if (isExpired) timeLabel = `<span class="expired-label"><i class="fas fa-exclamation-circle"></i> EXPIRED</span>`;
@@ -5631,9 +5774,7 @@
             const hoursLeft = expireAt ? Math.max(0, Math.ceil((expireAt - now) / (1000 * 60 * 60))) : 0;
             const minutesLeft = expireAt ? Math.max(0, Math.ceil((expireAt - now) / (1000 * 60))) : 0;
             const initials = (author.displayName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-            const avatarContent = author.photoURL
-                ? `<img src="${cloudinaryThumb(author.photoURL, 100)}" alt="${escapeAttr(author.displayName)}" data-avatar-uid="${escapeAttr(comment.authorUid || '')}" data-avatar-size="100" loading="lazy" />`
-                : escapeHtml(initials);
+            const avatarContent = avatarSlot(comment.authorUid, author.displayName, author.photoURL, 100);
 
             let timeLabel = '';
             if (isExpired) timeLabel = `<span class="expired-label"><i class="fas fa-exclamation-circle"></i> EXPIRED</span>`;
@@ -6865,9 +7006,7 @@
             const status = user.status || 'offline';
             const isAdmin = user.isAdmin === true;
             const isSelected = batchState.users.active && batchState.users.selected.has(user.id);
-            const avatarContent = photoUrl
-                ? `<img src="${cloudinaryThumb(photoUrl, 120)}" alt="${escapeAttr(name)}" data-avatar-uid="${escapeAttr(user.id || '')}" data-avatar-size="120" loading="lazy" />`
-                : escapeHtml(initials);
+            const avatarContent = avatarSlot(user.id, name, photoUrl, 120);
             const interests = user.interests ? user.interests.split(',').map(t => t.trim()).filter(t => t).slice(0, 4) : [];
             const metaParts = [];
             if (user.location) metaParts.push(`<span><i class="fas fa-map-marker-alt"></i> ${escapeHtml(user.location)}</span>`);

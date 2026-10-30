@@ -1507,6 +1507,487 @@ button, input, select, textarea { font: inherit; color: inherit; }
         scroll-behavior: auto !important;
     }
 }
+
+/* ================================================================
+   SIGNUP WIZARD — 2026 REFRESH
+   ----------------------------------------------------------------
+   A visual layer over the existing wizard: a warmer, glassier shell,
+   a photo step built around the circle members actually see, and a
+   footer/controls treatment that matches the member app. Markup and
+   IDs are unchanged, so every validation and submission path keeps
+   working exactly as before.
+   ================================================================ */
+.modal-content {
+    border-radius: 28px;
+    box-shadow: 0 50px 110px -40px rgba(8, 12, 26, 0.7),
+                0 0 0 1px color-mix(in srgb, var(--theme-primary) 12%, transparent);
+}
+.wizard-header {
+    background:
+        radial-gradient(120% 160% at 85% -20%, rgba(255, 255, 255, 0.24), transparent 60%),
+        radial-gradient(90% 140% at 8% 120%, rgba(255, 255, 255, 0.12), transparent 62%),
+        var(--theme-gradient);
+}
+.wizard-header::before { top: -110px; right: -90px; width: 240px; height: 240px; }
+.wizard-header::after { bottom: -140px; left: -90px; width: 280px; height: 280px; }
+.wizard-title { font-size: 18.5px; letter-spacing: -0.02em; }
+.wizard-title i {
+    width: 36px; height: 36px; border-radius: 12px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    font-size: 15px;
+}
+.wizard-close { transition: transform 0.2s ease, background 0.2s ease; }
+.wizard-close:hover { background: rgba(255, 255, 255, 0.32); transform: rotate(90deg); }
+
+.wizard-steps { gap: 4px; }
+.wizard-step-circle {
+    width: 34px; height: 34px;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    transition: transform 0.25s var(--ui-ease), background 0.25s ease, box-shadow 0.25s ease;
+}
+.wizard-step.active .wizard-step-circle {
+    transform: translateY(-1px) scale(1.06);
+    box-shadow: 0 10px 22px -10px rgba(4, 10, 26, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+.wizard-step.done .wizard-step-circle { transform: none; }
+.wizard-step-label { font-size: 9.5px; letter-spacing: 0.06em; }
+.wizard-progress-track { height: 4px; border-radius: 999px; }
+.wizard-progress-track span { transition: width 0.45s var(--ui-ease); }
+
+.wizard-body {
+    padding: 24px 30px 6px;
+    background:
+        radial-gradient(90% 24% at 50% 0%, color-mix(in srgb, var(--theme-primary) 7%, transparent), transparent 100%);
+}
+.panel-header {
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--theme-primary) 6%, var(--theme-bg-soft));
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 14%, var(--theme-border));
+}
+.panel-icon {
+    width: 46px; height: 46px;
+    border-radius: 14px;
+    box-shadow: 0 12px 24px -14px color-mix(in srgb, var(--theme-primary) 85%, transparent);
+}
+.panel-header h3 { font-size: 17.5px; }
+.panel-header p { font-size: 12.5px; line-height: 1.5; }
+
+/* inputs */
+.input-group label { font-size: 12.5px; font-weight: 700; letter-spacing: 0.005em; }
+.input-group .input, .verification-section .input {
+    height: 50px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--theme-bg) 65%, var(--theme-card));
+    border: 1.5px solid var(--theme-border-input);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.input-group .input:focus, .verification-section .input:focus {
+    border-color: var(--theme-primary);
+    background: var(--theme-card);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-primary) 16%, transparent);
+}
+textarea.input { height: auto; min-height: 96px; padding-top: 14px; }
+.input-group.invalid .input { box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-danger) 14%, transparent); }
+
+/* ---- photo step ---- */
+.avatar-upload-section.photo-stage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0 4px;
+    isolation: isolate;
+}
+.photo-orb {
+    position: absolute;
+    top: 2px;
+    left: 50%;
+    width: 210px;
+    height: 210px;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg,
+        color-mix(in srgb, var(--theme-primary) 55%, transparent),
+        color-mix(in srgb, var(--theme-accent) 45%, transparent),
+        color-mix(in srgb, var(--theme-primary) 55%, transparent));
+    filter: blur(26px);
+    opacity: 0.42;
+    z-index: -1;
+    animation: photoOrbSpin 12s linear infinite;
+}
+@keyframes photoOrbSpin { to { rotate: 360deg; } }
+.photo-stage .avatar-upload {
+    width: 178px;
+    height: 178px;
+    font-size: 56px;
+    border-width: 0;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--theme-primary) 18%, transparent), transparent 72%),
+        var(--theme-card);
+    box-shadow:
+        0 0 0 1.5px color-mix(in srgb, var(--theme-primary) 34%, transparent),
+        0 0 0 8px color-mix(in srgb, var(--theme-card) 92%, transparent),
+        0 0 0 9.5px color-mix(in srgb, var(--theme-primary) 20%, transparent),
+        0 28px 60px -26px color-mix(in srgb, var(--theme-primary) 60%, transparent);
+}
+.photo-stage .avatar-upload:hover {
+    transform: translateY(-3px);
+    box-shadow:
+        0 0 0 1.5px color-mix(in srgb, var(--theme-primary) 55%, transparent),
+        0 0 0 8px color-mix(in srgb, var(--theme-card) 92%, transparent),
+        0 0 0 10px color-mix(in srgb, var(--theme-primary) 30%, transparent),
+        0 34px 70px -28px color-mix(in srgb, var(--theme-primary) 70%, transparent);
+}
+.photo-stage .avatar-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+    color: color-mix(in srgb, var(--theme-primary) 78%, var(--theme-text-muted));
+}
+.photo-stage .avatar-overlay {
+    inset: 0;
+    border-radius: 50%;
+    flex-direction: column;
+    gap: 6px;
+    background: linear-gradient(0deg, rgba(6, 12, 28, 0.66), rgba(6, 12, 28, 0.28));
+    backdrop-filter: blur(2px);
+}
+.photo-stage .avatar-overlay i { font-size: 24px; }
+.photo-stage .avatar-overlay b { font-size: 11px; font-weight: 800; letter-spacing: 0.02em; }
+.avatar-cam-badge {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--theme-gradient);
+    color: #fff;
+    font-size: 16px;
+    border: 3px solid var(--theme-card);
+    box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--theme-primary) 80%, transparent);
+    pointer-events: none;
+}
+.avatar-upload-section.invalid .avatar-upload {
+    box-shadow:
+        0 0 0 1.5px var(--theme-danger),
+        0 0 0 8px color-mix(in srgb, var(--theme-card) 92%, transparent),
+        0 0 0 10px color-mix(in srgb, var(--theme-danger) 20%, transparent);
+}
+#signupPhoto { display: none !important; }
+
+.photo-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+}
+.photo-pick-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 999px;
+    background: var(--theme-gradient);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 14px 30px -16px color-mix(in srgb, var(--theme-primary) 90%, transparent);
+    transition: transform 0.2s var(--ui-ease), box-shadow 0.25s ease, filter 0.2s ease;
+}
+.photo-pick-btn:hover { transform: translateY(-1.5px); filter: saturate(108%); }
+.photo-pick-btn:active { transform: translateY(0) scale(0.98); }
+.photo-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--theme-border-input);
+    background: transparent;
+    color: var(--theme-text-muted);
+    font-size: 12.5px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.photo-clear-btn:hover {
+    color: var(--theme-danger);
+    border-color: color-mix(in srgb, var(--theme-danger) 40%, transparent);
+    background: color-mix(in srgb, var(--theme-danger) 7%, transparent);
+}
+.photo-clear-btn[hidden] { display: none !important; }
+.photo-stage .avatar-hint { margin-top: 12px; font-size: 12px; }
+.photo-stage .avatar-hint.ok-hint { display: inline-flex; align-items: center; gap: 6px; }
+
+.photo-progress {
+    width: min(230px, 100%);
+    margin-top: 14px;
+    padding: 11px 13px;
+    border-radius: 14px;
+    background: var(--theme-card);
+    border: 1px solid var(--theme-border);
+    box-shadow: 0 12px 28px -20px rgba(8, 12, 26, 0.5);
+}
+.photo-progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--theme-text-muted);
+}
+.photo-progress-head i { color: var(--theme-primary); margin-right: 4px; }
+.photo-progress-head span:last-child { color: var(--theme-primary); font-variant-numeric: tabular-nums; }
+#signupPhotoProgressBar {
+    height: 7px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--theme-primary) 12%, var(--theme-border-soft));
+}
+#signupPhotoProgressFill {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--theme-gradient);
+    transition: width 0.12s linear;
+}
+
+.photo-benefits { color: var(--theme-text-muted); font-size: 13px; line-height: 1.6; }
+.photo-benefits .benefits-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--theme-text-dim);
+    margin-bottom: 10px;
+}
+.photo-benefits ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.photo-benefits li {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 11px 13px;
+    border-radius: 14px;
+    background: var(--theme-card);
+    border: 1px solid var(--theme-border);
+    box-shadow: 0 10px 24px -22px rgba(8, 12, 26, 0.5);
+}
+.photo-benefits li b { display: block; font-size: 12.5px; color: var(--theme-text); }
+.photo-benefits li small { display: block; font-size: 11.5px; line-height: 1.45; color: var(--theme-text-dim); margin-top: 1px; }
+.benefit-ico {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+    color: var(--theme-primary);
+    font-size: 13px;
+}
+.photo-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--theme-primary) 6%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--theme-primary) 26%, transparent);
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--theme-text-muted);
+}
+.photo-tip i { color: var(--theme-primary); margin-top: 2px; }
+
+/* theme grid + review + verification */
+.theme-picker-grid { gap: 9px; }
+.theme-pick {
+    border-radius: 15px;
+    border: 1.5px solid var(--theme-border);
+    background: var(--theme-card);
+    transition: transform 0.2s var(--ui-ease), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.theme-pick:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -22px rgba(8, 12, 26, 0.55); }
+.theme-pick.active { border-color: var(--theme-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary) 16%, transparent); }
+.theme-pick .theme-preview { height: 48px; border-radius: 10px; }
+.review-summary {
+    border-radius: 16px;
+    border: 1px solid var(--theme-border);
+    background: var(--theme-card);
+    padding: 14px 16px;
+}
+.review-row { padding: 9px 0; }
+.review-row:not(:last-child) { border-bottom: 1px solid var(--theme-border-soft); }
+.verification-section {
+    border-radius: 16px;
+    padding: 16px;
+    background: color-mix(in srgb, var(--theme-primary) 5%, var(--theme-bg-soft));
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 16%, var(--theme-border));
+}
+#signupVerification {
+    text-transform: uppercase;
+    letter-spacing: 0.24em;
+    font-weight: 800;
+    text-align: center;
+    font-size: 16px;
+}
+.signup-notification-optin {
+    border-radius: 16px !important;
+    background: var(--theme-card) !important;
+}
+
+/* footer */
+.wizard-footer {
+    padding: 14px 28px 18px;
+    background: color-mix(in srgb, var(--theme-card) 88%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+}
+.wizard-footer button { border-radius: 14px; min-height: 50px; }
+.wizard-footer .btn-next, .wizard-footer .btn-submit {
+    flex: 1.6;
+    letter-spacing: 0.01em;
+}
+.wizard-footer .btn-back { min-width: 96px; }
+
+@media (min-width: 900px) {
+    /* The photo step reads better as a centred pair than stretched across
+       the full wizard width. */
+    .panel-photo-grid { max-width: 840px; margin-inline: auto; }
+    .photo-benefits { max-width: 600px; }
+}
+
+@media (max-width: 640px) {
+    .modal-content { border-radius: 22px; }
+    .wizard-body { padding: 20px 18px 4px; }
+    .panel-header { padding: 12px 13px; border-radius: 15px; }
+    .photo-stage .avatar-upload { width: 156px; height: 156px; font-size: 48px; }
+    .avatar-cam-badge { width: 40px; height: 40px; font-size: 14px; }
+    .photo-orb { width: 188px; height: 188px; }
+    .photo-benefits { margin-top: 16px; }
+    .photo-benefits li { padding: 9px 11px; }
+    .photo-benefits li small { font-size: 11px; }
+    .wizard-footer { padding: 12px 18px 16px; }
+    .wizard-footer .btn-next, .wizard-footer .btn-submit { flex: 1.4; }
+}
+
+/* ================= FULLSCREEN THEME PREVIEW (v2) ================= */
+body.tw-previewing .page-top,
+body.tw-previewing main,
+body.tw-previewing #signupModal,
+body.tw-previewing .pwa-banner,
+body.tw-previewing #pwaInstallBanner {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+.theme-preview-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    display: none;
+    pointer-events: auto;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 22px;
+}
+.theme-preview-overlay.active { display: flex; animation: previewFade 0.35s ease both; }
+@keyframes previewFade { from { opacity: 0; } to { opacity: 1; } }
+.preview-top, .preview-bottom {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.theme-preview-overlay .preview-back-btn {
+    position: static;
+    background: color-mix(in srgb, var(--theme-card) 82%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+}
+.preview-theme-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--theme-card) 82%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid color-mix(in srgb, var(--theme-border) 80%, transparent);
+    box-shadow: 0 16px 34px -22px rgba(9, 13, 24, 0.45);
+    color: var(--theme-text);
+}
+.preview-theme-chip b { font-size: 12.5px; font-weight: 800; }
+.preview-theme-chip small {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--theme-text-dim);
+}
+.preview-theme-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--theme-gradient);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-card) 85%, transparent);
+}
+.preview-bottom p {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--theme-card) 78%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--theme-text-muted);
+}
+.preview-bottom p i { color: var(--theme-primary); }
+.preview-hint-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--theme-card) 70%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--theme-text-dim);
+}
+@media (max-width: 640px) {
+    .theme-preview-overlay { padding: 14px; }
+    .preview-top, .preview-bottom { gap: 8px; }
+    .preview-theme-chip { padding: 8px 12px; }
+    .preview-bottom p { font-size: 11px; padding: 9px 11px; }
+    .preview-hint-pill { display: none; }
+}
     </style>
 </head>
 <body>
@@ -1633,10 +2114,21 @@ button, input, select, textarea { font: inherit; color: inherit; }
     <!-- ================================================================
          ===== FULLSCREEN THEME PREVIEW OVERLAY =====
          ================================================================ -->
-    <div class="theme-preview-overlay" id="themePreviewOverlay">
-        <button type="button" class="preview-back-btn" onclick="closeThemePreview()">
-            <i class="fas fa-arrow-left"></i> Back to form
-        </button>
+    <div class="theme-preview-overlay" id="themePreviewOverlay" role="dialog" aria-modal="true" aria-label="Theme preview">
+        <div class="preview-top">
+            <button type="button" class="preview-back-btn" onclick="closeThemePreview()">
+                <i class="fas fa-arrow-left"></i> Back to form
+            </button>
+            <div class="preview-theme-chip">
+                <span class="preview-theme-dot" id="previewThemeDot" aria-hidden="true"></span>
+                <b id="previewThemeName">Theme</b>
+                <small id="previewThemeMode">Light</small>
+            </div>
+        </div>
+        <div class="preview-bottom">
+            <p><i class="fas fa-wand-magic-sparkles"></i> This is your theme fullscreen. Move the pointer to feel the animated background.</p>
+            <span class="preview-hint-pill"><i class="fas fa-keyboard"></i> Esc to go back</span>
+        </div>
     </div>
 
     <!-- ================================================================
@@ -1716,17 +2208,30 @@ button, input, select, textarea { font: inherit; color: inherit; }
                         </div>
 
                         <div class="panel-photo-grid">
-                            <div class="avatar-upload-section" id="avatarSection">
-                                <div id="signupPhotoProgress" hidden style="max-width:180px;margin:10px auto;">
-                                    <div id="signupPhotoProgressBar" role="progressbar" aria-label="Profile photo upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="height:6px;overflow:hidden;border-radius:999px;background:var(--theme-border-soft,#e5e7eb);"><span id="signupPhotoProgressFill" style="display:block;width:0;height:100%;background:var(--theme-gradient);transition:width .12s linear;"></span></div>
-                                    <small id="signupPhotoProgressText" style="display:block;margin-top:5px;color:var(--theme-text-muted);">Uploading: 0%</small>
-                                </div>
+                            <div class="avatar-upload-section photo-stage" id="avatarSection">
+                                <div class="photo-orb" aria-hidden="true"></div>
                                 <label class="avatar-upload" for="signupPhoto">
-                                    <span id="avatarPlaceholder"><i class="fas fa-user"></i></span>
+                                    <span id="avatarPlaceholder" class="avatar-placeholder"><i class="fas fa-user"></i></span>
                                     <img id="avatarPreview" style="display:none;" alt="Profile preview" />
-                                    <div class="avatar-overlay"><i class="fas fa-camera"></i></div>
+                                    <span class="avatar-overlay"><i class="fas fa-camera"></i><b>Change photo</b></span>
+                                    <span class="avatar-cam-badge" aria-hidden="true"><i class="fas fa-camera"></i></span>
                                 </label>
                                 <input type="file" id="signupPhoto" accept="image/*" />
+                                <div class="photo-actions">
+                                    <button type="button" class="photo-pick-btn" id="photoPickBtn" onclick="document.getElementById('signupPhoto').click()">
+                                        <i class="fas fa-image"></i> <span>Choose photo</span>
+                                    </button>
+                                    <button type="button" class="photo-clear-btn" id="photoClearBtn" onclick="clearSignupPhoto()" hidden>
+                                        <i class="fas fa-rotate-left"></i> Remove
+                                    </button>
+                                </div>
+                                <div class="photo-progress" id="signupPhotoProgress" hidden>
+                                    <div class="photo-progress-head">
+                                        <span><i class="fas fa-cloud-arrow-up"></i> Uploading photo</span>
+                                        <span id="signupPhotoProgressText">0%</span>
+                                    </div>
+                                    <div id="signupPhotoProgressBar" role="progressbar" aria-label="Profile photo upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="signupPhotoProgressFill"></span></div>
+                                </div>
                                 <div class="avatar-hint required-hint" id="avatarHint">
                                     <i class="fas fa-exclamation-circle"></i> Profile picture is required
                                 </div>
@@ -1735,13 +2240,23 @@ button, input, select, textarea { font: inherit; color: inherit; }
                                     <span>Please upload a profile picture to continue.</span>
                                 </div>
                             </div>
-                            <div class="panel-col" style="color: var(--theme-text-muted); font-size: 13px; line-height: 1.6;">
-                                <p style="margin-bottom: 10px;"><strong style="color: var(--theme-text);">Why a photo?</strong></p>
-                                <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
-                                    <li><i class="fas fa-check-circle" style="color: var(--theme-success); margin-right: 6px;"></i> Helps the squad recognize you in chats</li>
-                                    <li><i class="fas fa-check-circle" style="color: var(--theme-success); margin-right: 6px;"></i> Shown on your member card and profile</li>
-                                    <li><i class="fas fa-check-circle" style="color: var(--theme-success); margin-right: 6px;"></i> Can be changed anytime later</li>
+                            <div class="panel-col photo-benefits">
+                                <p class="benefits-title">Why add a photo?</p>
+                                <ul>
+                                    <li>
+                                        <span class="benefit-ico"><i class="fas fa-comments"></i></span>
+                                        <div><b>Recognized in chats</b><small>Your face shows next to every message and mention.</small></div>
+                                    </li>
+                                    <li>
+                                        <span class="benefit-ico"><i class="fas fa-id-badge"></i></span>
+                                        <div><b>Your member card</b><small>It appears on your profile and in the squad list.</small></div>
+                                    </li>
+                                    <li>
+                                        <span class="benefit-ico"><i class="fas fa-arrows-rotate"></i></span>
+                                        <div><b>Change it anytime</b><small>You can replace it later from your profile.</small></div>
+                                    </li>
                                 </ul>
+                                <div class="photo-tip"><i class="fas fa-circle-info"></i> Square photos work best — you can crop it right here.</div>
                             </div>
                         </div>
                     </div>
@@ -2124,22 +2639,41 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
             const overlay = document.getElementById('themePreviewOverlay');
             const modal = document.getElementById('signupModal');
-            const container = document.querySelector('.container');
             const bgBase = document.querySelector('.theme-bg-base');
             const bgShapes = document.querySelector('.theme-bg-shapes');
             const bgOverlay = document.querySelector('.theme-bg-overlay');
 
-            if (overlay) overlay.classList.add('active');
+            // The preview used to hide `.container`, which does not exist on this
+            // page — so the header and the login card stayed painted over the
+            // theme. A body class now clears every piece of page chrome.
+            document.body.classList.add('tw-previewing');
+            document.body.style.overflow = 'hidden';
 
-            // Hide everything except background layers and the preview overlay
+            if (overlay) {
+                overlay.classList.add('active');
+                overlay.setAttribute('aria-hidden', 'false');
+            }
             if (modal) modal.style.display = 'none';
-            if (container) container.style.display = 'none';
 
-            // Make sure the background layers are fully visible (they already are,
-            // but we ensure no stacking issues by bringing them forward)
+            // Bring the background scene in front of the (now hidden) page.
             if (bgBase) bgBase.style.zIndex = '1';
             if (bgShapes) bgShapes.style.zIndex = '2';
             if (bgOverlay) bgOverlay.style.zIndex = '3';
+
+            const preset = (window.THEMES && window.THEMES[selectedTheme.preset]) || null;
+            const nameEl = document.getElementById('previewThemeName');
+            const modeEl = document.getElementById('previewThemeMode');
+            const dotEl = document.getElementById('previewThemeDot');
+            if (nameEl) {
+                nameEl.textContent = preset
+                    ? ((preset.emoji ? preset.emoji + ' ' : '') + (preset.name || selectedTheme.preset))
+                    : (selectedTheme.preset || 'Theme');
+            }
+            if (modeEl) modeEl.textContent = selectedTheme.mode === 'dark' ? 'Dark' : 'Light';
+            if (dotEl) dotEl.style.background = (preset && preset.preview && preset.preview.gradient) || 'var(--theme-gradient)';
+
+            const backBtn = overlay && overlay.querySelector('.preview-back-btn');
+            if (backBtn) backBtn.focus({ preventScroll: true });
         }
 
         function closeThemePreview() {
@@ -2147,16 +2681,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
             const overlay = document.getElementById('themePreviewOverlay');
             const modal = document.getElementById('signupModal');
-            const container = document.querySelector('.container');
             const bgBase = document.querySelector('.theme-bg-base');
             const bgShapes = document.querySelector('.theme-bg-shapes');
             const bgOverlay = document.querySelector('.theme-bg-overlay');
 
-            if (overlay) overlay.classList.remove('active');
+            document.body.classList.remove('tw-previewing');
+
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
 
             // Restore visibility
-            if (modal && modal.classList.contains('active')) modal.style.display = '';
-            if (container) container.style.display = '';
+            if (modal && modal.classList.contains('active')) {
+                modal.style.display = '';
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
 
             // Reset z-indexes to original values
             if (bgBase) bgBase.style.zIndex = '';
@@ -2654,8 +3196,34 @@ button, input, select, textarea { font: inherit; color: inherit; }
             });
         }
 
+        function clearSignupPhoto() {
+            selectedAvatarFile = null;
+            const input = document.getElementById('signupPhoto');
+            if (input) input.value = '';
+            const preview = document.getElementById('avatarPreview');
+            if (preview) { preview.style.display = 'none'; preview.src = ''; }
+            const placeholder = document.getElementById('avatarPlaceholder');
+            if (placeholder) placeholder.style.display = '';
+            const clearBtn = document.getElementById('photoClearBtn');
+            if (clearBtn) clearBtn.hidden = true;
+            const pickLabel = document.querySelector('#photoPickBtn span');
+            if (pickLabel) pickLabel.textContent = 'Choose photo';
+            const progress = document.getElementById('signupPhotoProgress');
+            if (progress) { progress.hidden = true; progress.setAttribute('aria-valuenow', '0'); }
+            const fill = document.getElementById('signupPhotoProgressFill');
+            if (fill) fill.style.width = '0%';
+            const progressText = document.getElementById('signupPhotoProgressText');
+            if (progressText) progressText.textContent = '0%';
+            const hint = document.getElementById('avatarHint');
+            if (hint) {
+                hint.classList.remove('ok-hint');
+                hint.classList.add('required-hint');
+                hint.innerHTML = '<i class="fas fa-exclamation-circle"></i> Profile picture is required';
+            }
+        }
+
         document.getElementById('signupPhoto').addEventListener('change', async function(e) {
-            const file = e.target.files[0];
+            let file = e.target.files[0];
             if (!file) return;
 
             if (file.size > 10 * 1024 * 1024) {
@@ -2664,7 +3232,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
                 return;
             }
 
+            const pickLabel = document.querySelector('#photoPickBtn span');
             try {
+                // Size it against the circle it will be shown in.
+                if (window.TimawaAvatarCrop) {
+                    if (pickLabel) pickLabel.textContent = 'Adjusting…';
+                    const cropped = await window.TimawaAvatarCrop.open(file, { size: 640 });
+                    if (!cropped) { this.value = ''; if (pickLabel) pickLabel.textContent = 'Choose photo'; return; }
+                    file = cropped;
+                }
+                if (pickLabel) pickLabel.textContent = 'Optimizing…';
                 const compressed = await compressImage(file, 400, 0.7);
                 selectedAvatarFile = compressed;
 
@@ -2680,11 +3257,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
                     hint.innerHTML = '<i class="fas fa-check-circle"></i> Looking good! Profile picture selected.';
                     const section = document.getElementById('avatarSection');
                     if (section) section.classList.remove('invalid');
+                    const clearBtn = document.getElementById('photoClearBtn');
+                    if (clearBtn) clearBtn.hidden = false;
+                    if (pickLabel) pickLabel.textContent = 'Change photo';
                     hideErrorBanner();
                 };
                 reader.readAsDataURL(compressed);
             } catch (err) {
                 console.error('Compression error:', err);
+                if (pickLabel) pickLabel.textContent = 'Choose photo';
                 alert('❌ Error processing image: ' + err.message);
             }
         });
@@ -2947,7 +3528,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
         // UI FUNCTIONS
         // ================================================================
         function showSignUp() {
-            document.getElementById('signupModal').classList.add('active');
+            const signupModal = document.getElementById('signupModal');
+            signupModal.style.display = '';
+            signupModal.classList.add('active');
+            document.body.classList.remove('tw-previewing');
             document.body.style.overflow = 'hidden';
 
             currentWizardStep = 1;
@@ -2974,26 +3558,26 @@ button, input, select, textarea { font: inherit; color: inherit; }
             const modal = document.getElementById('signupModal');
             modal.classList.remove('active');
             modal.classList.remove('theme-preview-mode');
+            modal.style.display = '';
+            document.body.classList.remove('tw-previewing');
             document.body.style.overflow = 'auto';
 
             // Ensure preview overlay is hidden
             const overlay = document.getElementById('themePreviewOverlay');
-            if (overlay) overlay.classList.remove('active');
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
             isThemePreviewActive = false;
 
-            // Restore visibility in case preview was open
-            const container = document.querySelector('.container');
-            if (container) container.style.display = '';
+            // Restore the background stacking if the preview had raised it.
+            ['.theme-bg-base', '.theme-bg-shapes', '.theme-bg-overlay'].forEach(sel => {
+                const el = document.querySelector(sel);
+                if (el) el.style.zIndex = '';
+            });
 
             document.getElementById('signupForm').reset();
-            selectedAvatarFile = null;
-            document.getElementById('avatarPreview').style.display = 'none';
-            document.getElementById('avatarPreview').src = '';
-            document.getElementById('avatarPlaceholder').style.display = 'block';
-            const hint = document.getElementById('avatarHint');
-            hint.classList.remove('ok-hint');
-            hint.classList.add('required-hint');
-            hint.innerHTML = '<i class="fas fa-exclamation-circle"></i> Profile picture is required';
+            clearSignupPhoto();
             document.getElementById('customLocationInput').classList.remove('active');
 
             const verifInput = document.getElementById('signupVerification');
@@ -3098,6 +3682,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
             renderSignupThemeGrid();
         });
     </script>
+
+    <!-- ═══ Shared avatar cropper (circular preview before upload) ═══ -->
+    <script src="avatar-crop.js?v=1.0.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
