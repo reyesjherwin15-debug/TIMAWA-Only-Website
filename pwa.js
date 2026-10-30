@@ -430,6 +430,9 @@
        Pass force=true to show it outside that schedule (profile / debug). */
     function maybeShowPushNudge(user, force) {
         if (!configured()) return false;
+        // Pages without notification settings (Admin Profile) opt out of the
+        // automatic prompt; a forced call from the profile page still works.
+        if (!force && window.TIMAWA_NO_PUSH_NUDGE) return false;
         if (!force && !user) return false;
         const card = document.getElementById('pwaNotifToggle');
         if (card && !force) return false; // Profile has a persistent, non-modal opt-in card.

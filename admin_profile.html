@@ -1029,6 +1029,451 @@ personal details, socials, appearance/theme picker, then Save / Reset.
             background-position: right 16px center;
             padding-right: 40px; cursor: pointer;
         }
+        /* ===== Theme card + picker (same layout as profile.html) ===== */
+.theme-current-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px;
+            background: var(--theme-card);
+            border: 2px solid var(--theme-border-input);
+            border-radius: 18px;
+            position: relative;
+            z-index: 1;
+            flex-wrap: wrap;
+        }
+        .theme-current-swatch {
+            width: 66px;
+            height: 54px;
+            border-radius: 14px;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35), 0 8px 18px -10px rgba(0, 0, 0, .45);
+        }
+        .theme-current-swatch::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(255, 255, 255, .28), transparent 60%);
+            pointer-events: none;
+        }
+        .theme-current-info { flex: 1; min-width: 130px; }
+        .theme-current-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .9px;
+            text-transform: uppercase;
+            color: var(--theme-text-faint);
+        }
+        .theme-current-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--theme-text);
+            line-height: 1.3;
+        }
+        .theme-current-mode {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--theme-text-muted);
+        }
+        .theme-current-mode i { color: var(--theme-primary); font-size: 11px; }
+        .theme-change-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 50px;
+            border: none;
+            background: var(--theme-gradient);
+            color: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform .22s ease, box-shadow .22s ease;
+            box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--theme-primary) 90%, transparent);
+            white-space: nowrap;
+        }
+        .theme-change-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--theme-primary) 90%, transparent); }
+        .theme-change-btn:active { transform: translateY(0) scale(.98); }
+        .appearance-hint {
+            margin: 10px 2px 0;
+            font-size: 11.5px;
+            line-height: 1.5;
+            color: var(--theme-text-dim);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ---------- modal shell ---------- */
+        .theme-picker-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(8, 10, 22, .52);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity .26s ease, visibility 0s linear .26s;
+        }
+        .theme-picker-modal.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transition: opacity .26s ease, visibility 0s;
+        }
+        .theme-picker-modal.previewing { display: none; }
+
+        .theme-picker-card {
+            width: min(720px, 100%);
+            height: min(760px, 88vh);
+            display: flex;
+            flex-direction: column;
+            background: var(--theme-card);
+            color: var(--theme-text);
+            border-radius: 26px;
+            overflow: hidden;
+            border: 1px solid var(--theme-border);
+            box-shadow: 0 40px 100px -30px color-mix(in srgb, var(--theme-primary) 55%, transparent);
+            transform: translateY(22px) scale(.97);
+            opacity: .6;
+            transition: transform .34s cubic-bezier(.22, 1, .36, 1), opacity .24s ease;
+        }
+        .theme-picker-modal.active .theme-picker-card { transform: none; opacity: 1; }
+
+        .theme-picker-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 20px 16px;
+            background:
+                radial-gradient(120% 150% at 100% 0%, color-mix(in srgb, var(--theme-accent) 22%, transparent) 0%, transparent 60%),
+                linear-gradient(135deg, color-mix(in srgb, var(--theme-primary) 10%, var(--theme-card)) 0%, var(--theme-card) 100%);
+            border-bottom: 1px solid var(--theme-border);
+            flex-shrink: 0;
+        }
+        .theme-picker-head .icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 13px;
+            background: var(--theme-gradient);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--theme-primary) 90%, transparent);
+            flex-shrink: 0;
+        }
+        .theme-picker-head h3 {
+            font-size: 17px;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -.2px;
+        }
+        .theme-picker-head p {
+            margin: 2px 0 0;
+            font-size: 11.5px;
+            color: var(--theme-text-dim);
+            font-weight: 500;
+        }
+        .theme-picker-head-text { flex: 1; min-width: 0; }
+        .theme-picker-close {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid var(--theme-border);
+            background: var(--theme-bg-soft);
+            color: var(--theme-text-muted);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .22s ease;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+        .theme-picker-close:hover { background: var(--theme-primary); color: #fff; border-color: var(--theme-primary); transform: rotate(90deg); }
+
+        .theme-picker-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--theme-border);
+            background: var(--theme-card);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+        .theme-filter-chips {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            flex: 1;
+            min-width: 160px;
+            padding-bottom: 2px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .theme-filter-chips::-webkit-scrollbar { display: none; }
+        .theme-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 7px 12px;
+            border-radius: 50px;
+            border: 1.5px solid var(--theme-border-input);
+            background: var(--theme-bg-soft);
+            color: var(--theme-text-muted);
+            font-family: inherit;
+            font-size: 11.5px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all .2s ease;
+        }
+        .theme-chip:hover { border-color: var(--theme-primary); color: var(--theme-primary); }
+        .theme-chip.active { background: var(--theme-primary); border-color: var(--theme-primary); color: #fff; }
+        .theme-preview-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 20px;
+            background: var(--theme-card);
+            color: var(--theme-primary);
+            border: 2px solid var(--theme-primary);
+            border-radius: 16px;
+            font-weight: 800;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all .25s ease;
+            font-family: inherit;
+            width: 100%;
+            letter-spacing: .2px;
+            box-shadow: 0 6px 18px color-mix(in srgb, var(--theme-primary) 18%, transparent);
+            position: relative;
+            overflow: hidden;
+        }
+        .theme-preview-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--theme-gradient);
+            opacity: 0;
+            transition: opacity .25s ease;
+            z-index: 0;
+        }
+        .theme-preview-btn > * { position: relative; z-index: 1; }
+        .theme-preview-btn i { font-size: 16px; }
+        .theme-preview-btn:hover {
+            transform: translateY(-2px);
+            color: #fff;
+            box-shadow: 0 12px 28px color-mix(in srgb, var(--theme-primary) 45%, transparent);
+        }
+        .theme-preview-btn:hover::before { opacity: 1; }
+        .theme-preview-btn:active { transform: translateY(0); }
+        .theme-preview-btn.compact {
+            width: auto;
+            padding: 9px 14px;
+            font-size: 11.5px;
+            border-radius: 50px;
+            border-width: 1.5px;
+            box-shadow: none;
+            gap: 7px;
+        }
+
+        .theme-picker-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 16px 18px 20px;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+        .theme-picker-body::-webkit-scrollbar { width: 6px; }
+        .theme-picker-body::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--theme-primary) 35%, transparent); border-radius: 99px; }
+        .theme-picker-body .theme-grid {
+            grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .theme-group-label {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--theme-text-dim);
+            margin: 10px 2px 0;
+        }
+        .theme-group-label:first-child { margin-top: 0; }
+        .theme-empty {
+            grid-column: 1 / -1;
+            padding: 30px 10px;
+            text-align: center;
+            font-size: 12.5px;
+            color: var(--theme-text-dim);
+        }
+
+        .theme-picker-mode {
+            margin: 16px 0 2px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--theme-border);
+            position: relative;
+            z-index: 1;
+        }
+
+        .theme-picker-foot {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+            border-top: 1px solid var(--theme-border);
+            background: color-mix(in srgb, var(--theme-primary) 4%, var(--theme-card));
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+        .theme-picker-note {
+            flex: 1;
+            min-width: 160px;
+            font-size: 11px;
+            line-height: 1.4;
+            color: var(--theme-text-dim);
+            font-weight: 500;
+        }
+        .theme-picker-note i { color: var(--theme-primary); margin-right: 4px; }
+        .theme-picker-note b { color: var(--theme-text); }
+        .theme-picker-foot .btn-primary {
+            padding: 11px 22px;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        body.theme-picker-open { overflow: hidden; }
+
+        /* ===== FULLSCREEN THEME PREVIEW (same format as profile.html) ===== */
+        .theme-preview-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 4000;
+            background: transparent;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+        .theme-preview-overlay.active {
+            display: flex;
+            pointer-events: auto;
+        }
+        .theme-preview-overlay .preview-back-btn {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 22px;
+            background: var(--theme-card);
+            color: var(--theme-text);
+            border: 2px solid var(--theme-border-input);
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 14px;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+            transition: all .25s ease;
+            z-index: 4001;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+        }
+        .theme-preview-overlay .preview-back-btn:hover {
+            background: var(--theme-primary);
+            color: #fff;
+            border-color: var(--theme-primary);
+            transform: translateX(-4px);
+            box-shadow: 0 12px 32px color-mix(in srgb, var(--theme-primary) 40%, transparent);
+        }
+        .theme-preview-overlay .preview-back-btn i { font-size: 14px; }
+        .theme-preview-overlay .preview-label {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: color-mix(in srgb, var(--theme-card) 80%, transparent);
+            color: var(--theme-text-muted);
+            border: 1px solid var(--theme-border);
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 12px;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, .08);
+            pointer-events: none;
+        }
+        .theme-preview-overlay .preview-label i { color: var(--theme-primary); }
+        @media (max-width: 768px) {
+            .theme-preview-overlay .preview-back-btn { top: 14px; left: 14px; padding: 10px 16px; font-size: 12.5px; }
+            .theme-preview-overlay .preview-label {
+                bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+                padding: 8px 14px;
+                font-size: 11px;
+                text-align: center;
+                max-width: calc(100vw - 32px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .theme-picker-modal { padding: 0; align-items: flex-end; }
+            .theme-picker-card {
+                width: 100%;
+                height: 92dvh;
+                border-radius: 26px 26px 0 0;
+                border-bottom: none;
+                transform: translateY(100%);
+            }
+            .theme-picker-modal.active .theme-picker-card { transform: translateY(0); }
+            .theme-picker-head { padding: 16px 16px 14px; }
+            .theme-picker-head h3 { font-size: 16px; }
+            .theme-picker-toolbar { padding: 10px 14px; }
+            .theme-picker-body { padding: 14px 14px 18px; }
+            .theme-picker-body .theme-grid { grid-template-columns: repeat(3, 1fr); gap: 9px; }
+            .theme-picker-body .theme-preset { padding: 11px 6px 9px; gap: 7px; }
+            .theme-picker-body .theme-preset .preview { height: 52px; }
+            .theme-picker-body .theme-preset .preset-name { font-size: 10px; }
+            .theme-picker-body .theme-preset .preset-sub { font-size: 8px; }
+            .theme-picker-foot { padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px)); }
+            .theme-picker-foot .btn-primary { flex: 1; justify-content: center; }
+            .theme-picker-note { min-width: 100%; order: 2; text-align: center; }
+            .theme-change-btn { width: 100%; }
+        }
+
+        @media (max-width: 380px) {
+            .theme-picker-body .theme-grid { grid-template-columns: repeat(2, 1fr); }
+        }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="launch.css?v=1.1.0" />
@@ -1071,6 +1516,70 @@ personal details, socials, appearance/theme picker, then Save / Reset.
     <div class="theme-bg-base"></div>
     <div class="theme-bg-shapes" id="themeBgShapes"><!-- Injected by JS --></div>
     <div class="theme-bg-overlay"></div>
+
+    <!-- ===== ★ FULLSCREEN THEME PREVIEW OVERLAY ===== -->
+    <div class="theme-preview-overlay" id="themePreviewOverlay">
+        <button type="button" class="preview-back-btn" onclick="closeThemePreview()">
+            <i class="fas fa-arrow-left"></i> Back to themes
+        </button>
+        <div class="preview-label">
+            <i class="fas fa-expand"></i>
+            <span id="previewLabelText">Fullscreen theme preview</span>
+        </div>
+    </div>
+
+    <!-- ===== ★ THEME PICKER POPUP (same format as profile.html) ===== -->
+    <div class="theme-picker-modal" id="themePickerModal" role="dialog" aria-modal="true" aria-labelledby="themePickerTitle" aria-hidden="true">
+        <div class="theme-picker-card">
+            <div class="theme-picker-head">
+                <div class="icon"><i class="fas fa-palette"></i></div>
+                <div class="theme-picker-head-text">
+                    <h3 id="themePickerTitle">Choose your theme</h3>
+                    <p>Every scene follows your mode, on every device.</p>
+                </div>
+                <button type="button" class="theme-picker-close" onclick="closeThemePicker()" aria-label="Close theme picker">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="theme-picker-toolbar">
+                <div class="theme-filter-chips" id="themeFilterChips"></div>
+                <button type="button" class="theme-preview-btn compact" onclick="openThemePreview()">
+                    <i class="fas fa-expand"></i>
+                    <span>Preview fullscreen</span>
+                </button>
+            </div>
+
+            <div class="theme-picker-body" id="themePickerBody">
+                <div class="theme-grid" id="themeGrid"></div>
+
+                <div class="mode-row theme-picker-mode">
+                    <div class="mode-label">
+                        <i class="fas fa-circle-half-stroke"></i>
+                        <span>Mode</span>
+                    </div>
+                    <div class="mode-toggle" id="modeToggle" role="tablist">
+                        <button type="button" class="mode-btn active" data-mode="light" onclick="setThemeMode('light')">
+                            <i class="fas fa-sun"></i> Light
+                        </button>
+                        <button type="button" class="mode-btn" data-mode="dark" onclick="setThemeMode('dark')">
+                            <i class="fas fa-moon"></i> Dark
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="theme-picker-foot">
+                <div class="theme-picker-note">
+                    <i class="fas fa-circle-info"></i>
+                    Preview only — tap <b>Save Profile</b> to apply.
+                </div>
+                <button type="button" class="btn-primary" onclick="closeThemePicker()">
+                    <i class="fas fa-check"></i> Done
+                </button>
+            </div>
+        </div>
+    </div>
 
     <nav class="navbar" id="navbar">
         <a href="admin.html" class="logo">TIMAWA <span>ADMIN</span></a>
@@ -1270,21 +1779,48 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                             <p>Choose your vibe — applies to every page, on every device.</p>
                         </div>
                     </div>
-                    <div class="theme-grid" id="themeGrid"></div>
-                    <div class="mode-row">
-                        <div class="mode-label">
-                            <i class="fas fa-circle-half-stroke"></i>
-                            <span>Mode</span>
+
+                    <div class="theme-current-card">
+                        <div class="theme-current-swatch" id="themeCurrentSwatch"></div>
+                        <div class="theme-current-info">
+                            <div class="theme-current-label">Current theme</div>
+                            <div class="theme-current-name" id="themeCurrentName">Ocean</div>
+                            <div class="theme-current-mode" id="themeCurrentMode"><i class="fas fa-sun"></i> Light mode</div>
                         </div>
-                        <div class="mode-toggle" id="modeToggle" role="tablist">
-                            <button type="button" class="mode-btn active" data-mode="light" onclick="setThemeMode('light')">
-                                <i class="fas fa-sun"></i> Light
-                            </button>
-                            <button type="button" class="mode-btn" data-mode="dark" onclick="setThemeMode('dark')">
-                                <i class="fas fa-moon"></i> Dark
-                            </button>
+                        <button type="button" class="theme-change-btn" onclick="openThemePicker()">
+                            <i class="fas fa-palette"></i> Change Theme
+                        </button>
+                    </div>
+                    <p class="appearance-hint">
+                        <i class="fas fa-circle-info"></i>
+                        Pick a theme in the popup and preview it fullscreen. Changes apply when you tap <b>Save Profile</b>.
+                    </p>
+                </div>
+
+                <!-- ===== GET THE APP (same install card as profile.html) ===== -->
+                <div class="appearance-section" id="installAppSection">
+                    <div class="appearance-header">
+                        <div class="icon-wrap"><i class="fas fa-mobile-screen-button"></i></div>
+                        <div class="title-block">
+                            <h3>Get the app</h3>
+                            <p>Install TIMAWA to your home screen — full screen, offline.</p>
                         </div>
                     </div>
+
+                    <div class="pwa-notif-body">
+                        <div class="pwa-notif-state">
+                            <span class="pwa-dot" id="pwaInstallDot" data-tone="off"></span>
+                            <span id="pwaInstallStatus">Checking…</span>
+                        </div>
+                        <button type="button" class="theme-change-btn" id="pwaInstallBtn" data-mode="install">
+                            <i class="fas fa-download"></i> <span id="pwaInstallLabel">Install TIMAWA</span>
+                        </button>
+                    </div>
+
+                    <p class="appearance-hint" id="pwaInstallHint">
+                        <i class="fas fa-circle-info"></i>
+                        On iPhone: Share → Add to Home Screen. On Android: tap Install.
+                    </p>
                 </div>
 
                 <div id="adminPhotoUploadProgress" hidden role="progressbar" aria-label="Profile photo upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="margin:0 0 14px;">
@@ -2322,27 +2858,75 @@ personal details, socials, appearance/theme picker, then Save / Reset.
         // ===== THEME UI SYNC (shared theme system) =====
         // ================================================================
         let selectedTheme = { ...DEFAULT_THEME };
+        let themeFilter = 'all';
+
+        function themeGroupsForUi() {
+            const groups = [];
+            const seen = {};
+            const metas = Array.isArray(window.THEME_GROUPS) ? window.THEME_GROUPS : [];
+            metas.forEach(g => {
+                const keys = (g.keys || []).filter(k => THEMES[k]);
+                if (!keys.length) return;
+                keys.forEach(k => { seen[k] = true; });
+                groups.push({ id: g.id, label: g.label, emoji: g.emoji || '', keys });
+            });
+            const rest = Object.keys(THEMES).filter(k => !seen[k]);
+            if (rest.length) groups.push({ id: 'more', label: 'More themes', emoji: '✨', keys: rest });
+            return groups;
+        }
+
+        function renderThemeFilterChips(groups) {
+            const box = document.getElementById('themeFilterChips');
+            if (!box) return;
+            const chips = [{ id: 'all', label: 'All', emoji: '🎨' }].concat(groups.map(g => ({ id: g.id, label: g.label, emoji: g.emoji })));
+            box.innerHTML = chips.map(c => `
+                <button type="button" class="theme-chip ${themeFilter === c.id ? 'active' : ''}" onclick="setThemeFilter('${c.id}')">
+                    <span aria-hidden="true">${c.emoji}</span>${c.label}
+                </button>
+            `).join('');
+        }
+
+        function setThemeFilter(id) {
+            themeFilter = id || 'all';
+            renderThemeGrid();
+            const body = document.getElementById('themePickerBody');
+            if (body) body.scrollTop = 0;
+        }
 
         function renderThemeGrid() {
             const grid = document.getElementById('themeGrid');
             if (!grid) return;
+
+            const groups = themeGroupsForUi();
+            renderThemeFilterChips(groups);
+
             let html = '';
-            Object.keys(THEMES).forEach(key => {
-                const theme = THEMES[key];
-                const isActive = key === (selectedTheme && selectedTheme.preset);
-                html += `
-                    <button type="button"
-                            class="theme-preset ${isActive ? 'active' : ''}"
-                            data-theme="${key}"
-                            onclick="selectThemePreset('${key}')"
-                            title="${theme.name} — ${theme.sub || ''}">
-                        <div class="preview" style="background: ${theme.preview.gradient};"></div>
-                        <div class="preset-name">${theme.emoji || ''} ${theme.name}</div>
-                        ${theme.sub ? `<div class="preset-sub">${theme.sub}</div>` : ''}
-                    </button>
-                `;
+            groups.forEach(group => {
+                if (themeFilter !== 'all' && themeFilter !== group.id) return;
+
+                const keys = group.keys;
+                if (!keys.length) return;
+
+                html += `<div class="theme-group-label"><span aria-hidden="true">${group.emoji}</span>${group.label}</div>`;
+                keys.forEach(key => {
+                    const theme = THEMES[key];
+                    const isActive = key === (selectedTheme && selectedTheme.preset);
+                    html += `
+                        <button type="button"
+                                class="theme-preset ${isActive ? 'active' : ''}"
+                                data-theme="${key}"
+                                data-group="${group.id}"
+                                onclick="selectThemePreset('${key}')"
+                                title="${theme.name} — ${theme.sub || ''}">
+                            <div class="preview" style="background: ${theme.preview.gradient};"></div>
+                            <div class="preset-name">${theme.emoji || ''} ${theme.name}</div>
+                            ${theme.sub ? `<div class="preset-sub">${theme.sub}</div>` : ''}
+                        </button>
+                    `;
+                });
             });
-            grid.innerHTML = html;
+
+            grid.innerHTML = html || '<div class="theme-empty">No themes in this group yet.</div>';
         }
 
         function syncThemeModeToggle() {
@@ -2352,20 +2936,49 @@ personal details, socials, appearance/theme picker, then Save / Reset.
             });
         }
 
+        function syncThemeSummary() {
+            const theme = THEMES[selectedTheme.preset] || THEMES[DEFAULT_THEME.preset];
+            const swatch = document.getElementById('themeCurrentSwatch');
+            if (swatch) swatch.style.background = theme.preview.gradient;
+
+            const nameEl = document.getElementById('themeCurrentName');
+            if (nameEl) nameEl.textContent = `${theme.emoji || ''} ${theme.name}`.trim();
+
+            const modeEl = document.getElementById('themeCurrentMode');
+            if (modeEl) {
+                modeEl.innerHTML = selectedTheme.mode === 'dark'
+                    ? '<i class="fas fa-moon"></i> Dark mode'
+                    : '<i class="fas fa-sun"></i> Light mode';
+            }
+        }
+
         function syncThemeUI() {
             if (!selectedTheme || !THEMES[selectedTheme.preset]) {
                 selectedTheme = readThemeFromStorage() || { ...DEFAULT_THEME };
             }
             renderThemeGrid();
             syncThemeModeToggle();
+            syncThemeSummary();
         }
 
         function selectThemePreset(key) {
             if (!THEMES[key]) return;
             selectedTheme.preset = key;
+
+            // Keep the popup where the admin was — rebuilding the grid would jump to the top.
+            const body = document.getElementById('themePickerBody');
+            const keepScroll = body ? body.scrollTop : 0;
+
+            // Preview only — nothing is persisted until Save Profile.
             applyTheme(selectedTheme);
             syncThemeUI();
-            showToast(`Preview: ${THEMES[key].name} — click Save Profile to apply`, 'info', 2000);
+
+            if (body) {
+                body.style.scrollBehavior = 'auto';
+                body.scrollTop = keepScroll;
+                body.style.scrollBehavior = '';
+            }
+            showToast(`Preview: ${THEMES[key].name} — tap Save Profile to apply`, 'info', 2000);
         }
 
         function setThemeMode(mode) {
@@ -2373,7 +2986,132 @@ personal details, socials, appearance/theme picker, then Save / Reset.
             selectedTheme.mode = mode;
             applyTheme(selectedTheme);
             syncThemeModeToggle();
-            showToast(`Preview: ${mode} mode — click Save Profile to apply`, 'info', 1500);
+            syncThemeSummary();
+            showToast(`Preview: ${mode} mode — tap Save Profile to apply`, 'info', 1500);
+        }
+
+        // ================================================================
+        // ===== ★ CHANGE THEME POPUP (same flow as profile.html) =====
+        // ================================================================
+        function openThemePicker() {
+            const modal = document.getElementById('themePickerModal');
+            if (!modal) return;
+
+            themeFilter = 'all';
+            renderThemeGrid();
+            syncThemeModeToggle();
+            syncThemeSummary();
+
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('theme-picker-open');
+            document.body.style.overflow = 'hidden';
+
+            setTimeout(() => scrollThemePickerToActive('auto'), 80);
+        }
+
+        function closeThemePicker() {
+            const modal = document.getElementById('themePickerModal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('theme-picker-open');
+            if (!anyModalOpen()) document.body.style.overflow = '';
+        }
+
+        function scrollThemePickerToActive(behavior) {
+            const body = document.getElementById('themePickerBody');
+            const grid = document.getElementById('themeGrid');
+            if (!body || !grid) return;
+
+            const active = grid.querySelector('.theme-preset.active') || grid.querySelector('.theme-preset');
+            if (!active) return;
+
+            const bodyRect = body.getBoundingClientRect();
+            const activeRect = active.getBoundingClientRect();
+            const target = body.scrollTop + (activeRect.top - bodyRect.top) - (body.clientHeight - activeRect.height) / 2;
+
+            body.scrollTo({ top: Math.max(0, target), behavior: behavior || 'smooth' });
+        }
+
+        // ================================================================
+        // ===== ★ FULLSCREEN THEME PREVIEW (same flow as profile.html) =====
+        // ================================================================
+        let isThemePreviewActive = false;
+
+        function openThemePreview() {
+            applyTheme(selectedTheme);
+            isThemePreviewActive = true;
+
+            const overlay = document.getElementById('themePreviewOverlay');
+            const labelText = document.getElementById('previewLabelText');
+            const navbar = document.getElementById('navbar');
+            const main = document.querySelector('.main-container');
+            const footer = document.querySelector('.footer');
+            const bgBase = document.querySelector('.theme-bg-base');
+            const bgShapes = document.querySelector('.theme-bg-shapes');
+            const bgOverlay = document.querySelector('.theme-bg-overlay');
+            const picker = document.getElementById('themePickerModal');
+
+            if (labelText) {
+                const themeName = THEMES[selectedTheme.preset]?.name || 'Theme';
+                const modeLabel = selectedTheme.mode === 'dark' ? 'Dark' : 'Light';
+                labelText.textContent = `${themeName} · ${modeLabel} — fullscreen preview`;
+            }
+
+            // Hide the picker (not close it) — we come back to it on exit.
+            if (picker) picker.classList.add('previewing');
+            if (overlay) overlay.classList.add('active');
+
+            // Hide all page chrome so the background layers are fully visible.
+            if (navbar) navbar.style.display = 'none';
+            if (main) main.style.display = 'none';
+            if (footer) footer.style.display = 'none';
+
+            // Bring background layers above the page, below the preview controls.
+            if (bgBase) bgBase.style.zIndex = '1';
+            if (bgShapes) bgShapes.style.zIndex = '2';
+            if (bgOverlay) bgOverlay.style.zIndex = '3';
+
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeThemePreview() {
+            isThemePreviewActive = false;
+
+            const overlay = document.getElementById('themePreviewOverlay');
+            const navbar = document.getElementById('navbar');
+            const main = document.querySelector('.main-container');
+            const footer = document.querySelector('.footer');
+            const bgBase = document.querySelector('.theme-bg-base');
+            const bgShapes = document.querySelector('.theme-bg-shapes');
+            const bgOverlay = document.querySelector('.theme-bg-overlay');
+            const picker = document.getElementById('themePickerModal');
+
+            if (overlay) overlay.classList.remove('active');
+
+            // Restore page chrome.
+            if (navbar) navbar.style.display = '';
+            if (main) main.style.display = '';
+            if (footer) footer.style.display = '';
+
+            // Reset z-indexes to their stylesheet values.
+            if (bgBase) bgBase.style.zIndex = '';
+            if (bgShapes) bgShapes.style.zIndex = '';
+            if (bgOverlay) bgOverlay.style.zIndex = '';
+
+            // ★ Back to the theme popup, scrolled to the last picked theme.
+            if (picker) {
+                picker.classList.remove('previewing');
+                if (picker.classList.contains('active')) {
+                    document.body.style.overflow = 'hidden';
+                    setTimeout(() => scrollThemePickerToActive('smooth'), 120);
+                } else {
+                    openThemePicker();
+                }
+            } else if (!anyModalOpen()) {
+                document.body.style.overflow = '';
+            }
         }
 
         // ===== AUTH STATE =====
@@ -2805,6 +3543,15 @@ personal details, socials, appearance/theme picker, then Save / Reset.
             if (event.target === confirmDialog) {
                 closeConfirmDialog();
             }
+            const themePreview = document.getElementById('themePreviewOverlay');
+            if (event.target === themePreview) {
+                closeThemePreview();
+            }
+
+            const themePicker = document.getElementById('themePickerModal');
+            if (event.target === themePicker) {
+                closeThemePicker();
+            }
 
             if (announcementPopup && announcementPopup.classList.contains('open')) {
                 if (!announcementPopup.contains(event.target) &&
@@ -2828,6 +3575,14 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                     closeAnnouncementView();
                 } else if (popup && popup.classList.contains('open')) {
                     closeAnnouncementPopup();
+                } else {
+                    const previewOverlay = document.getElementById('themePreviewOverlay');
+                    if (previewOverlay && previewOverlay.classList.contains('active')) {
+                        closeThemePreview();
+                        return;
+                    }
+                    const picker = document.getElementById('themePickerModal');
+                    if (picker && picker.classList.contains('active')) closeThemePicker();
                 }
             }
         });
@@ -2868,6 +3623,8 @@ personal details, socials, appearance/theme picker, then Save / Reset.
     <script src="push-config.js"></script>
     <script src="avatar-crop.js?v=1.0.0" defer></script>
     <script src="presence.js?v=1.0.0" defer></script>
+    <!-- Admin Profile has no notification settings: keep the global push nudge off this page. -->
+    <script>window.TIMAWA_NO_PUSH_NUDGE = true;</script>
     <script src="pwa.js?v=1.5.12" defer></script>
 </body>
 </html>
