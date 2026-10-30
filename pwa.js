@@ -58,6 +58,21 @@
     // only appear once the site runs as a home-screen web app.
     const IS_IOS_TAB = IS_IOS && !IS_STANDALONE;
 
+    /* ------------------------------------------------------------------ */
+    /* Last page — cold-launch memory                                      */
+    /* ------------------------------------------------------------------ */
+    // Every page records itself here. index.html reads it on a cold app
+    // launch and, for a signed-in admin, reopens the Admin Panel instead of
+    // the landing page. index.html owns its own entry (it has to check the
+    // member's admin flag first), so this tracker skips the landing page.
+    const LAST_PAGE_KEY = 'timawa.lastPage';
+    try {
+        const file = (window.location.pathname.split('/').pop() || 'index.html').toLowerCase();
+        if (file && file !== 'index.html' && file !== 'offline.html') {
+            localStorage.setItem(LAST_PAGE_KEY, file);
+        }
+    } catch (_) { /* private mode / storage full */ }
+
     let registration = null;
     let installPromptEvent = null;
     let bannerTimer = null;

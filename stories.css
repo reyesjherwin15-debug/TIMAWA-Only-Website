@@ -343,6 +343,20 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 .st-vn b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-vn small { font-size: 12px; opacity: .7; }
 .st-vempty { padding: 18px 4px; font-size: 13px; opacity: .75; text-align: center; }
+/* Section labels in the viewer sheet: Reacted first, then Viewed (Instagram). */
+.st-vsep {
+    position: sticky; top: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 8px -14px 4px; padding: 8px 14px 7px;
+    font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    color: rgba(255, 255, 255, .58);
+    background: rgba(18, 18, 26, .97);
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+.st-vsep:first-child { margin-top: 0; }
+.st-vsep b { font-size: 10.5px; color: rgba(255, 255, 255, .84); }
+.st-vsep.reacted { color: rgba(255, 255, 255, .74); }
+.st-vnote { padding: 10px 2px 4px; font-size: 12px; line-height: 1.4; color: rgba(255, 255, 255, .5); }
 @keyframes stUp { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 @media (max-height: 560px) {

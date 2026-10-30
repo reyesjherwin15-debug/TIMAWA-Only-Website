@@ -2418,11 +2418,27 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                 document.getElementById('email').value = user.email || '';
                 await loadProfile();
 
-                // Load theme from profile if saved
-                if (profileData?.theme && THEMES[profileData.theme.preset]) {
+                // Load the saved theme from the SERVER, not from the 5-minute
+                // profile cache. A theme saved on another device or tab otherwise
+                // stays hidden behind the cache here, and this page ends up showing
+                // a different theme than the Admin Panel.
+                let savedTheme = profileData?.theme || null;
+                try {
+                    const snap = await db.collection('users').doc(user.uid).get({ source: 'server' });
+                    if (snap.exists) {
+                        const fresh = snap.data() || {};
+                        if (fresh.theme) savedTheme = fresh.theme;
+                        if (profileData) profileData.theme = fresh.theme || profileData.theme;
+                        if (Object.keys(fresh).length) saveCurrentUserProfileCache(user.uid, fresh);
+                    }
+                } catch (themeErr) {
+                    console.warn('Could not read the saved theme from the server:', themeErr && themeErr.message);
+                }
+
+                if (savedTheme && THEMES[savedTheme.preset]) {
                     selectedTheme = {
-                        preset: profileData.theme.preset,
-                        mode: profileData.theme.mode === 'dark' ? 'dark' : 'light'
+                        preset: savedTheme.preset,
+                        mode: savedTheme.mode === 'dark' ? 'dark' : 'light'
                     };
                     applyTheme(selectedTheme);
                     persistThemeLocally(selectedTheme);

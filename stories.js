@@ -366,7 +366,7 @@
             if (e.target.closest('.st-vlist')) return;
             if (e.target.closest('button,input,a,iframe,.st-ui,.st-tray')) return;
             if (e.pointerType === 'mouse' && e.button !== 0) return;
-            down = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), held: false, drag: false, dy: 0 };
+            down = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), held: false, drag: false, dy: 0, up: false };
             try { fr.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
             down.timer = setTimeout(() => { if (down && !down.drag) { down.held = true; holdStart(); } }, 260);
         });
@@ -378,6 +378,16 @@
                 if (down.held) { down.held = false; endHold(); }
                 pause('drag');
             }
+            // Instagram gesture: swipe up on your own story opens the viewer
+            // section. Only vertical movement counts, so horizontal swipes and
+            // taps still navigate, and it only starts while the sheet is closed.
+            if (!down.drag && !down.up && dy < -12 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+                if (V.q.vsheet.hidden && storyIsMine()) {
+                    down.up = true;
+                    clearTimeout(down.timer);
+                    if (down.held) { down.held = false; endHold(); }
+                }
+            }
             if (down.drag) { down.dy = Math.max(0, dy); dragFrame(down.dy); }
         });
         fr.addEventListener('pointerup', e => {
@@ -385,6 +395,11 @@
             const d = down; down = null; clearTimeout(d.timer);
             try { fr.releasePointerCapture(d.id); } catch (err) { /* ignore */ }
             const dx = e.clientX - d.x, dy = e.clientY - d.y;
+            if (d.up) {
+                const v = dy / Math.max(1, performance.now() - d.t);
+                if (dy < -70 || v < -0.55) toggleViewers(true);
+                return;
+            }
             if (d.drag) { const v = d.dy / Math.max(1, performance.now() - d.t); (d.dy > 110 || v > 0.6) ? close(false, true) : springBack(); return; }
             if (d.held) { endHold(); return; }
             if (Math.abs(dx) < 14 && Math.abs(dy) < 14) {
@@ -869,19 +884,41 @@
             .set({ uid: st.me.uid, name: st.me.name, photo: st.me.photo || '', viewedAt: firebase.firestore.FieldValue.serverTimestamp() })
             .catch(err => console.warn('view not recorded:', err.code || err.message));
     }
+    // The viewer list belongs to the story owner (Instagram: swipe up on
+    // your own story, or tap the eye button, to see who watched).
+    function storyIsMine() {
+        return !!(st.me && V.story && V.story.ownerUid === st.me.uid);
+    }
+
     // Story owner: who watched it, and which emoji they reacted with (badge on the avatar, like Instagram).
     function renderViewers() {
         const q = V.q, map = new Map(), ms = x => (x && x.toMillis ? x.toMillis() : 0);
         V.views.forEach(v => { if (v.uid) map.set(v.uid, { uid: v.uid, name: v.name || 'Member', photo: v.photo || '', at: ms(v.viewedAt), emoji: '' }); });
         V.reactions.forEach(r => {
-            const e = map.get(r.uid) || { uid: r.uid, name: r.name || 'Member', photo: r.photo || '', at: ms(r.createdAt), emoji: '' };
-            e.emoji = r.emoji; if (!e.photo && r.photo) e.photo = r.photo; map.set(r.uid, e);
+            const e = map.get(r.uid) || { uid: r.uid, name: r.name || 'Member', photo: r.photo || '', at: 0, emoji: '' };
+            e.emoji = r.emoji; if (!e.photo && r.photo) e.photo = r.photo;
+            e.at = Math.max(e.at, ms(r.createdAt));   // latest activity sorts first
+            map.set(r.uid, e);
         });
         if (st.me) map.delete(st.me.uid);
         const list = [...map.values()].sort((a, b) => b.at - a.at);
         q.vc.textContent = String(list.length); q.vl.textContent = list.length === 1 ? 'viewer' : 'viewers';
-        q.vlist.innerHTML = list.length ? list.map(v => `<li class="st-vi"><span class="st-vav"><span class="st-av">${avatarHtml(v.name, v.photo, 80)}</span>${v.emoji ? `<em class="st-vemo" aria-label="Reacted ${S.esc(v.emoji)}">${S.esc(v.emoji)}</em>` : ''}</span>
-            <div class="st-vn"><b>${S.esc(v.name)}</b><small>${v.at ? S.timeAgo(v.at) + ' ago' : 'viewed'}${v.emoji ? ' · reacted' : ''}</small></div></li>`).join('')
+
+        const row = v => `<li class="st-vi"><span class="st-vav"><span class="st-av">${avatarHtml(v.name, v.photo, 80)}</span>${v.emoji ? `<em class="st-vemo" aria-label="Reacted ${S.esc(v.emoji)}">${S.esc(v.emoji)}</em>` : ''}</span>
+            <div class="st-vn"><b>${S.esc(v.name)}</b><small>${v.at ? S.timeAgo(v.at) + ' ago' : 'viewed'}${v.emoji ? ' · reacted' : ''}</small></div></li>`;
+        const section = (label, items, key) => items.length
+            ? `<li class="st-vsep ${key}" role="presentation"><span>${label}</span><b>${items.length}</b></li>${items.map(row).join('')}`
+            : '';
+
+        // Split like Instagram: members who reacted first, then everyone who
+        // only watched. A member can appear in one group only.
+        const reacted = list.filter(v => v.emoji);
+        const viewerOnly = list.filter(v => !v.emoji);
+        const noReactions = '<li class="st-vnote" role="presentation">No reactions yet — everyone below just viewed.</li>';
+
+        q.vlist.innerHTML = list.length
+            ? (reacted.length ? section('Reacted', reacted, 'reacted') : noReactions) +
+              section('Viewed', viewerOnly, 'viewed')
             : '<li class="st-vempty">No views yet. Check back soon.</li>';
     }
     function toggleViewers(force) {
