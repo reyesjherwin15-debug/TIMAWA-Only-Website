@@ -72,6 +72,12 @@
 
             injectStyle();
 
+            // saveLabel turns the primary button into "Save photo": the caller gets
+            // { file, save: true } so it can persist straight from the cropper
+            // instead of making the member scroll to the form's Save button.
+            var saveMode = !!options.saveLabel;
+            var primaryLabel = options.saveLabel || 'Use photo';
+
             var backdrop = document.createElement('div');
             backdrop.className = 'twc-backdrop';
             backdrop.setAttribute('role', 'dialog');
@@ -96,7 +102,7 @@
                 +     '<i class="fas fa-search-plus" aria-hidden="true"></i></div>'
                 +   '<div class="twc-actions">'
                 +     '<button type="button" class="twc-btn ghost" data-act="cancel">Cancel</button>'
-                +     '<button type="button" class="twc-btn primary" data-act="use">Use photo</button>'
+                +     '<button type="button" class="twc-btn primary" data-act="use">' + primaryLabel + '</button>'
                 +   '</div>'
                 + '</div>';
 
@@ -119,6 +125,7 @@
             var startX = 0, startY = 0, startOffX = 0, startOffY = 0;
             var pinchStart = 0, pinchZoom = 1;
             var done = false;
+            var saveIntent = false;
 
             function measure() {
                 stageSize = Math.max(120, Math.round(stage.clientWidth || 300));
@@ -167,7 +174,7 @@
                 document.removeEventListener('keydown', onKey, true);
                 backdrop.classList.remove('twc-in');
                 setTimeout(function () { backdrop.remove(); }, 220);
-                resolve(result);
+                resolve(result && saveIntent ? { file: result, save: true } : result);
             }
 
             function onKey(e) {
@@ -219,6 +226,7 @@
 
             useBtn.addEventListener('click', function () {
                 if (!useBtn || done) return;
+                saveIntent = saveMode;
                 useBtn.disabled = true;
                 var size = Math.max(128, Math.min(1024, Number(options.size) || 512));
                 var out = document.createElement('canvas');

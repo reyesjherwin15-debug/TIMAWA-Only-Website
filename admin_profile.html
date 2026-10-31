@@ -68,6 +68,14 @@ personal details, socials, appearance/theme picker, then Save / Reset.
         } catch (e) { /* ignore */ }
     })();
     </script>
+    <!-- The launch screen may not paint before the member's theme is on <html>.
+         Kept inline here, not in launch.css, so a stale or truncated stylesheet
+         download can never bring back the default-theme flash. theme.js adds
+         .t-themed the instant it paints; pwa.js adds it as a safety net. -->
+    <style id="tSplashGate">
+        html:not(.t-themed) .loading-overlay.t-splash.active { opacity: 0 !important; pointer-events: none !important; }
+        html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
+    </style>
     <link rel="stylesheet" href="theme.css?v=1.9.4" />
     <script src="theme.js?v=1.9.9"></script>
 
@@ -1492,7 +1500,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
         }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="launch.css?v=1.9.6" />
+    <link rel="stylesheet" href="launch.css?v=1.9.7" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
@@ -3653,7 +3661,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="avatar-crop.js?v=1.0.0" defer></script>
+    <script src="avatar-crop.js?v=1.1.0" defer></script>
     <script src="presence.js?v=1.0.0" defer></script>
     <!-- Admin Profile has no notification settings: keep the global push nudge off this page. -->
     <script>window.TIMAWA_NO_PUSH_NUDGE = true;</script>

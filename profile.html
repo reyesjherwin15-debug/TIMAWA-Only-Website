@@ -67,6 +67,14 @@
         } catch (e) { /* ignore */ }
     })();
     </script>
+    <!-- The launch screen may not paint before the member's theme is on <html>.
+         Kept inline here, not in launch.css, so a stale or truncated stylesheet
+         download can never bring back the default-theme flash. theme.js adds
+         .t-themed the instant it paints; pwa.js adds it as a safety net. -->
+    <style id="tSplashGate">
+        html:not(.t-themed) .loading-overlay.t-splash.active { opacity: 0 !important; pointer-events: none !important; }
+        html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
+    </style>
     <link rel="stylesheet" href="theme.css?v=1.9.4" />
     <script src="theme.js?v=1.9.9"></script>
 
@@ -1773,7 +1781,7 @@
         }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="launch.css?v=1.9.6" />
+    <link rel="stylesheet" href="launch.css?v=1.9.7" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
@@ -3365,6 +3373,23 @@
             badge.style.display = 'inline-flex';
         }
 
+        /* The cropper's primary button is "Save photo": it persists the new
+           avatar right away, so the member never has to scroll to the bottom
+           of the form to press Save. It reuses the form's own submit path so
+           the upload, Firestore write and Cloudinary cleanup stay in one place. */
+        function savePhotoNow() {
+            const form = document.getElementById('profileForm');
+            if (!form) return;
+            if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+                showToast('Fill in the highlighted field first, then save your photo.', 'warn', 3500);
+                if (typeof form.reportValidity === 'function') form.reportValidity();
+                return;
+            }
+            showToast('Saving your new photo…', 'info', 1800);
+            if (typeof form.requestSubmit === 'function') form.requestSubmit();
+            else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+
         async function handlePhotoUpload(e) {
             let file = e.target.files[0];
             if (!file) return;
@@ -3373,10 +3398,12 @@
                 return;
             }
             // Size it against the circle it will live in, not a blind square crop.
+            let saveNow = false;
             if (window.TimawaAvatarCrop) {
-                const picked = await window.TimawaAvatarCrop.open(file, { size: 640 });
+                const picked = await window.TimawaAvatarCrop.open(file, { size: 640, saveLabel: 'Save photo' });
                 if (!picked) { e.target.value = ''; return; }
-                file = picked;
+                saveNow = !!(picked && picked.save);
+                file = picked.file || picked;
             }
             showMessage('📸 Compressing image...', 'info');
             try {
@@ -3388,7 +3415,8 @@
                     avatarEl.innerHTML = `<img src="${event.target.result}" alt="Profile Photo" /><label class="photo-upload-btn-overlay"><i class="fas fa-camera"></i><input type="file" id="photoInput" accept="image/*" /></label>`;
                     document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
                     hideMessage();
-                    showToast(`Photo compressed (${Math.round(compressedFile.size / 1024)}KB). Click Save to upload.`, 'info', 3500);
+                    if (saveNow) savePhotoNow();
+                    else showToast(`Photo compressed (${Math.round(compressedFile.size / 1024)}KB). Click Save to upload.`, 'info', 3500);
                 };
                 reader.readAsDataURL(compressedFile);
             } catch (error) {
@@ -3985,7 +4013,7 @@
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
-    <script src="avatar-crop.js?v=1.0.0" defer></script>
+    <script src="avatar-crop.js?v=1.1.0" defer></script>
     <script src="presence.js?v=1.0.0" defer></script>
     <script src="pwa.js?v=1.5.13" defer></script>
 </body>
