@@ -68,7 +68,7 @@
     })();
     </script>
     <link rel="stylesheet" href="theme.css?v=1.9.4" />
-    <script src="theme.js?v=1.9.4"></script>
+    <script src="theme.js?v=1.9.6"></script>
 
     <style>
         :root {
@@ -2335,6 +2335,12 @@
         const CLOUDINARY_CONFIG = { cloudName: "ooq99nlw", uploadPreset: "t-imawa" };
         const USER_PROFILE_CACHE_TTL = 5 * 60 * 1000;
 
+        // The theme this page is showing. Seeded from the cached profile theme
+        // (which theme.js has already painted) so every later call — the boot,
+        // the Firestore read, the picker — works from the member's own choice
+        // instead of the default palette.
+        var selectedTheme = window.readThemeFromStorage() || { ...DEFAULT_THEME };
+
         let selectedFile = null;
         let currentUser = null;
         let profileData = null;
@@ -3309,7 +3315,12 @@
                                 preset: profileData.theme.preset,
                                 mode: normalizeThemeMode(profileData.theme.mode)
                             };
-                        } else selectedTheme = { ...DEFAULT_THEME };
+                        }
+                        // No theme on the document: keep the cached one rather than
+                        // dropping the member back to the default palette.
+                        else if (!selectedTheme || !THEMES[selectedTheme.preset]) {
+                            selectedTheme = readThemeFromStorage() || { ...DEFAULT_THEME };
+                        }
                         applyTheme(selectedTheme);
                         syncThemeUI();
 
@@ -3944,7 +3955,11 @@
             if (cached && THEMES[cached.preset]) {
                 selectedTheme = cached;
             }
-            applyTheme(selectedTheme);
+            if (THEMES[selectedTheme.preset]) {
+                applyTheme(selectedTheme);
+            } else if (!window.paintSnapshottedPalette || !window.paintSnapshottedPalette()) {
+                applyTheme(selectedTheme);
+            }
 
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', syncThemeUI);

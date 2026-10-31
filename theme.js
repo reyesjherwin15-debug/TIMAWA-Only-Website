@@ -1204,6 +1204,13 @@
     };
 
     window.applyTheme = function (theme) {
+        // A page that calls applyTheme() before it has resolved the member's theme
+        // (or hands over an object without a preset) must not repaint the whole
+        // app in the default palette — that is what made the profile page open in
+        // ocean light and switch a moment later. Keep whatever is already painted.
+        if (!theme || typeof theme !== 'object' || !theme.preset) {
+            if (window.selectedTheme && window.selectedTheme.preset) return;
+        }
         const safeTheme = (theme && typeof theme === 'object') ? theme : {};
         const presetKey = (safeTheme.preset && window.THEMES[safeTheme.preset])
             ? safeTheme.preset
@@ -2065,6 +2072,13 @@
 
         const base = window.applyTheme;
         window.applyTheme = function (theme, opts) {
+            // Same guard as the palette painter: a page that calls applyTheme()
+            // before it knows the member's theme (or passes an object without a
+            // preset) must not reset the app to the default palette. That was the
+            // profile page opening in ocean light and switching a moment later.
+            if (!theme || typeof theme !== 'object' || !theme.preset) {
+                if (window.selectedTheme && window.selectedTheme.preset) return;
+            }
             syncThemes();
             const t = (theme && typeof theme === 'object') ? theme : {};
             let preset = t.preset;
