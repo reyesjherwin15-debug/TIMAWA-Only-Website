@@ -43,7 +43,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
-    <link rel="stylesheet" href="pwa.css?v=1.3.0" />
+    <link rel="stylesheet" href="pwa.css?v=1.4.0" />
     <link rel="stylesheet" href="presence.css?v=1.0.0" />
     <title>TIMAWA - Friend Hub</title>
 
@@ -57,8 +57,8 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.12.0" />
-    <script src="theme.js?v=1.1.0"></script>
+    <link rel="stylesheet" href="stories.css?v=1.13.0" />
+    <script src="theme.js?v=1.2.0"></script>
 
     <!-- JSZip for ZIP downloads -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -2615,7 +2615,7 @@
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.3.0" />
-    <link rel="stylesheet" href="launch.css?v=1.1.0" />
+    <link rel="stylesheet" href="launch.css?v=1.2.1" />
     <style>
         /* Keyboard-aware full-bleed sheets.
            iOS does not shrink the layout viewport for the software keyboard, so
@@ -6567,7 +6567,7 @@ function startHighlightReply(commentId, authorName) {
                 if (data && data.theme && THEMES[data.theme.preset]) {
                     const firestoreTheme = {
                         preset: data.theme.preset,
-                        mode: data.theme.mode === 'dark' ? 'dark' : 'light'
+                        mode: normalizeThemeMode(data.theme.mode)
                     };
                     applyTheme(firestoreTheme);
                     try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(firestoreTheme)); } catch (e) {}

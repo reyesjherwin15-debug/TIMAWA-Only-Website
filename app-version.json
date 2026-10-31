@@ -1,8 +1,8 @@
 {
   "_readme": "The build that is live. pwa.js compares this with the build a device last applied; they differ only when a release needs the member to update, so nothing is shown otherwise. Bump 'version' with every release that changes the icon, the launch screen or the app shell. requiresReinstall:true means the installed icon/manifest changed (phones only re-read it on an app update). announceOnFirstRun:true also prompts devices that have never stored a version — use it when members who installed before this feature existed still need the change.",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "requiresReinstall": false,
   "announceOnFirstRun": false,
-  "title": "A friendlier sign-up",
-  "message": "The sign-up wizard has a cleaner photo step with crop-and-zoom before upload, tidier fields, and a fullscreen theme preview that no longer shows the login form behind it. Tap Update now to load the new files. Nothing is deleted."
+  "title": "One theme, everywhere",
+  "message": "The theme now follows you on every page, including an Auto mode that matches your phone's light or dark setting, and the launch screen always opens in the same mode. Chats also got their own themed backdrop, and the story Layout editor rotates and snaps more smoothly. Tap Update now to load the new files. Nothing is deleted."
 }

@@ -35,7 +35,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
-    <link rel="stylesheet" href="pwa.css?v=1.3.0" />
+    <link rel="stylesheet" href="pwa.css?v=1.4.0" />
     <link rel="stylesheet" href="presence.css?v=1.0.0" />
     <title>TIMAWA - Admin Profile</title>
 
@@ -53,7 +53,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <script src="theme.js?v=1.1.0"></script>
+    <script src="theme.js?v=1.2.0"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1476,7 +1476,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
         }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="launch.css?v=1.1.0" />
+    <link rel="stylesheet" href="launch.css?v=1.2.1" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
@@ -1564,6 +1564,9 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                         </button>
                         <button type="button" class="mode-btn" data-mode="dark" onclick="setThemeMode('dark')">
                             <i class="fas fa-moon"></i> Dark
+                        </button>
+                        <button type="button" class="mode-btn" data-mode="auto" onclick="setThemeMode('auto')" title="Follow this device's light / dark setting">
+                            <i class="fas fa-circle-half-stroke"></i> Auto
                         </button>
                     </div>
                 </div>
@@ -2946,9 +2949,12 @@ personal details, socials, appearance/theme picker, then Save / Reset.
 
             const modeEl = document.getElementById('themeCurrentMode');
             if (modeEl) {
-                modeEl.innerHTML = selectedTheme.mode === 'dark'
-                    ? '<i class="fas fa-moon"></i> Dark mode'
-                    : '<i class="fas fa-sun"></i> Light mode';
+                const pref = normalizeThemeMode(selectedTheme.mode);
+                modeEl.innerHTML = pref === 'auto'
+                    ? `<i class="fas fa-circle-half-stroke"></i> Auto · ${resolveThemeMode(pref) === 'dark' ? 'Dark' : 'Light'} now`
+                    : (pref === 'dark'
+                        ? '<i class="fas fa-moon"></i> Dark mode'
+                        : '<i class="fas fa-sun"></i> Light mode');
             }
         }
 
@@ -2982,12 +2988,13 @@ personal details, socials, appearance/theme picker, then Save / Reset.
         }
 
         function setThemeMode(mode) {
-            if (mode !== 'light' && mode !== 'dark') return;
+            if (mode !== 'light' && mode !== 'dark' && mode !== 'auto') return;
             selectedTheme.mode = mode;
             applyTheme(selectedTheme);
             syncThemeModeToggle();
             syncThemeSummary();
-            showToast(`Preview: ${mode} mode — tap Save Profile to apply`, 'info', 1500);
+            const label = mode === 'auto' ? `Auto (${resolveThemeMode('auto')} right now)` : `${mode} mode`;
+            showToast(`Preview: ${label} — tap Save Profile to apply`, 'info', 1500);
         }
 
         // ================================================================
@@ -3055,7 +3062,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
 
             if (labelText) {
                 const themeName = THEMES[selectedTheme.preset]?.name || 'Theme';
-                const modeLabel = selectedTheme.mode === 'dark' ? 'Dark' : 'Light';
+                const modeLabel = selectedTheme.mode === 'dark' ? 'Dark' : (selectedTheme.mode === 'auto' ? 'Auto' : 'Light');
                 labelText.textContent = `${themeName} · ${modeLabel} — fullscreen preview`;
             }
 
@@ -3181,7 +3188,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                 if (savedTheme && THEMES[savedTheme.preset]) {
                     selectedTheme = {
                         preset: savedTheme.preset,
-                        mode: savedTheme.mode === 'dark' ? 'dark' : 'light'
+                        mode: normalizeThemeMode(savedTheme.mode)
                     };
                     applyTheme(selectedTheme);
                     persistThemeLocally(selectedTheme);
@@ -3331,7 +3338,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                         if (profileData.theme && THEMES[profileData.theme.preset]) {
                             selectedTheme = {
                                 preset: profileData.theme.preset,
-                                mode: profileData.theme.mode === 'dark' ? 'dark' : 'light'
+                                mode: normalizeThemeMode(profileData.theme.mode)
                             };
                         } else {
                             selectedTheme = { ...DEFAULT_THEME };
@@ -3613,6 +3620,15 @@ personal details, socials, appearance/theme picker, then Save / Reset.
             } else {
                 syncThemeUI();
             }
+
+            // "Auto" follows the device: keep the summary truthful when the OS
+            // flips between light and dark while this page is open.
+            try {
+                const mq = window.matchMedia('(prefers-color-scheme: dark)');
+                const onScheme = () => { if (selectedTheme && selectedTheme.mode === 'auto') syncThemeSummary(); };
+                if (mq.addEventListener) mq.addEventListener('change', onScheme);
+                else if (mq.addListener) mq.addListener(onScheme);
+            } catch (e) { /* ignore */ }
         })();
     </script>
 

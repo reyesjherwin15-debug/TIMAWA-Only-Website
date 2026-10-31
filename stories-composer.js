@@ -337,6 +337,21 @@
         });
         return best == null ? { v: v, snapped: false } : { v: best, snapped: true };
     }
+    // Rotation snaps to the four cardinal angles for every element — text,
+    // music sticker and layout photo. Landing half a degree off straight is
+    // what makes a story look sloppy, so anything within 3° locks on.
+    const ROT_SNAPS = [0, 90, -90, 180];
+    const wrapDeg = d => ((d + 180) % 360 + 360) % 360 - 180;
+    function snapDeg(v, tol) {
+        const deg = Math.round(Number(v) || 0);
+        const reach0 = tol == null ? 3 : tol;
+        let best = null, reach = reach0;
+        ROT_SNAPS.forEach(a => {
+            const d = Math.abs(wrapDeg(deg) - a);
+            if (d <= reach) { reach = d; best = a; }
+        });
+        return best == null ? S.clamp(deg, -180, 180) : best;
+    }
     function showGuides(x, y) {
         if (!q.guides) return;
         const v = q.guides.querySelector('.gv'), h = q.guides.querySelector('.gh');
@@ -606,15 +621,14 @@
         // Multi-photo stories can either keep the Instagram-style separate
         // frames or share one Layout frame (the collage mode).
         if (n >= 2 && !M.video) {
-            h += `<div class="st-lab">Story format</div><div class="st-row2">${chips([['frames', 'Separate frames'], ['layout', 'Layout']], M.format, 'format')}</div>
-                <p class="st-hint">${M.format === 'layout' ? 'All photos share one story frame, like Instagram Layout.' : 'Each photo becomes its own full-screen story frame.'}</p>`;
+            h += `<div class="st-lab">Story format</div><div class="st-row2">${chips([['frames', 'Separate frames'], ['layout', 'Layout']], M.format, 'format')}</div>`;
         }
 
         if (collage) {
             h += `<div class="st-lab" style="margin-top:12px">Choose a layout</div><div class="st-layouts">`
                 + S.layoutsFor(n).map(L => `<div class="st-layout-opt"><button type="button" class="st-lay ${M.layout === L.id ? 'on' : ''}" data-k="layout" data-v="${L.id}" aria-label="${L.label}" aria-pressed="${M.layout === L.id}" title="${L.label}">${S.miniLayoutHtml(L)}</button><small>${L.label}</small></div>`).join('')
                 + `</div>
-                <p class="st-hint">Tap a photo to select it. Drag to reposition, pinch to zoom and rotate, or press and hold then drag it onto another photo to swap their spots.</p>
+                <p class="st-hint">Drag to move · Pinch to zoom · Hold to swap</p>
                 <div class="st-lab">Selected photo ${Math.min(M.selCell + 1, n)} of ${n}</div>`;
             if (!coarse()) {
                 h += `<div class="st-row2 st-desk-only">
@@ -627,12 +641,8 @@
 
         h += `<div class="st-lab" style="margin-top:12px">Framing</div><div class="st-row2">${chips([['fill', 'Fill screen'], ['fit', 'Fit whole']], M.fit, 'fit')}</div>`;
 
-        if (collage) {
-            h += `<p class="st-hint">"Fit whole" keeps each photo fully visible inside its cell; Fill crops it to the cell. Photos can be rearranged freely in the preview.</p>`;
-        } else {
-            h += `${n >= 2 ? `<p class="st-hint">Each photo becomes its own full-screen story frame, in the order you picked them. Tap a thumbnail on the story to preview one. Framing applies to every photo.</p>` : ''}
-                ${coarse() ? '' : `<div class="st-lab">Zoom</div><div class="st-row2 st-desk-only"><label class="st-range">Size <input type="range" min="50" max="300" step="1" value="${z}" data-in="mediaScale" aria-label="Zoom"><b class="st-zoomv" style="min-width:42px">${z}%</b></label><button type="button" class="st-btn ghost sm" data-k="resetMedia">Reset</button></div>`}
-                <p class="st-hint">"Fit whole" shows the entire ${M.video ? 'video' : 'photo'} with a soft background.${coarse() ? ' Pinch to resize it, then drag to move it.' : ' Zoom, then drag the ' + (M.video ? 'video' : 'photo') + ' to move it.'}</p>`;
+        if (!collage) {
+            h += `<div class="st-lab">Zoom</div><div class="st-row2 st-desk-only"><label class="st-range">Size <input type="range" min="50" max="300" step="1" value="${z}" data-in="mediaScale" aria-label="Zoom"><b class="st-zoomv" style="min-width:42px">${z}%</b></label><button type="button" class="st-btn ghost sm" data-k="resetMedia">Reset</button></div>`;
         }
         return h;
     }
@@ -1047,17 +1057,15 @@
             const k = dist(a, b) / P.d0, dr = (ang(a, b) - P.a0) * 180 / Math.PI;
             if (P.tg.k === 'text') {
                 const t = find(P.tg.id); if (!t) return;
-                t.size = S.clamp(P.size0 * k, 0.035, 0.18); t.rot = S.clamp(Math.round(wrap(P.rot0 + dr)), -180, 180); refreshEl(t);
+                t.size = S.clamp(P.size0 * k, 0.035, 0.18); t.rot = snapDeg(wrap(P.rot0 + dr)); refreshEl(t);
             } else if (P.tg.k === 'sticker') {
-                M.mpos.scale = S.clamp(P.sc0 * k, 0.25, 4); M.mpos.rot = S.clamp(Math.round(wrap(P.sr0 + dr)), -180, 180); paintStickerSoon();
+                M.mpos.scale = S.clamp(P.sc0 * k, 0.25, 4); M.mpos.rot = snapDeg(wrap(P.sr0 + dr)); paintStickerSoon();
             } else if (P.tg.k === 'cell') {
                 const it = M.items[P.tg.i]; if (!it) return;
                 let scale = S.clamp(P.cs0 * k, 0.5, 4);
                 if (Math.abs(scale - 1) < 0.035) scale = 1;
-                let rot = wrap(P.cr0 + dr);
-                const cardinal = [0, 90, -90, 180].find(a => Math.abs(wrap(rot - a)) <= 4);
-                if (cardinal !== undefined) rot = cardinal;
-                const tr = fitCellTransform(Object.assign({}, it.tr, { scale: scale, rot: S.clamp(Math.round(rot), -180, 180) }));
+                const rot = snapDeg(wrap(P.cr0 + dr), 4);
+                const tr = fitCellTransform(Object.assign({}, it.tr, { scale: scale, rot: rot }));
                 it.tr = tr; paintCell(P.tg.i);
             } else { M.mt.scale = S.clamp(P.sc0 * k, 0.5, 3); applyMT(); }
         }
@@ -1205,9 +1213,7 @@
         else if (k === 'cellRot') {
             const it = M.items[M.selCell];
             if (it) {
-                let deg = Math.round(Number(e.target.value));
-                const cardinal = [0, 90, -90, 180].find(a => Math.abs(deg - a) <= 3);
-                if (cardinal !== undefined) deg = cardinal;
+                const deg = snapDeg(e.target.value);
                 it.tr = fitCellTransform(Object.assign({}, it.tr, { rot: deg }));
                 paintCell(M.selCell);
                 e.target.value = Math.round(it.tr.rot);
@@ -1219,9 +1225,9 @@
         else if (k === 'spotify') { M.spq = e.target.value; }
         else if (k === 'dur') { M.dur = S.clamp(Math.round(e.target.value), MIN_DUR, MAX_DUR); const b = $('.st-durv'); if (b) b.textContent = M.dur + 's'; }
         else if (k === 'stickerScale') { M.mpos.scale = S.clamp(Number(e.target.value) / 100, 0.25, 4); paintStickerSoon(); }
-        else if (k === 'stickerRot') { M.mpos.rot = S.clamp(Math.round(Number(e.target.value)), -180, 180); paintStickerSoon(); }
+        else if (k === 'stickerRot') { M.mpos.rot = snapDeg(e.target.value); paintStickerSoon(); const r = q.shb.querySelector('[data-in="stickerRot"]'); if (r) r.value = M.mpos.rot; }
         else if (t && k === 'size') { t.size = S.clamp(e.target.value / 1000, 0.035, 0.18); refreshEl(t); }
-        else if (t && k === 'rot') { t.rot = Number(e.target.value); refreshEl(t); }
+        else if (t && k === 'rot') { t.rot = snapDeg(e.target.value); refreshEl(t); const r = q.shb.querySelector('[data-in="rot"]'); if (r) r.value = t.rot; }
     }
     function onClick(e) {
         const b = e.target.closest('[data-k]'); if (!b) return;

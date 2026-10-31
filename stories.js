@@ -33,7 +33,7 @@
         IMAGE_MS: 6000,
         SLIDE_MS: 5000,
         MAX_REPLY: 300,
-        composerSrc: 'stories-composer.js?v=1.15.0',
+        composerSrc: 'stories-composer.js?v=1.16.0',
         spotifySearchUrl: '',
         allowStoryDelete: true,        // pages can override via window.STORIES_CONFIG
         allowStoryViews: true          // pages can override via window.STORIES_CONFIG

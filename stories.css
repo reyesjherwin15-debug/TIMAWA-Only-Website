@@ -257,7 +257,7 @@ html.st-lock .toast-stack { z-index: 10200 !important; }
 /* Instagram-style multi-photo story: one full frame at a time. */
 .st-media-wrap.st-slide { background: #05070b; }
 .st-prog .st-seg { min-width: 6px; }
-.st-cell { position: absolute; padding: 3px; box-sizing: border-box; }
+.st-cell { position: absolute; padding: 3px; box-sizing: border-box; overflow: hidden; border-radius: 10px; }
 .st-media-wrap .st-cell img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; user-select: none; -webkit-user-select: none; }
 
 .st-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; width: 100%; margin-bottom: 4px; }

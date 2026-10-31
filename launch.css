@@ -15,8 +15,16 @@
 
 /* ---------- brand field ---------------------------------------------------- */
 /* Pages that never had a loading overlay (Spin & Poll) use the same class,
-   so the splash is self-positioning instead of relying on inline page CSS. */
+   so the splash is self-positioning instead of relying on inline page CSS.
+
+   theme.js resolves the saved theme (including "Auto", which follows the OS)
+   before the first frame, so the splash normally paints from --theme-*. The
+   fallbacks below only apply for the instant before that happens, or on a page
+   where theme.js could not run (offline first visit): they follow the OS so a
+   light-mode member never gets a dark flash, and the other way round. */
 .loading-overlay.t-splash {
+    --splash-bg-fallback: #071322;
+    --splash-fg-fallback: #e8f3ff;
     position: fixed;
     inset: 0;
     z-index: 5000;
@@ -35,11 +43,18 @@
             color-mix(in srgb, var(--theme-accent, #705cff) 20%, transparent) 0%,
             transparent 70%),
         radial-gradient(120% 120% at 50% 50%,
-            transparent 40%,
-            color-mix(in srgb, var(--theme-text, #071322) 14%, transparent) 100%),
-        var(--theme-bg, #071322);
+            transparent 40%,                color-mix(in srgb, var(--theme-text, var(--splash-fg-fallback)) 14%, transparent) 100%),
+        var(--theme-bg, var(--splash-bg-fallback));
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+}
+
+/* No theme tokens yet: match the OS instead of forcing the dark brand navy. */
+@media (prefers-color-scheme: light) {
+    .loading-overlay.t-splash {
+        --splash-bg-fallback: #f5f9ff;
+        --splash-fg-fallback: #101a2e;
+    }
 }
 
 /* A page that still has the plain overlay: paint the theme background, not a
@@ -124,7 +139,7 @@
     letter-spacing: 0.26em;
     text-indent: 0.26em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--theme-text, #ffffff) 62%, transparent);
+    color: color-mix(in srgb, var(--theme-text, var(--splash-fg-fallback)) 62%, transparent);
     opacity: 1;
 }
 
@@ -154,13 +169,29 @@
     font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--theme-text, #bee0ff) 58%, transparent);
+    color: color-mix(in srgb, var(--theme-text, var(--splash-fg-fallback)) 58%, transparent);
     animation: tSplashStatus 2s ease-in-out infinite;
 }
 
 @keyframes tSplashStatus {
     0%, 100% { opacity: 0.55; }
     50%      { opacity: 1; }
+}
+
+/* ---------- stage ---------------------------------------------------------- */
+.t-splash-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 11px;
+    padding: 0 24px;
+    text-align: center;
+    animation: tSplashRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes tSplashRise {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to   { opacity: 1; transform: none; }
 }
 
 /* ---------- enter/leave ---------------------------------------------------- */

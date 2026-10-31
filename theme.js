@@ -1186,12 +1186,30 @@
         }
     };
 
+    // ------------------------------------------------------------ appearance mode
+    // A member picks a preset and one of three modes: light, dark or auto.
+    // "auto" follows the phone / computer setting, so the whole app (and the
+    // launch screen) matches the OS at that moment. The choice is stored as-is;
+    // only the painted result is resolved, which keeps light/dark working for
+    // every bit of CSS that reads html[data-timawa-mode].
+    window.normalizeThemeMode = function (mode) {
+        return (mode === 'auto' || mode === 'dark') ? mode : 'light';
+    };
+    window.systemPrefersDark = function () {
+        try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { return false; }
+    };
+    window.resolveThemeMode = function (mode) {
+        const pref = window.normalizeThemeMode(mode);
+        return pref === 'auto' ? (window.systemPrefersDark() ? 'dark' : 'light') : pref;
+    };
+
     window.applyTheme = function (theme) {
         const safeTheme = (theme && typeof theme === 'object') ? theme : {};
         const presetKey = (safeTheme.preset && window.THEMES[safeTheme.preset])
             ? safeTheme.preset
             : window.DEFAULT_THEME.preset;
-        const mode = safeTheme.mode === 'dark' ? 'dark' : 'light';
+        const modePref = window.normalizeThemeMode(safeTheme.mode);
+        const mode = window.resolveThemeMode(modePref);
         const preset = window.THEMES[presetKey];
         const palette = preset[mode];
         const root = document.documentElement;
@@ -1200,7 +1218,11 @@
         });
         root.setAttribute('data-timawa-theme', presetKey);
         root.setAttribute('data-timawa-mode', mode);
+        root.setAttribute('data-timawa-mode-pref', modePref);
         root.style.colorScheme = mode; // v6: native form controls / scrollbars follow the mode
+        // Painted under the page so the launch screen never shows a light frame
+        // on a dark theme (or the other way round) while the body lays out.
+        root.style.backgroundColor = palette['--theme-bg'];
         window.injectThemeShapes(presetKey);
         if (window.__twCursorSync) window.__twCursorSync(presetKey);
         if (window.__twPerfProbe) window.__twPerfProbe();
@@ -1211,8 +1233,30 @@
             document.head.appendChild(meta);
         }
         meta.content = palette['--theme-bg'];
-        window.selectedTheme = { preset: presetKey, mode };
+        window.selectedTheme = { preset: presetKey, mode: modePref };
+        // The splash is markup + theme tokens; reflecting the resolved palette
+        // here keeps it identical to the page that replaces it.
+        const splash = document.querySelector('.loading-overlay.t-splash');
+        if (splash) {
+            const bar = splash.querySelector('.t-splash-bar i');
+            if (bar) bar.style.background = palette['--theme-gradient'] || '';
+            const ring = splash.querySelector('.t-splash-ring');
+            if (ring) ring.style.borderColor = palette['--theme-primary'] || '';
+        }
     };
+
+    // Follow the OS while the mode is "auto". Registered once, so every page
+    // paints the new mode immediately instead of waiting for a reload.
+    (function followSystemMode() {
+        let mq = null;
+        try { mq = window.matchMedia('(prefers-color-scheme: dark)'); } catch (e) { return; }
+        const onChange = () => {
+            if (!mq) return;
+            const cur = window.selectedTheme || window.readThemeFromStorage();
+            if (cur && window.normalizeThemeMode(cur.mode) === 'auto') window.applyTheme(cur);
+        };
+        try { if (mq.addEventListener) mq.addEventListener('change', onChange); else if (mq.addListener) mq.addListener(onChange); } catch (e) { /* ignore */ }
+    })();
 
     // ★ v10 — HOLIDAY-ONLY THEMES. Each holiday has its own dedicated theme (HOLIDAY_THEMES, below). They are NOT in the picker
     // normally: on the day the matching theme is added to window.THEMES (it shows under "Happening today" and is applied automatically),
@@ -2017,7 +2061,7 @@
                 let prev = null; try { prev = localStorage.getItem(PREV); } catch (e) { /* ignore */ }
                 preset = (prev && window.THEMES[prev] && !HT[prev]) ? prev : window.DEFAULT_THEME.preset;
             }
-            const real = { preset: preset, mode: t.mode === 'dark' ? 'dark' : 'light' };
+            const real = { preset: preset, mode: window.normalizeThemeMode(t.mode) };
             const now = new Date(), ev = forced || find(now);
             if (manualNext) { manualNext = false; if (ev && !forced) markSkip(ev, now); }
             let eff = real, active = null;
@@ -2077,7 +2121,7 @@
             if (!raw) return null;
             const parsed = JSON.parse(raw);
             if (parsed && parsed.preset && window.THEMES[parsed.preset]) {
-                return { preset: parsed.preset, mode: parsed.mode === 'dark' ? 'dark' : 'light' };
+                return { preset: parsed.preset, mode: window.normalizeThemeMode(parsed.mode) };
             }
         } catch (e) { /* ignore */ }
         return null;
@@ -2089,7 +2133,7 @@
         try {
             localStorage.setItem(window.THEME_STORAGE_KEY, JSON.stringify({
                 preset: theme.preset,
-                mode: theme.mode === 'dark' ? 'dark' : 'light'
+                mode: window.normalizeThemeMode(theme.mode)
             }));
         } catch (e) { /* ignore */ }
     };
@@ -2099,7 +2143,7 @@
         if (!theme.preset || !window.THEMES[theme.preset]) return;
         const safe = {
             preset: theme.preset,
-            mode: theme.mode === 'dark' ? 'dark' : 'light'
+            mode: window.normalizeThemeMode(theme.mode)
         };
         try {
             if ('BroadcastChannel' in window) {
@@ -2128,7 +2172,7 @@
                     if (!incoming.preset || !window.THEMES[incoming.preset]) return;
                     window.selectedTheme = {
                         preset: incoming.preset,
-                        mode: incoming.mode === 'dark' ? 'dark' : 'light'
+                        mode: window.normalizeThemeMode(incoming.mode)
                     };
                     window.applyTheme(window.selectedTheme);
                     try {
@@ -2145,7 +2189,10 @@
         const currentPreset = (window.__twReal && window.__twReal.preset) || document.documentElement.getAttribute('data-timawa-theme')
             || window.selectedTheme.preset
             || window.DEFAULT_THEME.preset;
-        const currentMode = (window.__twReal && window.__twReal.mode) || document.documentElement.getAttribute('data-timawa-mode')
+        // The *preference* (auto / light / dark), not the resolved mode:
+        // repainting with data-timawa-mode would silently turn "auto" into a
+        // fixed light or dark after the first load.
+        const currentMode = (window.__twReal && window.__twReal.mode) || document.documentElement.getAttribute('data-timawa-mode-pref')
             || window.selectedTheme.mode
             || window.DEFAULT_THEME.mode;
         container.dataset.activeTheme = '';

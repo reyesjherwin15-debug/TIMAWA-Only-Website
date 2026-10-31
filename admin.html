@@ -40,7 +40,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
-    <link rel="stylesheet" href="pwa.css?v=1.3.0" />
+    <link rel="stylesheet" href="pwa.css?v=1.4.0" />
     <link rel="stylesheet" href="presence.css?v=1.0.0" />
     <title>TIMAWA - Admin Panel</title>
 
@@ -54,7 +54,7 @@
 
     <!-- ★ Shared theme system (same one Admin Profile saves to) -->
     <link rel="stylesheet" href="theme.css" />
-    <script src="theme.js?v=1.1.0"></script>
+    <script src="theme.js?v=1.2.0"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -2085,9 +2085,9 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="stories.css?v=1.12.0" />
+    <link rel="stylesheet" href="stories.css?v=1.13.0" />
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="launch.css?v=1.1.0" />
+    <link rel="stylesheet" href="launch.css?v=1.2.1" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
@@ -3292,9 +3292,9 @@
         // a theme changed on another device.
         function applySharedAdminTheme(theme) {
             if (!theme || !theme.preset || !window.THEMES || !window.THEMES[theme.preset]) return false;
-            const safe = { preset: theme.preset, mode: theme.mode === 'dark' ? 'dark' : 'light' };
+            const safe = { preset: theme.preset, mode: (window.normalizeThemeMode ? window.normalizeThemeMode(theme.mode) : (theme.mode === 'dark' ? 'dark' : 'light')) };
             const current = window.selectedTheme || {};
-            if (current.preset !== safe.preset || current.mode !== safe.mode) {
+            if (current.preset !== safe.preset || (window.normalizeThemeMode ? window.normalizeThemeMode(current.mode) : current.mode) !== safe.mode) {
                 window.applyTheme(safe);
             }
             if (window.persistThemeLocally) window.persistThemeLocally(safe);

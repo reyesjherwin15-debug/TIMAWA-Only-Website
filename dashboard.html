@@ -42,7 +42,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
-    <link rel="stylesheet" href="pwa.css?v=1.3.0" />
+    <link rel="stylesheet" href="pwa.css?v=1.4.0" />
     <link rel="stylesheet" href="presence.css?v=1.0.0" />
     <title>TIMAWA - Dashboard</title>
 
@@ -57,8 +57,8 @@
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
-    <link rel="stylesheet" href="stories.css?v=1.12.0" />
-    <script src="theme.js?v=1.1.0"></script>
+    <link rel="stylesheet" href="stories.css?v=1.13.0" />
+    <script src="theme.js?v=1.2.0"></script>
 
     <!-- Cloudinary Upload Widget -->
     <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
@@ -2274,8 +2274,67 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            background: var(--theme-bg-soft);
+            /* Conversation backdrop. Three tints that follow the theme, then a
+               motif that is unique per theme (below). Built from --theme-*
+               tokens, so light and dark each get their own version without a
+               second rule. */
+            --chat-ink: color-mix(in srgb, var(--theme-primary) 13%, transparent);
+            --chat-ink-2: color-mix(in srgb, var(--theme-accent) 11%, transparent);
+            --chat-line: color-mix(in srgb, var(--theme-text) 6%, transparent);
+            /* Default motif: every theme — including a holiday theme added on
+               its day — gets a quiet backdrop even without its own rule. */
+            --chat-motif: radial-gradient(circle, var(--chat-ink) 0 1px, transparent 1.4px) 0 0/26px 26px;
+            background:
+                radial-gradient(115% 62% at 6% 0%, color-mix(in srgb, var(--theme-primary) 13%, transparent), transparent 64%),
+                radial-gradient(105% 58% at 100% 100%, color-mix(in srgb, var(--theme-accent) 12%, transparent), transparent 62%),
+                var(--chat-motif, none),
+                linear-gradient(180deg, var(--theme-bg-soft), var(--theme-bg));
+            background-attachment: local, local, local, local;
         }
+
+        /* One quiet motif per theme — the pattern scrolls with the conversation,
+           so it never fights the bubbles and costs nothing while it is idle. */
+        [data-timawa-theme="ocean"] .chat-body { --chat-motif: repeating-radial-gradient(circle at 50% 50%, var(--chat-ink) 0 2px, transparent 2px 22px) 0 0/64px 64px; }
+        [data-timawa-theme="sunset"] .chat-body { --chat-motif: repeating-linear-gradient(115deg, var(--chat-ink) 0 1px, transparent 1px 26px); }
+        [data-timawa-theme="pink"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink-2) 0 2.5px, transparent 2.6px) 0 0/34px 34px; }
+        [data-timawa-theme="forest"] .chat-body { --chat-motif: repeating-linear-gradient(45deg, var(--chat-line) 0 1px, transparent 1px 18px), repeating-linear-gradient(-45deg, var(--chat-line) 0 1px, transparent 1px 18px); }
+        [data-timawa-theme="sunshine"] .chat-body { --chat-motif: repeating-conic-gradient(from 0deg at 50% 120%, var(--chat-ink) 0deg 3deg, transparent 3deg 22deg); }
+        [data-timawa-theme="starry"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink-2) 0 1.6px, transparent 2px) 0 0/52px 52px, radial-gradient(circle, var(--chat-ink) 0 1.2px, transparent 1.6px) 26px 26px/52px 52px; }
+        [data-timawa-theme="cafe"] .chat-body { --chat-motif: repeating-linear-gradient(0deg, var(--chat-line) 0 1px, transparent 1px 24px), repeating-linear-gradient(90deg, var(--chat-line) 0 1px, transparent 1px 24px); }
+        [data-timawa-theme="crimson"] .chat-body { --chat-motif: repeating-linear-gradient(135deg, var(--chat-ink) 0 1.5px, transparent 1.5px 24px); }
+        [data-timawa-theme="maroon"] .chat-body { --chat-motif: repeating-linear-gradient(90deg, var(--chat-ink) 0 1px, transparent 1px 32px); }
+        [data-timawa-theme="sakura"] .chat-body { --chat-motif: radial-gradient(ellipse 7px 4px at 50% 50%, var(--chat-ink-2) 0 100%, transparent 100%) 0 0/40px 40px, radial-gradient(ellipse 5px 3px at 50% 50%, var(--chat-ink) 0 100%, transparent 100%) 20px 20px/40px 40px; }
+        [data-timawa-theme="nebula"] .chat-body { --chat-motif: radial-gradient(ellipse 60% 40% at 30% 20%, var(--chat-ink), transparent 70%), radial-gradient(ellipse 50% 35% at 80% 80%, var(--chat-ink-2), transparent 70%); }
+        [data-timawa-theme="ember"] .chat-body { --chat-motif: repeating-linear-gradient(180deg, var(--chat-ink) 0 1px, transparent 1px 30px); }
+        [data-timawa-theme="glacier"] .chat-body { --chat-motif: repeating-linear-gradient(60deg, var(--chat-ink) 0 1px, transparent 1px 30px), repeating-linear-gradient(-60deg, var(--chat-line) 0 1px, transparent 1px 30px); }
+        [data-timawa-theme="tropic"] .chat-body { --chat-motif: repeating-linear-gradient(100deg, var(--chat-ink) 0 2px, transparent 2px 30px); }
+        [data-timawa-theme="moonlit"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink) 0 1.4px, transparent 1.8px) 0 0/46px 46px, radial-gradient(circle, var(--chat-ink-2) 0 1px, transparent 1.4px) 23px 23px/46px 46px; }
+        [data-timawa-theme="aurora"] .chat-body { --chat-motif: repeating-linear-gradient(160deg, var(--chat-ink) 0 14px, transparent 14px 44px, var(--chat-ink-2) 44px 58px, transparent 58px 96px); }
+        [data-timawa-theme="matcha"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink) 0 1px, transparent 1.4px) 0 0/18px 18px; }
+        [data-timawa-theme="spring"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink-2) 0 2px, transparent 2.4px) 0 0/32px 32px; }
+        [data-timawa-theme="summer"] .chat-body { --chat-motif: repeating-linear-gradient(90deg, var(--chat-ink) 0 1px, transparent 1px 28px); }
+        [data-timawa-theme="autumn"] .chat-body { --chat-motif: radial-gradient(ellipse 6px 3px at 50% 50%, var(--chat-ink) 0 100%, transparent 100%) 0 0/36px 36px; }
+        [data-timawa-theme="rainy"] .chat-body { --chat-motif: repeating-linear-gradient(78deg, var(--chat-ink) 0 1px, transparent 1px 20px); }
+        [data-timawa-theme="winter"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink) 0 1.8px, transparent 2.2px) 0 0/30px 30px; }
+        [data-timawa-theme="xmas"] .chat-body { --chat-motif: repeating-linear-gradient(45deg, var(--chat-ink) 0 2px, transparent 2px 22px), repeating-linear-gradient(-45deg, var(--chat-ink-2) 0 2px, transparent 2px 22px); }
+        [data-timawa-theme="halloween"] .chat-body { --chat-motif: repeating-linear-gradient(135deg, var(--chat-ink) 0 1px, transparent 1px 20px), repeating-linear-gradient(45deg, var(--chat-line) 0 1px, transparent 1px 20px); }
+        [data-timawa-theme="easter"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink-2) 0 2.2px, transparent 2.6px) 0 0/28px 28px, radial-gradient(circle, var(--chat-ink) 0 1.4px, transparent 1.8px) 14px 14px/28px 28px; }
+        [data-timawa-theme="newyear"] .chat-body { --chat-motif: repeating-linear-gradient(120deg, var(--chat-ink) 0 2px, transparent 2px 26px, var(--chat-ink-2) 26px 30px, transparent 30px 54px); }
+        /* Holiday themes (only present on their day) */
+        [data-timawa-theme="hxmas"] .chat-body { --chat-motif: repeating-linear-gradient(45deg, var(--chat-ink) 0 2px, transparent 2px 22px), repeating-linear-gradient(-45deg, var(--chat-ink-2) 0 2px, transparent 2px 22px); }
+        [data-timawa-theme="hhalloween"] .chat-body { --chat-motif: repeating-linear-gradient(135deg, var(--chat-ink) 0 1px, transparent 1px 20px), radial-gradient(circle, var(--chat-ink-2) 0 2px, transparent 2.4px) 0 0/44px 44px; }
+        [data-timawa-theme="heaster"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink-2) 0 2.2px, transparent 2.6px) 0 0/28px 28px; }
+        [data-timawa-theme="hvalentine"] .chat-body { --chat-motif: radial-gradient(ellipse 6px 4px at 50% 50%, var(--chat-ink) 0 100%, transparent 100%) 0 0/34px 34px; }
+        [data-timawa-theme="hnewyear"] .chat-body { --chat-motif: repeating-linear-gradient(120deg, var(--chat-ink) 0 2px, transparent 2px 26px, var(--chat-ink-2) 26px 30px, transparent 30px 54px); }
+        [data-timawa-theme="hlny"] .chat-body { --chat-motif: repeating-linear-gradient(90deg, var(--chat-ink) 0 1px, transparent 1px 24px); }
+        [data-timawa-theme="hwomens"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink-2) 0 1.8px, transparent 2.2px) 0 0/30px 30px; }
+        [data-timawa-theme="hholyweek"] .chat-body { --chat-motif: repeating-linear-gradient(180deg, var(--chat-line) 0 1px, transparent 1px 26px); }
+        [data-timawa-theme="hearth"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink) 0 2px, transparent 2.4px) 0 0/32px 32px; }
+        [data-timawa-theme="hmothers"] .chat-body { --chat-motif: radial-gradient(ellipse 5px 3px at 50% 50%, var(--chat-ink-2) 0 100%, transparent 100%) 0 0/30px 30px; }
+        [data-timawa-theme="hindep"] .chat-body { --chat-motif: repeating-linear-gradient(45deg, var(--chat-ink) 0 1px, transparent 1px 20px); }
+        [data-timawa-theme="hfathers"] .chat-body { --chat-motif: repeating-linear-gradient(90deg, var(--chat-ink) 0 1px, transparent 1px 22px); }
+        [data-timawa-theme="hundas"] .chat-body { --chat-motif: radial-gradient(circle, var(--chat-ink) 0 1.6px, transparent 2px) 0 0/28px 28px; }
+        [data-timawa-theme="hbirthday"] .chat-body { --chat-motif: repeating-linear-gradient(120deg, var(--chat-ink) 0 2px, transparent 2px 24px, var(--chat-ink-2) 24px 28px, transparent 28px 48px); }
 
         .chat-msg:not(.mine) {
             margin-right: 40px;
@@ -7307,7 +7366,7 @@
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.3.0" />
-    <link rel="stylesheet" href="launch.css?v=1.1.0" />
+    <link rel="stylesheet" href="launch.css?v=1.2.1" />
     <style>
         /* Keyboard-aware full-bleed sheets.
            iOS does not shrink the layout viewport for the software keyboard, so
@@ -14960,6 +15019,35 @@ function startReplyTo(commentId, authorName) {
             hideLoadingOverlay();
         }
 
+        // ================================================================
+        // ===== THEME: FOLLOW THE THEME SAVED ON THE PROFILE =====
+        // ================================================================
+        // theme.js paints the last theme this device saw before the first
+        // frame. A theme saved from another device (or an "Auto" mode that
+        // resolves differently once the system setting is read) only exists in
+        // Firestore, so the dashboard re-applies it here. Without this the
+        // dashboard stayed on a stale theme while index.html, calendar.html and
+        // profile.html were already on the new one — the light/dark mismatch.
+        function applyProfileTheme(data) {
+            if (!data || !data.theme || !window.THEMES || !window.THEMES[data.theme.preset]) return false;
+            const next = { preset: data.theme.preset, mode: normalizeThemeMode(data.theme.mode) };
+            const cur = window.selectedTheme || {};
+            if (cur.preset === next.preset && normalizeThemeMode(cur.mode) === next.mode) return false;
+            window.applyTheme(next);
+            if (window.persistThemeLocally) window.persistThemeLocally(next);
+            return true;
+        }
+        // A theme changed on another device: check again when the tab comes back
+        // to the foreground. Same-device changes arrive through theme.js's own
+        // BroadcastChannel listener, so this is only the cross-device case.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden || !currentUser || !currentUserData) return;
+            db.collection('users').doc(currentUser.uid).get().then(doc => {
+                const data = doc.exists ? doc.data() : null;
+                applyProfileTheme(data);
+            }).catch(() => {});
+        });
+
         auth.onAuthStateChanged(async (user) => {
             if (!user) {
                 detachMembersListener();
@@ -14988,6 +15076,7 @@ function startReplyTo(commentId, authorName) {
             })();
             if (cachedProfile) {
                 currentUserData = titaUserData = cachedProfile;
+                applyProfileTheme(cachedProfile);
                 userProfileCache[user.uid] = { id: user.uid, ...cachedProfile };
                 const cachedName = cachedProfile.displayName || user.displayName || user.email || 'Squad';
                 const cachedNameEl = document.getElementById('userName');
@@ -15028,6 +15117,7 @@ function startReplyTo(commentId, authorName) {
                 const data = await getCurrentUserProfileCached(user);
                 currentUserData = data;
                 titaUserData = data;
+                applyProfileTheme(data);
                 userProfileCache[user.uid] = { id: user.uid, ...data };
 
                 const name = data?.displayName || user.displayName || user.email || 'Squad';
