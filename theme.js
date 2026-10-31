@@ -2080,7 +2080,10 @@
             if (!grid || document.getElementById('twHol')) return;
             const card = document.createElement('div');
             card.className = 'tw-hol'; card.id = 'twHol';
-            card.innerHTML = '<span class="tw-hol-e" id="twHolE">🎉</span><div class="tw-hol-t"><b>Auto themes</b><small id="twHolS"></small></div><label class="tw-sw" title="Auto themes for holidays and birthdays"><input type="checkbox" id="twHolChk"><i></i></label>';
+            // Not another "Auto": this switch only swaps the *scene* on holidays and
+        // birthdays. Light / dark still comes from the mode chosen below (and so
+        // from the member's profile), never from here.
+        card.innerHTML = '<span class="tw-hol-e" id="twHolE">🎉</span><div class="tw-hol-t"><b>Holiday themes</b><small id="twHolS"></small></div><label class="tw-sw" title="Show a special scene on holidays and squad birthdays"><input type="checkbox" id="twHolChk"><i></i></label>';
             grid.parentNode.insertBefore(card, grid);
             card.querySelector('#twHolChk').addEventListener('change', e => {
                 try { localStorage.setItem(KEY, e.target.checked ? 'on' : 'off'); } catch (er) { /* ignore */ }
@@ -2117,9 +2120,17 @@
         };
     })();
 
-    window.readThemeFromStorage = function () {
+    // ------------------------------------------------------------ theme cache
+    // The theme is the member's *profile* setting, so the copy kept on this
+    // device is stored per account. A phone shared by two members must never
+    // paint one member's theme while the other is signing in, and the very
+    // first frame of a launch has to already know the theme of the person who
+    // is about to appear — otherwise the launch screen paints the default
+    // theme and switches once the profile arrives.
+    window.THEME_OWNER_KEY = 'timawa.theme.owner';
+    function themeStorageKey(uid) { return window.THEME_STORAGE_KEY + '.' + uid; }
+    function parseStoredTheme(raw) {
         try {
-            const raw = localStorage.getItem(window.THEME_STORAGE_KEY);
             if (!raw) return null;
             const parsed = JSON.parse(raw);
             if (parsed && parsed.preset && window.THEMES[parsed.preset]) {
@@ -2127,17 +2138,43 @@
             }
         } catch (e) { /* ignore */ }
         return null;
+    }
+    window.themeOwner = function () {
+        try { return localStorage.getItem(window.THEME_OWNER_KEY) || ''; } catch (e) { return ''; }
+    };
+    window.rememberThemeOwner = function (uid) {
+        if (!uid) return;
+        try { localStorage.setItem(window.THEME_OWNER_KEY, uid); } catch (e) { /* ignore */ }
     };
 
-    window.persistThemeLocally = function (theme) {
+    window.readThemeFromStorage = function () {
+        try {
+            const owner = window.themeOwner();
+            if (owner) {
+                const mine = parseStoredTheme(localStorage.getItem(themeStorageKey(owner)));
+                if (mine) return mine;
+            }
+            // No per-account copy yet (first launch after this update, or a
+            // device that only ever had the single shared key).
+            return parseStoredTheme(localStorage.getItem(window.THEME_STORAGE_KEY));
+        } catch (e) { /* ignore */ }
+        return null;
+    };
+
+    window.persistThemeLocally = function (theme, uid) {
         if (!theme || typeof theme !== 'object') return;
         if (!theme.preset || !window.THEMES[theme.preset]) return;
-        try {
-            localStorage.setItem(window.THEME_STORAGE_KEY, JSON.stringify({
-                preset: theme.preset,
-                mode: window.normalizeThemeMode(theme.mode)
-            }));
-        } catch (e) { /* ignore */ }
+        const safe = {
+            preset: theme.preset,
+            mode: window.normalizeThemeMode(theme.mode)
+        };
+        try { localStorage.setItem(window.THEME_STORAGE_KEY, JSON.stringify(safe)); } catch (e) { /* ignore */ }
+        if (uid) {
+            try {
+                localStorage.setItem(themeStorageKey(uid), JSON.stringify(safe));
+                localStorage.setItem(window.THEME_OWNER_KEY, uid);
+            } catch (e) { /* ignore */ }
+        }
     };
 
     window.broadcastThemeChange = function (theme) {
@@ -2177,9 +2214,7 @@
                         mode: window.normalizeThemeMode(incoming.mode)
                     };
                     window.applyTheme(window.selectedTheme);
-                    try {
-                        localStorage.setItem(window.THEME_STORAGE_KEY, JSON.stringify(window.selectedTheme));
-                    } catch (e) { /* ignore */ }
+                    window.persistThemeLocally(window.selectedTheme, window.themeOwner());
                 }
             });
         }

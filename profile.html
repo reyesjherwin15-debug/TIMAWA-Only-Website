@@ -3229,7 +3229,7 @@
                             mode: normalizeThemeMode(profileData.theme.mode)
                         };
                         applyTheme(selectedTheme);
-                        persistThemeLocally(selectedTheme);
+                        persistThemeLocally(selectedTheme, currentUser.uid);
                     }
                     syncThemeUI();
 
@@ -3495,7 +3495,7 @@
                 const mergedData = { ...(profileData || {}), ...updateData };
                 saveCurrentUserProfileCache(currentUser.uid, mergedData);
 
-                persistThemeLocally(selectedTheme);
+                persistThemeLocally(selectedTheme, currentUser.uid);
                 broadcastThemeChange(selectedTheme);
 
                 if (displayName && displayName !== currentUser.displayName) {

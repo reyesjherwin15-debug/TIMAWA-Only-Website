@@ -49,12 +49,13 @@
     backdrop-filter: none;
 }
 
-/* No theme tokens yet: match the OS instead of forcing the dark brand navy. */
-@media (prefers-color-scheme: light) {
-    .loading-overlay.t-splash {
-        --splash-bg-fallback: #f5f9ff;
-        --splash-fg-fallback: #101a2e;
-    }
+/* No theme tokens yet: follow the member's saved mode, never the OS on its own.
+   theme.js writes data-timawa-mode from the profile's mode before the first
+   frame, so the launch screen makes the same light / dark decision as the rest
+   of the app instead of running a second "auto" of its own. */
+html[data-timawa-mode="light"] .loading-overlay.t-splash {
+    --splash-bg-fallback: #f5f9ff;
+    --splash-fg-fallback: #101a2e;
 }
 
 /* A page that still has the plain overlay: paint the theme background, not a

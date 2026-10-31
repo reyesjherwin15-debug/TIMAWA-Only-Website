@@ -1796,7 +1796,7 @@
                     const cur = window.selectedTheme || {};
                     if (cur.preset !== theme.preset || normalizeThemeMode(cur.mode) !== theme.mode) {
                         window.applyTheme(theme);
-                        if (window.persistThemeLocally) window.persistThemeLocally(theme);
+                        if (window.persistThemeLocally) window.persistThemeLocally(theme, user.uid);
                     }
                 }
             } catch (e) { /* keep the cached theme */ }

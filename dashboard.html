@@ -15028,13 +15028,13 @@ function startReplyTo(commentId, authorName) {
         // Firestore, so the dashboard re-applies it here. Without this the
         // dashboard stayed on a stale theme while index.html, calendar.html and
         // profile.html were already on the new one — the light/dark mismatch.
-        function applyProfileTheme(data) {
+        function applyProfileTheme(data, uid) {
             if (!data || !data.theme || !window.THEMES || !window.THEMES[data.theme.preset]) return false;
             const next = { preset: data.theme.preset, mode: normalizeThemeMode(data.theme.mode) };
             const cur = window.selectedTheme || {};
             if (cur.preset === next.preset && normalizeThemeMode(cur.mode) === next.mode) return false;
             window.applyTheme(next);
-            if (window.persistThemeLocally) window.persistThemeLocally(next);
+            if (window.persistThemeLocally) window.persistThemeLocally(next, uid);
             return true;
         }
         // A theme changed on another device: check again when the tab comes back
@@ -15050,7 +15050,7 @@ function startReplyTo(commentId, authorName) {
             lastThemeSyncAt = now;
             db.collection('users').doc(currentUser.uid).get().then(doc => {
                 const data = doc.exists ? doc.data() : null;
-                applyProfileTheme(data);
+                applyProfileTheme(data, currentUser.uid);
             }).catch(() => { lastThemeSyncAt = 0; });
         });
 
@@ -15082,7 +15082,7 @@ function startReplyTo(commentId, authorName) {
             })();
             if (cachedProfile) {
                 currentUserData = titaUserData = cachedProfile;
-                applyProfileTheme(cachedProfile);
+                applyProfileTheme(cachedProfile, user.uid);
                 userProfileCache[user.uid] = { id: user.uid, ...cachedProfile };
                 const cachedName = cachedProfile.displayName || user.displayName || user.email || 'Squad';
                 const cachedNameEl = document.getElementById('userName');
@@ -15123,7 +15123,7 @@ function startReplyTo(commentId, authorName) {
                 const data = await getCurrentUserProfileCached(user);
                 currentUserData = data;
                 titaUserData = data;
-                applyProfileTheme(data);
+                applyProfileTheme(data, user.uid);
                 userProfileCache[user.uid] = { id: user.uid, ...data };
 
                 const name = data?.displayName || user.displayName || user.email || 'Squad';

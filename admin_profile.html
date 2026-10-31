@@ -3191,7 +3191,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                         mode: normalizeThemeMode(savedTheme.mode)
                     };
                     applyTheme(selectedTheme);
-                    persistThemeLocally(selectedTheme);
+                    persistThemeLocally(selectedTheme, currentUser.uid);
                 }
                 syncThemeUI();
 
@@ -3457,7 +3457,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                 saveCurrentUserProfileCache(currentUser.uid, mergedData);
                 profileData = mergedData;
 
-                persistThemeLocally(selectedTheme);
+                persistThemeLocally(selectedTheme, currentUser.uid);
                 broadcastThemeChange(selectedTheme);
 
                 if (displayName && displayName !== currentUser.displayName) {

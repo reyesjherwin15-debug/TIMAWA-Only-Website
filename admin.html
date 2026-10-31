@@ -3290,14 +3290,14 @@
         // Apply the theme saved on the admin's profile. localStorage already
         // gives the same result on this device; this covers a fresh browser or
         // a theme changed on another device.
-        function applySharedAdminTheme(theme) {
+        function applySharedAdminTheme(theme, uid) {
             if (!theme || !theme.preset || !window.THEMES || !window.THEMES[theme.preset]) return false;
             const safe = { preset: theme.preset, mode: (window.normalizeThemeMode ? window.normalizeThemeMode(theme.mode) : (theme.mode === 'dark' ? 'dark' : 'light')) };
             const current = window.selectedTheme || {};
             if (current.preset !== safe.preset || (window.normalizeThemeMode ? window.normalizeThemeMode(current.mode) : current.mode) !== safe.mode) {
                 window.applyTheme(safe);
             }
-            if (window.persistThemeLocally) window.persistThemeLocally(safe);
+            if (window.persistThemeLocally) window.persistThemeLocally(safe, uid);
             syncAdminThemeChrome();
             return true;
         }
@@ -6262,7 +6262,7 @@
                 // Follow the theme saved from Admin Profile (the shared --theme-*
                 // system). CSS maps it onto the panel's --admin-* tokens. Only the
                 // server-confirmed theme is applied — never the cached one.
-                if (serverProfile) applySharedAdminTheme(serverProfile.theme);
+                if (serverProfile) applySharedAdminTheme(serverProfile.theme, user.uid);
 
                 loadAllData();
                 loadAppUsers();

@@ -3531,7 +3531,7 @@
                         mode: normalizeThemeMode(data.theme.mode)
                     };
                     applyTheme(firestoreTheme);
-                    try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(firestoreTheme)); } catch (e) {}
+                    if (window.persistThemeLocally) window.persistThemeLocally(firestoreTheme, user.uid);
                 }
 
                 document.getElementById('titaLauncher').classList.add('visible');

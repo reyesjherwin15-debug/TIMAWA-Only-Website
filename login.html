@@ -3312,7 +3312,7 @@ body.tw-previewing #pwaInstallBanner {
                         mode: normalizeThemeMode(data.theme.mode)
                     };
                     applyTheme(firestoreTheme);
-                    try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(firestoreTheme)); } catch (e) {}
+                    if (window.persistThemeLocally) window.persistThemeLocally(firestoreTheme, user.uid);
                 }
                 const isAdmin = data?.isAdmin === true || data?.isAdmin === 'true';
                 setTimeout(() => {
@@ -3492,7 +3492,7 @@ body.tw-previewing #pwaInstallBanner {
                     console.warn('Could not update auth profile:', authProfileErr);
                 }
 
-                try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(selectedTheme)); } catch (e) {}
+                if (window.persistThemeLocally) window.persistThemeLocally(selectedTheme, user.uid);
                 let signupPushOptIn = false;
                 try {
                     signupPushOptIn = sessionStorage.getItem('timawa.signup.push-opt-in') === '1';
