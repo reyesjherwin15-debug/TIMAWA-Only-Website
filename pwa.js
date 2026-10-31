@@ -1336,6 +1336,11 @@
 
     async function boot() {
         decorateSplash();
+        // theme.js normally sets this before the body is parsed. If it could not
+        // run at all, show the splash anyway rather than leaving it hidden.
+        setTimeout(function () {
+            document.documentElement.classList.add('t-themed');
+        }, 700);
         listenForWorkerMessages();
         setupInstallBanner();
 

@@ -229,6 +229,15 @@ html[data-timawa-mode="light"] .loading-overlay.t-splash {
     filter: none;
 }
 
+/* Hide the launch screen until the theme is on <html>. theme.js runs in the
+   head, so on every page it has already painted by the time this markup is
+   parsed — the splash can then never be seen in the *default* palette while a
+   theme (or an automatic holiday theme) is still being resolved. If a page ever
+   paints before that, the neutral shell shows for a moment instead of a
+   wrongly-coloured launch screen. */
+.loading-overlay.t-splash.active { opacity: 0; pointer-events: none; }
+html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
+
 .loading-overlay.t-splash:not(.active) {
     transform: scale(1.05);
     filter: blur(8px);

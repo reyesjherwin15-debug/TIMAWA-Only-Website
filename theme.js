@@ -2108,6 +2108,7 @@
             window.__twHoliday = active;
             window.selectedTheme = { preset: real.preset, mode: real.mode };
             if (window.__twHolUI) window.__twHolUI();
+            document.documentElement.classList.add('t-themed');
         };
 
         function mount() {
@@ -2279,6 +2280,8 @@
         } else if (!window.paintSnapshottedPalette()) {
             window.applyTheme(window.selectedTheme);
         }
+        // The palette is on <html> now: allow the launch screen to show.
+        document.documentElement.classList.add('t-themed');
     })();
 
     try {

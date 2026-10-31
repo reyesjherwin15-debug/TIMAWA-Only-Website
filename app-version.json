@@ -1,6 +1,6 @@
 {
   "_readme": "The build that is live. pwa.js compares this with the build a device last applied; they differ only when a release needs the member to update, so nothing is shown otherwise. Bump 'version' with every release that changes the icon, the launch screen or the app shell. requiresReinstall:true means the installed icon/manifest changed (phones only re-read it on an app update). announceOnFirstRun:true also prompts devices that have never stored a version — use it when members who installed before this feature existed still need the change.",
-  "version": "1.9.6",
+  "version": "1.9.7",
   "requiresReinstall": false,
   "announceOnFirstRun": false,
   "title": "No theme flash on profile",
