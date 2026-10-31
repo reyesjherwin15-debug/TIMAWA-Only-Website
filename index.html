@@ -148,6 +148,9 @@
         .navbar .nav-links > li { display: flex; align-items: center; }
         .navbar .nav-links a { text-decoration: none; color: var(--theme-text-muted); font-weight: 500; font-size: 13px; transition: all 0.3s ease; padding: 6px 12px; border-radius: 8px; white-space: nowrap; }
         .navbar .nav-links a:hover { color: var(--theme-primary); background: color-mix(in srgb, var(--theme-primary) 6%, transparent); }
+        /* Same active pill as every other page, so Home here reads like Calendar
+           does on calendar.html and Spin & Poll does on squad-wheel.html. */
+        .navbar .nav-links a.active { color: var(--theme-primary); background: color-mix(in srgb, var(--theme-primary) 8%, transparent); }
 
         /* Notification taps land on these sections; keep the fixed navbar clear */
         #highlights, #members-section { scroll-margin-top: 96px; }
@@ -2631,7 +2634,7 @@
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.3.0" />
-    <link rel="stylesheet" href="launch.css?v=1.9.4" />
+    <link rel="stylesheet" href="launch.css?v=1.9.5" />
     <style>
         /* Keyboard-aware full-bleed sheets.
            iOS does not shrink the layout viewport for the software keyboard, so
@@ -6598,22 +6601,26 @@ function startHighlightReply(commentId, authorName) {
                     return;
                 }
                 const adminLink = isAdmin
-                    ? `<a href="admin.html" class="profile-link"><i class="fas fa-cog"></i> Admin</a>`
+                    ? `<a href="admin.html"><i class="fas fa-cog"></i> Admin</a>`
                     : '';
 
+                // Same order, labels and icons as every other page: Home stays in
+                // the static markup, and this list continues Calendar, Dashboard,
+                // Spin & Poll, Profile, then the bell and Logout. The admin panel
+                // link is the only extra, and it comes after Profile.
                 authLinks.innerHTML = `
                     <a href="calendar.html"><i class="fas fa-calendar-alt"></i> Calendar</a>
-                    <a href="dashboard.html"><i class="fas fa-house"></i> Dashboard</a>
-                    ${adminLink}
-                    <a href="profile.html" class="profile-link"><i class="fas fa-user"></i> Profile</a>
+                    <a href="dashboard.html"><i class="fas fa-gauge-high"></i> Dashboard</a>
                     <a href="squad-wheel.html"><i class="fas fa-dharmachakra"></i> Spin & Poll</a>
+                    <a href="profile.html" class="profile-link"><i class="fas fa-user"></i> Profile</a>
+                    ${adminLink}
                     <div class="announcement-wrapper">
                         <button class="announcement-bell" id="announcementBell" onclick="toggleAnnouncementPopup(event, 'desktop')" aria-label="Announcements">
                             <i class="fas fa-bell"></i>
                             <span class="announcement-badge" id="announcementBadge">0</span>
                         </button>
                     </div>
-                    <button class="logout-link" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout
+                    <button class="logout-link" onclick="logout()"><i class="fas fa-right-from-bracket"></i> Logout</button>
                 `;
                 heroCta.textContent = ' Go to Dashboard';
                 heroCta.href = 'dashboard.html';

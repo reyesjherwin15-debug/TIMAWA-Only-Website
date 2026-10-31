@@ -130,8 +130,8 @@ html[data-timawa-mode="light"] .loading-overlay.t-splash {
         var(--theme-primary, #4fc3ff) 76%,
         var(--theme-accent, #b9a6ff) 92%,
         transparent 100%);
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 0);
-    mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
     animation: tSplashSpin 2.2s linear infinite;
     opacity: 0.9;
     filter: drop-shadow(0 0 10px color-mix(in srgb, var(--theme-primary, #4fc3ff) 55%, transparent));
@@ -275,4 +275,19 @@ html[data-timawa-mode="light"] .loading-overlay.t-splash {
         -webkit-text-fill-color: CanvasText;
         color: CanvasText;
     }
+}
+
+/* ---------- motion --------------------------------------------------------- */
+/* The tile floats and the arc around it orbits. Both animations were referenced
+   by the rules above but the keyframes were missing, so the tile sat still and
+   the arc never turned. */
+@keyframes tSplashFloat {
+    0%,
+    100% { transform: translateY(0) scale(1); }
+    50%  { transform: translateY(-5px) scale(1.012); }
+}
+
+@keyframes tSplashSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
