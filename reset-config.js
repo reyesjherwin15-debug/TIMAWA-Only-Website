@@ -8,6 +8,5 @@
    ========================================================================== */
 
 window.TIMAWA_RESET = {
-    // Example: https://timawa-reset.your-name.workers.dev
-    endpoint: ''
+    endpoint: 'https://timawa-reset.reyesjherwin15.workers.dev'
 };
