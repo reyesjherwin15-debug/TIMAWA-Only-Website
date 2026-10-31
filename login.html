@@ -3553,10 +3553,10 @@ body.tw-previewing #pwaInstallBanner {
         });
 
         // ================================================================
-        // PASSWORD RESET
-        // The link Firebase sends points back here (mode=resetPassword), so the
-        // whole flow stays inside TIMAWA: same theme, same card, no detour to
-        // the firebaseapp.com action page.
+        // PASSWORD RESET (email + shared code -> new password)
+        // A browser cannot change another member's Firebase password, so the
+        // change happens in reset-worker.js on Cloudflare, which holds the
+        // service account. The code is checked there, never shipped here.
         // ================================================================
         function initResetPasswordFlow() {
             const scrim = document.getElementById('resetScrim');
@@ -3568,17 +3568,15 @@ body.tw-previewing #pwaInstallBanner {
             const askForm = document.getElementById('resetForm');
             const newForm = document.getElementById('resetNewForm');
             const emailInput = document.getElementById('resetEmail');
+            const codeInput = document.getElementById('resetCode');
             const msg = document.getElementById('resetMsg');
             const newMsg = document.getElementById('resetNewMsg');
-            const sendBtn = document.getElementById('resetSendBtn');
-            const resendBtn = document.getElementById('resetResendBtn');
+            const verifyBtn = document.getElementById('resetVerifyBtn');
             const saveBtn = document.getElementById('resetSaveBtn');
-            const againBtn = document.getElementById('resetAgainBtn');
+            const endpoint = String((window.TIMAWA_RESET && window.TIMAWA_RESET.endpoint) || '').replace(/\/+$/, '');
 
             let resetEmail = '';
-            let oobCode = '';
-            let cooldownTimer = null;
-            let cooldownLeft = 0;
+            let resetCode = '';
             let lastFocus = null;
 
             const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -3610,7 +3608,6 @@ body.tw-previewing #pwaInstallBanner {
                 scrim.classList.remove('active');
                 scrim.setAttribute('aria-hidden', 'true');
                 document.body.style.overflow = '';
-                stopCooldown();
                 setMsg(msg, '');
                 setMsg(newMsg, '');
                 if (lastFocus && lastFocus.focus) {
@@ -3618,84 +3615,50 @@ body.tw-previewing #pwaInstallBanner {
                 }
             }
 
-            function stopCooldown() {
-                if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+            const ERRORS = {
+                bad_code: 'That reset code is not correct. Check it with the squad admin.',
+                no_account: 'No TIMAWA account uses that email.',
+                weak_password: 'Use at least 6 characters — the same rule as sign-up.',
+                rate_limited: 'Too many attempts. Wait an hour and try again.',
+                invalid_email: 'That email address is not valid.',
+                network: 'Could not reach the reset service. Check your connection and try again.',
+                not_configured: 'Password reset is not set up yet. Ask the admin to finish the Worker setup.',
+                origin: 'This page is not allowed to use the reset service.',
+                server: 'The reset service could not do that right now. Try again in a minute.'
+            };
+
+            function errorText(code) {
+                return ERRORS[code] || 'Something went wrong. Try again.';
             }
 
-            function startCooldown(seconds) {
-                stopCooldown();
-                cooldownLeft = seconds;
-                const tick = function () {
-                    if (cooldownLeft <= 0) {
-                        stopCooldown();
-                        resendBtn.disabled = false;
-                        resendBtn.textContent = 'Resend link';
-                        return;
-                    }
-                    resendBtn.disabled = true;
-                    resendBtn.textContent = 'Resend in ' + cooldownLeft + 's';
-                    cooldownLeft -= 1;
-                };
-                tick();
-                cooldownTimer = setInterval(tick, 1000);
-            }
-
-            function clearResetParams() {
+            async function post(action, payload) {
+                if (!endpoint) return { ok: false, error: 'not_configured' };
+                const controller = typeof AbortController === 'function' ? new AbortController() : null;
+                const timer = controller ? setTimeout(function () { controller.abort(); }, 15000) : null;
                 try {
-                    const url = new URL(location.href);
-                    ['mode', 'oobCode', 'apiKey', 'lang', 'continueUrl'].forEach(function (k) {
-                        url.searchParams.delete(k);
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(Object.assign({ action: action }, payload)),
+                        signal: controller ? controller.signal : undefined
                     });
-                    history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
-                } catch (e) { /* ignore */ }
-            }
-
-            // The reset link opens login.html?mode=resetPassword&oobCode=… . If the
-            // GitHub Pages domain is not in Firebase's authorized list the send
-            // below falls back to the hosted page, so recovery still works.
-            async function sendLink(email) {
-                const settings = {
-                    url: location.origin + location.pathname + '?mode=resetPassword',
-                    handleCodeInApp: true
-                };
-                try {
-                    await auth.sendPasswordResetEmail(email, settings);
-                    return { ok: true };
+                    const data = await res.json().catch(function () { return {}; });
+                    if (res.ok && data && data.ok) return { ok: true };
+                    return { ok: false, error: (data && data.error) || 'server' };
                 } catch (err) {
-                    const code = err && err.code;
-                    if (code === 'auth/unauthorized-continue-uri' || code === 'auth/invalid-continue-uri') {
-                        try {
-                            await auth.sendPasswordResetEmail(email);
-                            return { ok: true };
-                        } catch (err2) {
-                            return { ok: false, error: err2 };
-                        }
-                    }
-                    return { ok: false, error: err };
+                    return { ok: false, error: 'network' };
+                } finally {
+                    if (timer) clearTimeout(timer);
                 }
-            }
-
-            async function doSend(email) {
-                const result = await sendLink(email);
-                if (!result.ok) {
-                    const code = result.error && result.error.code;
-                    if (code === 'auth/invalid-email') { setMsg(msg, 'That email address is not valid.', 'err'); return false; }
-                    if (code === 'auth/too-many-requests') { setMsg(msg, 'Too many attempts. Wait a few minutes and try again.', 'err'); return false; }
-                    if (code === 'auth/network-request-failed') { setMsg(msg, 'Network problem — check your connection and try again.', 'err'); return false; }
-                    // Anything else (unknown address, disabled account) stays
-                    // neutral on purpose: the dialog must not reveal who has an
-                    // account here.
-                }
-                return true;
             }
 
             document.getElementById('forgotLink').addEventListener('click', function (e) {
                 e.preventDefault();
                 const typed = (document.getElementById('email').value || '').trim();
                 emailInput.value = EMAIL_RE.test(typed) ? typed : '';
+                codeInput.value = '';
                 setMsg(msg, '');
                 setMsg(newMsg, '');
-                show('ask');
                 open('ask');
             });
 
@@ -3710,38 +3673,35 @@ body.tw-previewing #pwaInstallBanner {
 
             askForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                const email = emailInput.value.trim();
+                const email = emailInput.value.trim().toLowerCase();
+                const code = codeInput.value.trim();
                 if (!EMAIL_RE.test(email)) {
-                    setMsg(msg, 'Enter a valid email address.', 'err');
+                    setMsg(msg, 'Enter the email you sign in with.', 'err');
                     emailInput.focus();
                     return;
                 }
+                if (!code) {
+                    setMsg(msg, 'Enter the reset code.', 'err');
+                    codeInput.focus();
+                    return;
+                }
+                setMsg(msg, '');
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = 'Checking…';
+                const result = await post('verify', { email: email, code: code });
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Continue';
+                if (!result.ok) {
+                    setMsg(msg, errorText(result.error), 'err');
+                    return;
+                }
                 resetEmail = email;
-                setMsg(msg, '');
-                sendBtn.disabled = true;
-                sendBtn.textContent = 'Sending…';
-                const ok = await doSend(email);
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'Send reset link';
-                if (!ok) return;
-                document.getElementById('resetSentEmail').textContent = email;
-                show('sent');
-                startCooldown(60);
-            });
-
-            resendBtn.addEventListener('click', async function () {
-                if (!resetEmail || resendBtn.disabled) return;
-                resendBtn.disabled = true;
-                resendBtn.textContent = 'Sending…';
-                const ok = await doSend(resetEmail);
-                if (ok) startCooldown(60);
-                else { resendBtn.textContent = 'Try again'; resendBtn.disabled = false; }
-            });
-
-            againBtn.addEventListener('click', function () {
-                if (resetEmail) emailInput.value = resetEmail;
-                setMsg(msg, '');
-                show('ask');
+                resetCode = code;
+                document.getElementById('resetForEmail').textContent = email;
+                document.getElementById('resetNewPassword').value = '';
+                document.getElementById('resetNewPassword2').value = '';
+                setMsg(newMsg, '');
+                show('new');
             });
 
             newForm.addEventListener('submit', async function (e) {
@@ -3759,63 +3719,33 @@ body.tw-previewing #pwaInstallBanner {
                 setMsg(newMsg, '');
                 saveBtn.disabled = true;
                 saveBtn.textContent = 'Saving…';
-                try {
-                    await auth.confirmPasswordReset(oobCode, p1);
-                    clearResetParams();
-                    setMsg(newMsg, 'Password updated — signing you in…', 'info');
-                    try {
-                        await auth.signInWithEmailAndPassword(resetEmail, p1);
-                        // onAuthStateChanged takes it from here (index / admin).
-                    } catch (signInError) {
-                        document.getElementById('email').value = resetEmail;
-                        close();
-                        const el = document.getElementById('successMessage');
-                        if (el) {
-                            el.textContent = 'Password updated. Sign in with your new password.';
-                            el.style.display = 'block';
-                            setTimeout(function () { el.style.display = 'none'; }, 7000);
-                        }
-                    }
-                } catch (err) {
-                    const code = err && err.code;
-                    if (code === 'auth/expired-action-code' || code === 'auth/invalid-action-code') {
-                        document.getElementById('resetBadText').textContent = code === 'auth/expired-action-code'
-                            ? 'This link has expired. Reset links last one hour — send a new one below.'
-                            : 'This link has already been used or is not valid. Send a new one below.';
-                        show('bad');
-                    } else if (code === 'auth/weak-password') {
-                        setMsg(newMsg, 'That password is too weak — use at least 6 characters.', 'err');
-                    } else if (code === 'auth/network-request-failed') {
-                        setMsg(newMsg, 'Network problem — check your connection and try again.', 'err');
-                    } else {
-                        setMsg(newMsg, 'Could not update the password. Try again.', 'err');
-                    }
-                } finally {
+                const result = await post('reset', { email: resetEmail, code: resetCode, password: p1 });
+                if (!result.ok) {
                     saveBtn.disabled = false;
-                    saveBtn.textContent = 'Save & sign in';
+                    saveBtn.textContent = 'Save password';
+                    setMsg(newMsg, errorText(result.error), 'err');
+                    return;
+                }
+
+                // Password replaced. Sign them straight in; if that fails for any
+                // reason they land back on the form with their email filled in.
+                setMsg(newMsg, 'Password updated — signing you in…', 'info');
+                try {
+                    await auth.signInWithEmailAndPassword(resetEmail, p1);
+                    // onAuthStateChanged redirects to index.html / admin.html.
+                } catch (err) {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save password';
+                    document.getElementById('email').value = resetEmail;
+                    close();
+                    const el = document.getElementById('successMessage');
+                    if (el) {
+                        el.textContent = 'Password updated. Sign in with your new password.';
+                        el.style.display = 'block';
+                        setTimeout(function () { el.style.display = 'none'; }, 8000);
+                    }
                 }
             });
-
-            (async function handleIncomingLink() {
-                let params;
-                try { params = new URLSearchParams(location.search); } catch (e) { return; }
-                if (params.get('mode') !== 'resetPassword') return;
-                const code = params.get('oobCode');
-                if (!code) return;
-                oobCode = code;
-                open('new');
-                try {
-                    const email = await auth.verifyPasswordResetCode(code);
-                    resetEmail = email || '';
-                    document.getElementById('resetForEmail').textContent = resetEmail || 'your account';
-                } catch (err) {
-                    const c = err && err.code;
-                    document.getElementById('resetBadText').textContent = c === 'auth/expired-action-code'
-                        ? 'This link has expired. Reset links last one hour — send a new one below.'
-                        : 'This link has already been used or is not valid. Send a new one below.';
-                    show('bad');
-                }
-            })();
         }
 
         // The dialog markup lives further down the page than this script, so wait
@@ -4150,42 +4080,37 @@ body.tw-previewing #pwaInstallBanner {
         });
     </script>
 
-    <!-- ═══ Password reset: one themed dialog, four states ═══ -->
+    <!-- ═══ Password reset: code first, then a new password ═══ -->
     <div class="reset-scrim" id="resetScrim" aria-hidden="true">
         <div class="reset-card" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
 
             <div class="reset-panel" data-panel="ask">
                 <div class="reset-badge"><i class="fas fa-key" aria-hidden="true"></i></div>
                 <h3 class="reset-title" id="resetTitle">Reset your password</h3>
-                <p class="reset-sub">Enter the email you signed up with and we’ll send you a secure link to choose a new password.</p>
+                <p class="reset-sub">Enter your account email and the reset code from the squad admin. We’ll ask for a new password next.</p>
                 <form id="resetForm" class="reset-form" novalidate>
                     <div class="field">
                         <label class="field-icon" for="resetEmail" aria-hidden="true"><i class="fas fa-envelope"></i></label>
                         <input class="input" type="email" id="resetEmail" placeholder="E-mail"
                                autocomplete="email" inputmode="email" />
                     </div>
+                    <div class="field">
+                        <label class="field-icon" for="resetCode" aria-hidden="true"><i class="fas fa-key"></i></label>
+                        <input class="input" type="text" id="resetCode" placeholder="Reset code"
+                               autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" />
+                    </div>
                     <div class="reset-msg" id="resetMsg" role="status" aria-live="polite"></div>
                     <div class="reset-actions">
                         <button type="button" class="reset-btn ghost" data-reset-close>Cancel</button>
-                        <button type="submit" class="reset-btn primary" id="resetSendBtn">Send reset link</button>
+                        <button type="submit" class="reset-btn primary" id="resetVerifyBtn">Continue</button>
                     </div>
                 </form>
-            </div>
-
-            <div class="reset-panel" data-panel="sent" hidden>
-                <div class="reset-badge ok"><i class="fas fa-paper-plane" aria-hidden="true"></i></div>
-                <h3 class="reset-title">Check your inbox</h3>
-                <p class="reset-sub">If <b id="resetSentEmail">that address</b> has a TIMAWA account, a reset link is on its way. The link works once and expires in an hour.</p>
-                <div class="reset-actions">
-                    <button type="button" class="reset-btn ghost" data-reset-close>Back to sign in</button>
-                    <button type="button" class="reset-btn primary" id="resetResendBtn" disabled>Resend in 60s</button>
-                </div>
             </div>
 
             <div class="reset-panel" data-panel="new" hidden>
                 <div class="reset-badge"><i class="fas fa-lock" aria-hidden="true"></i></div>
                 <h3 class="reset-title">Choose a new password</h3>
-                <p class="reset-sub">Setting a new password for <b id="resetForEmail">your account</b>.</p>
+                <p class="reset-sub">Setting a new password for <b id="resetForEmail">your account</b>. It replaces the old one right away.</p>
                 <form id="resetNewForm" class="reset-form" novalidate>
                     <div class="field password-wrapper">
                         <label class="field-icon" for="resetNewPassword" aria-hidden="true"><i class="fas fa-lock"></i></label>
@@ -4202,25 +4127,16 @@ body.tw-previewing #pwaInstallBanner {
                     <div class="reset-msg" id="resetNewMsg" role="status" aria-live="polite"></div>
                     <div class="reset-actions">
                         <button type="button" class="reset-btn ghost" data-reset-close>Cancel</button>
-                        <button type="submit" class="reset-btn primary" id="resetSaveBtn">Save &amp; sign in</button>
+                        <button type="submit" class="reset-btn primary" id="resetSaveBtn">Save password</button>
                     </div>
                 </form>
-            </div>
-
-            <div class="reset-panel" data-panel="bad" hidden>
-                <div class="reset-badge warn"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></div>
-                <h3 class="reset-title">This link can’t be used</h3>
-                <p class="reset-sub" id="resetBadText">It may have expired or already been used. Reset links work once and last an hour.</p>
-                <div class="reset-actions">
-                    <button type="button" class="reset-btn ghost" data-reset-close>Close</button>
-                    <button type="button" class="reset-btn primary" id="resetAgainBtn">Send a new link</button>
-                </div>
             </div>
 
         </div>
     </div>
 
     <!-- ═══ Shared avatar cropper (circular preview before upload) ═══ -->
+    <script src="reset-config.js?v=1.0.0"></script>
     <script src="avatar-crop.js?v=1.1.0"></script>
 
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->

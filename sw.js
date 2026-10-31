@@ -8,7 +8,7 @@
    Bump CACHE_VERSION whenever the shell files change.
    ========================================================================== */
 
-const CACHE_VERSION = 'v1.5.32';
+const CACHE_VERSION = 'v1.5.33';
 const SHELL_CACHE = `timawa-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `timawa-runtime-${CACHE_VERSION}`;
 const MAX_RUNTIME_ENTRIES = 60;
@@ -26,6 +26,7 @@ const SHELL_ASSETS = [
     './launch.css',
     './pwa.js',
     './push-config.js',
+    './reset-config.js',
     './presence.css',
     './presence.js',
     './squad-wheel.html',
