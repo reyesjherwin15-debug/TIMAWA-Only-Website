@@ -73,6 +73,13 @@ personal details, socials, appearance/theme picker, then Save / Reset.
          download can never bring back the default-theme flash. theme.js adds
          .t-themed the instant it paints; pwa.js adds it as a safety net. -->
     <style id="tSplashGate">
+        /* Nothing paints before the palette is on <html>: not the page, not the
+           splash. The backdrop stays neutral dark so a slow script, a stale
+           cache or a truncated stylesheet can never flash a theme the member is
+           not using. theme.js lifts this as it paints; pwa.js adds .t-themed as
+           a safety net so the page can never stay hidden. */
+        html:not(.t-themed) { background: #071322 !important; }
+        html:not(.t-themed) body { visibility: hidden; }
         html:not(.t-themed) .loading-overlay.t-splash.active { opacity: 0 !important; pointer-events: none !important; }
         html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
     </style>

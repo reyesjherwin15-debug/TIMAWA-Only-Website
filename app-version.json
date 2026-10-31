@@ -1,8 +1,8 @@
 {
   "_readme": "The build that is live. pwa.js compares this with the build a device last applied; they differ only when a release needs the member to update, so nothing is shown otherwise. Bump 'version' with every release that changes the icon, the launch screen or the app shell. requiresReinstall:true means the installed icon/manifest changed (phones only re-read it on an app update). announceOnFirstRun:true also prompts devices that have never stored a version — use it when members who installed before this feature existed still need the change.",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "requiresReinstall": false,
   "announceOnFirstRun": false,
-  "title": "Password reset is here",
-  "message": "Forgot your password? The link on the sign-in screen now sends a secure reset email, and the new password is chosen on a themed TIMAWA page. Tap Update now to load the new files."
+  "title": "Launch screen never shows the wrong theme",
+  "message": "Nothing is drawn before your theme is applied, so the blue default can no longer flash before an automatic holiday theme. Tap Update now to load the new files."
 }
