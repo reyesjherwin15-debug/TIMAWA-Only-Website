@@ -58,7 +58,7 @@
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
     <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="stories.css?v=1.13.0" />
-    <script src="theme.js?v=1.2.0"></script>
+    <script src="theme.js?v=1.2.1"></script>
 
     <!-- Cloudinary Upload Widget -->
     <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
@@ -15040,12 +15040,18 @@ function startReplyTo(commentId, authorName) {
         // A theme changed on another device: check again when the tab comes back
         // to the foreground. Same-device changes arrive through theme.js's own
         // BroadcastChannel listener, so this is only the cross-device case.
+        // Throttled: one document read per five minutes at most, so switching
+        // tabs all day does not turn into a stream of Firestore reads.
+        let lastThemeSyncAt = 0;
         document.addEventListener('visibilitychange', () => {
             if (document.hidden || !currentUser || !currentUserData) return;
+            const now = Date.now();
+            if (now - lastThemeSyncAt < 5 * 60 * 1000) return;
+            lastThemeSyncAt = now;
             db.collection('users').doc(currentUser.uid).get().then(doc => {
                 const data = doc.exists ? doc.data() : null;
                 applyProfileTheme(data);
-            }).catch(() => {});
+            }).catch(() => { lastThemeSyncAt = 0; });
         });
 
         auth.onAuthStateChanged(async (user) => {
@@ -15625,6 +15631,43 @@ function startReplyTo(commentId, authorName) {
                 showToast('Image downloaded', 'success', 2000);
             } catch (err) {
                 console.error('downloadSingleHighlightImage error:', err);
+                showToast('Failed to download: ' + err.message, 'error');
+            }
+        }
+
+        // The highlight card's "Zip" button (multi-photo highlights). This
+        // function existed only on index.html, so on the dashboard the button
+        // threw a ReferenceError and downloaded nothing.
+        async function downloadAllHighlightImages(id) {
+            if (!id) return;
+            try {
+                const doc = await db.collection('highlights').doc(id).get();
+                if (!doc.exists) { showToast('This highlight no longer exists.', 'warn'); return; }
+                const item = doc.data();
+                const urls = (item.imageURLs || []).filter(Boolean);
+                if (!urls.length) { showToast('No image available to download.', 'warn'); return; }
+
+                const safeAuthor = sanitizeFilename(item.authorName || 'highlight');
+                const zip = new JSZip();
+                const folder = zip.folder(`TIMAWA_${safeAuthor}`);
+                let added = 0;
+                for (let i = 0; i < urls.length; i++) {
+                    try {
+                        const response = await fetch(urls[i]);
+                        if (!response.ok) continue;
+                        const blob = await response.blob();
+                        const ext = (blob.type.split('/')[1] || extFromUrl(urls[i])).split('+')[0];
+                        folder.file(`photo_${i + 1}.${ext}`, blob);
+                        added++;
+                    } catch (e) { /* one failed photo must not abort the zip */ }
+                }
+                if (!added) { showToast('Could not download those images.', 'error'); return; }
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const date = new Date().toISOString().slice(0, 10);
+                saveAs(zipBlob, `TIMAWA_${safeAuthor}_${date}.zip`);
+                showToast(`${added} photo${added !== 1 ? 's' : ''} downloaded`, 'success', 2000);
+            } catch (err) {
+                console.error('downloadAllHighlightImages error:', err);
                 showToast('Failed to download: ' + err.message, 'error');
             }
         }

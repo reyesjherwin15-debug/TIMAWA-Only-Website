@@ -340,7 +340,7 @@
     // Rotation snaps to the four cardinal angles for every element — text,
     // music sticker and layout photo. Landing half a degree off straight is
     // what makes a story look sloppy, so anything within 3° locks on.
-    const ROT_SNAPS = [0, 90, -90, 180];
+    const ROT_SNAPS = [0, 90, -90, 180, -180];
     const wrapDeg = d => ((d + 180) % 360 + 360) % 360 - 180;
     function snapDeg(v, tol) {
         const deg = Math.round(Number(v) || 0);
@@ -350,7 +350,12 @@
             const d = Math.abs(wrapDeg(deg) - a);
             if (d <= reach) { reach = d; best = a; }
         });
-        return best == null ? S.clamp(deg, -180, 180) : best;
+        if (best == null) return S.clamp(deg, -180, 180);
+        // 180 and -180 are the same angle, but the slider's two ends are not:
+        // keep the sign the member dragged towards so the thumb does not jump
+        // from the far right to the far left (or back).
+        if (best === -180 && deg > 0) return 180;
+        return best;
     }
     function showGuides(x, y) {
         if (!q.guides) return;
@@ -628,7 +633,7 @@
             h += `<div class="st-lab" style="margin-top:12px">Choose a layout</div><div class="st-layouts">`
                 + S.layoutsFor(n).map(L => `<div class="st-layout-opt"><button type="button" class="st-lay ${M.layout === L.id ? 'on' : ''}" data-k="layout" data-v="${L.id}" aria-label="${L.label}" aria-pressed="${M.layout === L.id}" title="${L.label}">${S.miniLayoutHtml(L)}</button><small>${L.label}</small></div>`).join('')
                 + `</div>
-                <p class="st-hint">Drag to move · Pinch to zoom · Hold to swap</p>
+                <p class="st-hint">Drag to move${coarse() ? ' · Pinch to zoom' : ''} · Hold to swap</p>
                 <div class="st-lab">Selected photo ${Math.min(M.selCell + 1, n)} of ${n}</div>`;
             if (!coarse()) {
                 h += `<div class="st-row2 st-desk-only">
@@ -641,7 +646,7 @@
 
         h += `<div class="st-lab" style="margin-top:12px">Framing</div><div class="st-row2">${chips([['fill', 'Fill screen'], ['fit', 'Fit whole']], M.fit, 'fit')}</div>`;
 
-        if (!collage) {
+        if (!collage && !coarse()) {
             h += `<div class="st-lab">Zoom</div><div class="st-row2 st-desk-only"><label class="st-range">Size <input type="range" min="50" max="300" step="1" value="${z}" data-in="mediaScale" aria-label="Zoom"><b class="st-zoomv" style="min-width:42px">${z}%</b></label><button type="button" class="st-btn ghost sm" data-k="resetMedia">Reset</button></div>`;
         }
         return h;

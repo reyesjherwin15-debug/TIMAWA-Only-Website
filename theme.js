@@ -1948,7 +1948,9 @@
             { id: 'xmas', name: 'Christmas season (Simbang Gabi)', emoji: '🎄', theme: 'hxmas', on: d => inMD(d, 11, 15, 30) }
         ];
         let forced = null, manualNext = false;
-        document.addEventListener('click', e => { const t = e.target; if (t && t.closest && t.closest('.theme-preset')) manualNext = true; }, true);
+        // Any theme card counts as "I picked this myself" — profile / admin
+        // profile use .theme-preset, the sign-up wizard uses .theme-pick.
+        document.addEventListener('click', e => { const t = e.target; if (t && t.closest && t.closest('.theme-preset, .theme-pick')) manualNext = true; }, true);
         /* ---------- birthday theme ------------------------------------------------
            A member's birthday is not a fixed holiday, so the pages cache the
            birthdays they already read from Firestore in localStorage and call
