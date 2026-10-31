@@ -1223,6 +1223,17 @@
         Object.keys(palette).forEach(key => {
             root.style.setProperty(key, palette[key]);
         });
+        // Already on screen? A page that re-applies the theme it booted with (the
+        // profile page does this on every load) must not repaint, and must not
+        // re-run the scene cross-fade — that fade is what reads as a flash.
+        const shapesBox = document.getElementById('themeBgShapes');
+        const samePaint = root.getAttribute('data-timawa-theme') === presetKey
+            && root.getAttribute('data-timawa-mode') === mode
+            && (!shapesBox || shapesBox.dataset.activeTheme === presetKey);
+        if (samePaint) {
+            window.selectedTheme = { preset: presetKey, mode: modePref };
+            return;
+        }
         root.setAttribute('data-timawa-theme', presetKey);
         root.setAttribute('data-timawa-mode', mode);
         root.setAttribute('data-timawa-mode-pref', modePref);
@@ -2110,7 +2121,13 @@
         card.innerHTML = '<span class="tw-hol-e" id="twHolE">🎉</span><div class="tw-hol-t"><b>Holiday themes</b><small id="twHolS"></small></div><label class="tw-sw" title="Show a special scene on holidays and squad birthdays"><input type="checkbox" id="twHolChk"><i></i></label>';
             grid.parentNode.insertBefore(card, grid);
             card.querySelector('#twHolChk').addEventListener('change', e => {
-                try { localStorage.setItem(KEY, e.target.checked ? 'on' : 'off'); } catch (er) { /* ignore */ }
+                try {
+                    localStorage.setItem(KEY, e.target.checked ? 'on' : 'off');
+                    // Switching auto themes ON should show today's theme straight
+                    // away — a previous "I picked my own theme today" must not keep
+                    // blocking it.
+                    if (e.target.checked) localStorage.removeItem(SKIP);
+                } catch (er) { /* ignore */ }
                 if (window.__twReal) window.applyTheme(window.__twReal);
             });
         }
@@ -2139,7 +2156,7 @@
             birthday: () => birthdayEvent(),
             birthdays: birthdayList,
             today: () => find(new Date()), next: nextEvent,
-            set: on => { try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch (e) { /* ignore */ } if (window.__twReal) window.applyTheme(window.__twReal); },
+            set: on => { try { localStorage.setItem(KEY, on ? 'on' : 'off'); if (on) localStorage.removeItem(SKIP); } catch (e) { /* ignore */ } if (window.__twReal) window.applyTheme(window.__twReal); },
             preview: id => { forced = id ? (EVENTS.filter(x => x.id === id)[0] || null) : null; if (window.__twReal) window.applyTheme(window.__twReal); }
         };
     })();
