@@ -1223,6 +1223,16 @@
         // Painted under the page so the launch screen never shows a light frame
         // on a dark theme (or the other way round) while the body lays out.
         root.style.backgroundColor = palette['--theme-bg'];
+        // A snapshot of exactly what was painted. Every page replays it from a
+        // tiny inline script *before* the CSS and theme.js run, so the launch
+        // screen opens in the member's own colours from the first frame: no
+        // default-theme flash, even when the saved preset is unknown to this
+        // build (an old holiday theme, for example) and cannot be resolved.
+        try {
+            localStorage.setItem(window.THEME_PAINT_KEY, JSON.stringify({
+                preset: presetKey, mode: mode, pref: modePref, vars: palette
+            }));
+        } catch (e) { /* ignore */ }
         window.injectThemeShapes(presetKey);
         if (window.__twCursorSync) window.__twCursorSync(presetKey);
         if (window.__twPerfProbe) window.__twPerfProbe();
@@ -2128,6 +2138,7 @@
     // is about to appear — otherwise the launch screen paints the default
     // theme and switches once the profile arrives.
     window.THEME_OWNER_KEY = 'timawa.theme.owner';
+    window.THEME_PAINT_KEY = 'timawa.theme.paint';
     function themeStorageKey(uid) { return window.THEME_STORAGE_KEY + '.' + uid; }
     function parseStoredTheme(raw) {
         try {
@@ -2141,6 +2152,13 @@
     }
     window.themeOwner = function () {
         try { return localStorage.getItem(window.THEME_OWNER_KEY) || ''; } catch (e) { return ''; }
+    };
+    window.readPaintSnapshot = function () {
+        try {
+            const snap = JSON.parse(localStorage.getItem(window.THEME_PAINT_KEY) || 'null');
+            if (snap && snap.vars && typeof snap.vars === 'object') return snap;
+        } catch (e) { /* ignore */ }
+        return null;
     };
     window.rememberThemeOwner = function (uid) {
         if (!uid) return;
@@ -2156,7 +2174,16 @@
             }
             // No per-account copy yet (first launch after this update, or a
             // device that only ever had the single shared key).
-            return parseStoredTheme(localStorage.getItem(window.THEME_STORAGE_KEY));
+            const shared = parseStoredTheme(localStorage.getItem(window.THEME_STORAGE_KEY));
+            if (shared) return shared;
+            // Nothing usable — the saved preset may be a theme this build no
+            // longer knows (an old holiday, for example). The last palette that
+            // was painted is still the member's own, so keep its scene instead
+            // of dropping to the default theme.
+            const snap = window.readPaintSnapshot();
+            if (snap && snap.preset && window.THEMES[snap.preset]) {
+                return { preset: snap.preset, mode: window.normalizeThemeMode(snap.pref || snap.mode) };
+            }
         } catch (e) { /* ignore */ }
         return null;
     };
@@ -2196,10 +2223,31 @@
         } catch (e) { /* ignore */ }
     };
 
+    // Repaint the exact palette of the last launch without needing a preset the
+    // build still knows. Only used when no preset can be resolved at all.
+    window.paintSnapshottedPalette = function () {
+        const snap = window.readPaintSnapshot();
+        if (!snap) return false;
+        const root = document.documentElement;
+        Object.keys(snap.vars).forEach(key => root.style.setProperty(key, snap.vars[key]));
+        if (snap.preset) root.setAttribute('data-timawa-theme', snap.preset);
+        if (snap.mode) {
+            root.setAttribute('data-timawa-mode', snap.mode);
+            root.style.colorScheme = snap.mode;
+        }
+        if (snap.pref) root.setAttribute('data-timawa-mode-pref', snap.pref);
+        if (snap.vars['--theme-bg']) root.style.backgroundColor = snap.vars['--theme-bg'];
+        return true;
+    };
+
     (function bootTheme() {
         const cached = window.readThemeFromStorage();
-        if (cached) window.selectedTheme = cached;
-        window.applyTheme(window.selectedTheme);
+        if (cached) {
+            window.selectedTheme = cached;
+            window.applyTheme(window.selectedTheme);
+        } else if (!window.paintSnapshottedPalette()) {
+            window.applyTheme(window.selectedTheme);
+        }
     })();
 
     try {

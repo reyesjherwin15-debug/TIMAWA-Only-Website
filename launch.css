@@ -68,6 +68,13 @@ html[data-timawa-mode="light"] .loading-overlay.t-splash {
 
 /* ---------- tile ----------------------------------------------------------- */
 .t-splash-mark {
+    /* The mark holds one glyph and a ring that sits outside it: grid centres the
+       glyph exactly, and the ring is taken out of the flow so it cannot nudge
+       the letter off-centre. */
+    position: relative;
+    display: grid;
+    place-items: center;
+    isolation: isolate;
     width: 94px;
     height: 94px;
     border-radius: 29px;
@@ -86,14 +93,27 @@ html[data-timawa-mode="light"] .loading-overlay.t-splash {
 }
 
 .t-splash-mark::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
     background:
         radial-gradient(120% 85% at 26% -6%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%),
         radial-gradient(90% 70% at 84% 116%, rgba(255, 255, 255, 0.18), transparent 62%);
 }
 
 .t-splash-mark b {
+    position: relative;
+    z-index: 1;
+    display: block;
     font-size: 46px;
     font-weight: 900;
+    /* line-height:1 makes the box the glyph's own height; the small lift
+       compensates for the empty descender space every font carries, which is
+       what made the letter sit low in the tile. */
+    line-height: 1;
+    transform: translateY(-0.04em);
     letter-spacing: -0.02em;
     color: #fff;
     text-shadow: 0 3px 14px rgba(3, 16, 40, 0.4);
@@ -101,7 +121,9 @@ html[data-timawa-mode="light"] .loading-overlay.t-splash {
 
 /* rotating arc in the theme accent — thinner and slower than a spinner */
 .t-splash-ring {
+    position: absolute;
     inset: -12px;
+    pointer-events: none;
     border-radius: 40px;
     background: conic-gradient(from 0turn,
         transparent 0 58%,

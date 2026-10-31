@@ -59,8 +59,24 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
-    <link rel="stylesheet" href="theme.css" />
-    <script src="theme.js?v=1.2.1"></script>
+    <!-- First frame: replay the palette the profile last used, before any CSS
+         or theme.js runs, so the launch screen never flashes the default theme. -->
+    <script>
+    (function () {
+        try {
+            var p = JSON.parse(localStorage.getItem('timawa.theme.paint') || 'null');
+            if (!p || !p.vars) return;
+            var r = document.documentElement;
+            for (var k in p.vars) { if (Object.prototype.hasOwnProperty.call(p.vars, k)) r.style.setProperty(k, p.vars[k]); }
+            if (p.preset) r.setAttribute('data-timawa-theme', p.preset);
+            if (p.mode) { r.setAttribute('data-timawa-mode', p.mode); r.style.colorScheme = p.mode; }
+            if (p.pref) r.setAttribute('data-timawa-mode-pref', p.pref);
+            if (p.vars['--theme-bg']) r.style.backgroundColor = p.vars['--theme-bg'];
+        } catch (e) { /* ignore */ }
+    })();
+    </script>
+    <link rel="stylesheet" href="theme.css?v=1.9.4" />
+    <script src="theme.js?v=1.9.4"></script>
 
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
@@ -1946,7 +1962,7 @@
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.3.0" />
-    <link rel="stylesheet" href="launch.css?v=1.2.1" />
+    <link rel="stylesheet" href="launch.css?v=1.9.4" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->

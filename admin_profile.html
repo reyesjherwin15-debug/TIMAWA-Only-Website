@@ -52,8 +52,24 @@ personal details, socials, appearance/theme picker, then Save / Reset.
     <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>
 
     <!-- ★ Shared theme system (must load before page render to avoid theme flash) -->
-    <link rel="stylesheet" href="theme.css" />
-    <script src="theme.js?v=1.2.1"></script>
+    <!-- First frame: replay the palette the profile last used, before any CSS
+         or theme.js runs, so the launch screen never flashes the default theme. -->
+    <script>
+    (function () {
+        try {
+            var p = JSON.parse(localStorage.getItem('timawa.theme.paint') || 'null');
+            if (!p || !p.vars) return;
+            var r = document.documentElement;
+            for (var k in p.vars) { if (Object.prototype.hasOwnProperty.call(p.vars, k)) r.style.setProperty(k, p.vars[k]); }
+            if (p.preset) r.setAttribute('data-timawa-theme', p.preset);
+            if (p.mode) { r.setAttribute('data-timawa-mode', p.mode); r.style.colorScheme = p.mode; }
+            if (p.pref) r.setAttribute('data-timawa-mode-pref', p.pref);
+            if (p.vars['--theme-bg']) r.style.backgroundColor = p.vars['--theme-bg'];
+        } catch (e) { /* ignore */ }
+    })();
+    </script>
+    <link rel="stylesheet" href="theme.css?v=1.9.4" />
+    <script src="theme.js?v=1.9.4"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1476,7 +1492,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
         }
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
-    <link rel="stylesheet" href="launch.css?v=1.2.1" />
+    <link rel="stylesheet" href="launch.css?v=1.9.4" />
 </head>
 <body>
     <!-- ===== LOADING OVERLAY ===== -->
