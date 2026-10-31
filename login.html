@@ -610,6 +610,178 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .forgot-row a:hover { opacity: 0.72; text-decoration: underline; }
 
+/* ================= PASSWORD RESET ================= */
+.reset-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: color-mix(in srgb, var(--theme-bg) 26%, rgba(3, 10, 20, 0.74));
+    -webkit-backdrop-filter: blur(7px) saturate(120%);
+    backdrop-filter: blur(7px) saturate(120%);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+.reset-scrim.active { opacity: 1; visibility: visible; }
+
+.reset-card {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    max-height: min(92vh, 660px);
+    overflow-y: auto;
+    background: color-mix(in srgb, var(--theme-card) 96%, transparent);
+    border: var(--ui-card-border);
+    border-radius: var(--ui-radius-xl);
+    box-shadow: var(--ui-card-shadow);
+    padding: 30px 28px 26px;
+    transform: translateY(16px) scale(0.985);
+    transition: transform 0.3s var(--ui-ease);
+}
+.reset-scrim.active .reset-card { transform: none; }
+.reset-panel[hidden] { display: none; }
+
+.reset-badge {
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    border-radius: 17px;
+    margin-bottom: 16px;
+    font-size: 19px;
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 20%, transparent);
+}
+.reset-badge.ok {
+    color: var(--theme-success, #10b981);
+    background: color-mix(in srgb, var(--theme-success, #10b981) 12%, transparent);
+    border-color: color-mix(in srgb, var(--theme-success, #10b981) 22%, transparent);
+}
+.reset-badge.warn {
+    color: var(--theme-warn);
+    background: color-mix(in srgb, var(--theme-warn) 13%, transparent);
+    border-color: color-mix(in srgb, var(--theme-warn) 24%, transparent);
+}
+
+.reset-title {
+    margin: 0 0 8px;
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--theme-text);
+}
+.reset-sub {
+    margin: 0 0 20px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--theme-text-dim);
+}
+.reset-sub b { color: var(--theme-text); font-weight: 700; word-break: break-word; }
+
+.reset-form { display: flex; flex-direction: column; gap: 12px; }
+.reset-form .field { position: relative; }
+.reset-form .field > .field-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: var(--theme-text-faint);
+    pointer-events: none;
+}
+.reset-form .input {
+    width: 100%;
+    height: 52px;
+    padding: 0 16px 0 44px;
+    font-size: 14.5px;
+    color: var(--theme-text);
+    background: var(--theme-bg-soft);
+    border: 1.5px solid var(--theme-border-input);
+    border-radius: var(--ui-radius-md);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.reset-form .input::placeholder { color: var(--theme-text-faint); }
+.reset-form .input:focus {
+    outline: none;
+    background: var(--theme-card);
+    border-color: var(--theme-primary);
+    box-shadow: var(--ui-ring);
+}
+.reset-form .password-wrapper { position: relative; }
+.reset-form .password-wrapper .input { padding-right: 52px; }
+.reset-form .password-wrapper .toggle-password {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 38px;
+    height: 38px;
+    border: none;
+    border-radius: 11px;
+    background: transparent;
+    color: var(--theme-text-faint);
+    font-size: 14px;
+    cursor: pointer;
+}
+.reset-form .password-wrapper .toggle-password:hover { color: var(--theme-primary); }
+
+.reset-msg {
+    display: none;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.45;
+}
+.reset-msg.show { display: block; }
+.reset-msg.err {
+    color: var(--theme-danger);
+    background: var(--theme-danger-soft);
+    border: 1px solid color-mix(in srgb, var(--theme-danger) 22%, transparent);
+}
+.reset-msg.info {
+    color: var(--theme-text-dim);
+    background: var(--theme-bg-soft);
+    border: 1px solid var(--theme-border);
+}
+
+.reset-actions { display: flex; gap: 10px; margin-top: 6px; }
+.reset-btn {
+    flex: 1;
+    height: 48px;
+    border-radius: var(--ui-radius-md);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: transform 0.2s var(--ui-ease), box-shadow 0.25s ease, opacity 0.2s ease;
+}
+.reset-btn.primary {
+    border: none;
+    color: #fff;
+    background: var(--theme-gradient);
+    box-shadow: 0 14px 28px -16px color-mix(in srgb, var(--theme-primary) 90%, transparent);
+}
+.reset-btn.ghost {
+    color: var(--theme-text-dim);
+    background: transparent;
+    border: 1.5px solid var(--theme-border-input);
+}
+.reset-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.reset-btn.ghost:hover:not(:disabled) { border-color: color-mix(in srgb, var(--theme-primary) 40%, var(--theme-border-input)); color: var(--theme-text); }
+.reset-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+@media (max-width: 480px) {
+    .reset-card { padding: 26px 20px 22px; border-radius: 24px; }
+    .reset-title { font-size: 19px; }
+    .reset-actions { flex-direction: column-reverse; }
+}
+
 .divider {
     display: flex;
     align-items: center;
@@ -2108,7 +2280,7 @@ body.tw-previewing #pwaInstallBanner {
                     </div>
 
                     <div class="forgot-row">
-                        <a href="#">Forgot password?</a>
+                        <a href="#" id="forgotLink">Forgot password?</a>
                     </div>
 
                     <button type="submit" class="login-button" id="loginBtn">Sign In</button>
@@ -3381,6 +3553,280 @@ body.tw-previewing #pwaInstallBanner {
         });
 
         // ================================================================
+        // PASSWORD RESET
+        // The link Firebase sends points back here (mode=resetPassword), so the
+        // whole flow stays inside TIMAWA: same theme, same card, no detour to
+        // the firebaseapp.com action page.
+        // ================================================================
+        function initResetPasswordFlow() {
+            const scrim = document.getElementById('resetScrim');
+            if (!scrim) return;
+
+            const panels = {};
+            scrim.querySelectorAll('.reset-panel').forEach(function (p) { panels[p.dataset.panel] = p; });
+
+            const askForm = document.getElementById('resetForm');
+            const newForm = document.getElementById('resetNewForm');
+            const emailInput = document.getElementById('resetEmail');
+            const msg = document.getElementById('resetMsg');
+            const newMsg = document.getElementById('resetNewMsg');
+            const sendBtn = document.getElementById('resetSendBtn');
+            const resendBtn = document.getElementById('resetResendBtn');
+            const saveBtn = document.getElementById('resetSaveBtn');
+            const againBtn = document.getElementById('resetAgainBtn');
+
+            let resetEmail = '';
+            let oobCode = '';
+            let cooldownTimer = null;
+            let cooldownLeft = 0;
+            let lastFocus = null;
+
+            const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+            function setMsg(el, text, kind) {
+                if (!el) return;
+                if (!text) { el.className = 'reset-msg'; el.textContent = ''; return; }
+                el.className = 'reset-msg show ' + (kind || 'info');
+                el.textContent = text;
+            }
+
+            function show(panel) {
+                Object.keys(panels).forEach(function (k) { panels[k].hidden = k !== panel; });
+                setTimeout(function () {
+                    const field = panels[panel] && panels[panel].querySelector('input');
+                    if (field) field.focus();
+                }, 80);
+            }
+
+            function open(panel) {
+                lastFocus = document.activeElement;
+                scrim.classList.add('active');
+                scrim.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
+                show(panel || 'ask');
+            }
+
+            function close() {
+                scrim.classList.remove('active');
+                scrim.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+                stopCooldown();
+                setMsg(msg, '');
+                setMsg(newMsg, '');
+                if (lastFocus && lastFocus.focus) {
+                    try { lastFocus.focus(); } catch (e) { /* ignore */ }
+                }
+            }
+
+            function stopCooldown() {
+                if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+            }
+
+            function startCooldown(seconds) {
+                stopCooldown();
+                cooldownLeft = seconds;
+                const tick = function () {
+                    if (cooldownLeft <= 0) {
+                        stopCooldown();
+                        resendBtn.disabled = false;
+                        resendBtn.textContent = 'Resend link';
+                        return;
+                    }
+                    resendBtn.disabled = true;
+                    resendBtn.textContent = 'Resend in ' + cooldownLeft + 's';
+                    cooldownLeft -= 1;
+                };
+                tick();
+                cooldownTimer = setInterval(tick, 1000);
+            }
+
+            function clearResetParams() {
+                try {
+                    const url = new URL(location.href);
+                    ['mode', 'oobCode', 'apiKey', 'lang', 'continueUrl'].forEach(function (k) {
+                        url.searchParams.delete(k);
+                    });
+                    history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
+                } catch (e) { /* ignore */ }
+            }
+
+            // The reset link opens login.html?mode=resetPassword&oobCode=… . If the
+            // GitHub Pages domain is not in Firebase's authorized list the send
+            // below falls back to the hosted page, so recovery still works.
+            async function sendLink(email) {
+                const settings = {
+                    url: location.origin + location.pathname + '?mode=resetPassword',
+                    handleCodeInApp: true
+                };
+                try {
+                    await auth.sendPasswordResetEmail(email, settings);
+                    return { ok: true };
+                } catch (err) {
+                    const code = err && err.code;
+                    if (code === 'auth/unauthorized-continue-uri' || code === 'auth/invalid-continue-uri') {
+                        try {
+                            await auth.sendPasswordResetEmail(email);
+                            return { ok: true };
+                        } catch (err2) {
+                            return { ok: false, error: err2 };
+                        }
+                    }
+                    return { ok: false, error: err };
+                }
+            }
+
+            async function doSend(email) {
+                const result = await sendLink(email);
+                if (!result.ok) {
+                    const code = result.error && result.error.code;
+                    if (code === 'auth/invalid-email') { setMsg(msg, 'That email address is not valid.', 'err'); return false; }
+                    if (code === 'auth/too-many-requests') { setMsg(msg, 'Too many attempts. Wait a few minutes and try again.', 'err'); return false; }
+                    if (code === 'auth/network-request-failed') { setMsg(msg, 'Network problem — check your connection and try again.', 'err'); return false; }
+                    // Anything else (unknown address, disabled account) stays
+                    // neutral on purpose: the dialog must not reveal who has an
+                    // account here.
+                }
+                return true;
+            }
+
+            document.getElementById('forgotLink').addEventListener('click', function (e) {
+                e.preventDefault();
+                const typed = (document.getElementById('email').value || '').trim();
+                emailInput.value = EMAIL_RE.test(typed) ? typed : '';
+                setMsg(msg, '');
+                setMsg(newMsg, '');
+                show('ask');
+                open('ask');
+            });
+
+            scrim.querySelectorAll('[data-reset-close]').forEach(function (btn) {
+                btn.addEventListener('click', close);
+            });
+
+            scrim.addEventListener('mousedown', function (e) { if (e.target === scrim) close(); });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && scrim.classList.contains('active')) close();
+            });
+
+            askForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const email = emailInput.value.trim();
+                if (!EMAIL_RE.test(email)) {
+                    setMsg(msg, 'Enter a valid email address.', 'err');
+                    emailInput.focus();
+                    return;
+                }
+                resetEmail = email;
+                setMsg(msg, '');
+                sendBtn.disabled = true;
+                sendBtn.textContent = 'Sending…';
+                const ok = await doSend(email);
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send reset link';
+                if (!ok) return;
+                document.getElementById('resetSentEmail').textContent = email;
+                show('sent');
+                startCooldown(60);
+            });
+
+            resendBtn.addEventListener('click', async function () {
+                if (!resetEmail || resendBtn.disabled) return;
+                resendBtn.disabled = true;
+                resendBtn.textContent = 'Sending…';
+                const ok = await doSend(resetEmail);
+                if (ok) startCooldown(60);
+                else { resendBtn.textContent = 'Try again'; resendBtn.disabled = false; }
+            });
+
+            againBtn.addEventListener('click', function () {
+                if (resetEmail) emailInput.value = resetEmail;
+                setMsg(msg, '');
+                show('ask');
+            });
+
+            newForm.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const p1 = document.getElementById('resetNewPassword').value;
+                const p2 = document.getElementById('resetNewPassword2').value;
+                if (p1.length < 6) {
+                    setMsg(newMsg, 'Use at least 6 characters — the same rule as sign-up.', 'err');
+                    return;
+                }
+                if (p1 !== p2) {
+                    setMsg(newMsg, 'Those passwords don’t match.', 'err');
+                    return;
+                }
+                setMsg(newMsg, '');
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving…';
+                try {
+                    await auth.confirmPasswordReset(oobCode, p1);
+                    clearResetParams();
+                    setMsg(newMsg, 'Password updated — signing you in…', 'info');
+                    try {
+                        await auth.signInWithEmailAndPassword(resetEmail, p1);
+                        // onAuthStateChanged takes it from here (index / admin).
+                    } catch (signInError) {
+                        document.getElementById('email').value = resetEmail;
+                        close();
+                        const el = document.getElementById('successMessage');
+                        if (el) {
+                            el.textContent = 'Password updated. Sign in with your new password.';
+                            el.style.display = 'block';
+                            setTimeout(function () { el.style.display = 'none'; }, 7000);
+                        }
+                    }
+                } catch (err) {
+                    const code = err && err.code;
+                    if (code === 'auth/expired-action-code' || code === 'auth/invalid-action-code') {
+                        document.getElementById('resetBadText').textContent = code === 'auth/expired-action-code'
+                            ? 'This link has expired. Reset links last one hour — send a new one below.'
+                            : 'This link has already been used or is not valid. Send a new one below.';
+                        show('bad');
+                    } else if (code === 'auth/weak-password') {
+                        setMsg(newMsg, 'That password is too weak — use at least 6 characters.', 'err');
+                    } else if (code === 'auth/network-request-failed') {
+                        setMsg(newMsg, 'Network problem — check your connection and try again.', 'err');
+                    } else {
+                        setMsg(newMsg, 'Could not update the password. Try again.', 'err');
+                    }
+                } finally {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save & sign in';
+                }
+            });
+
+            (async function handleIncomingLink() {
+                let params;
+                try { params = new URLSearchParams(location.search); } catch (e) { return; }
+                if (params.get('mode') !== 'resetPassword') return;
+                const code = params.get('oobCode');
+                if (!code) return;
+                oobCode = code;
+                open('new');
+                try {
+                    const email = await auth.verifyPasswordResetCode(code);
+                    resetEmail = email || '';
+                    document.getElementById('resetForEmail').textContent = resetEmail || 'your account';
+                } catch (err) {
+                    const c = err && err.code;
+                    document.getElementById('resetBadText').textContent = c === 'auth/expired-action-code'
+                        ? 'This link has expired. Reset links last one hour — send a new one below.'
+                        : 'This link has already been used or is not valid. Send a new one below.';
+                    show('bad');
+                }
+            })();
+        }
+
+        // The dialog markup lives further down the page than this script, so wait
+        // for the DOM before wiring it.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initResetPasswordFlow);
+        } else {
+            initResetPasswordFlow();
+        }
+
+        // ================================================================
         // SIGNUP SUBMISSION
         // ================================================================
         async function requestSignupPushPermission() {
@@ -3703,6 +4149,76 @@ body.tw-previewing #pwaInstallBanner {
             renderSignupThemeGrid();
         });
     </script>
+
+    <!-- ═══ Password reset: one themed dialog, four states ═══ -->
+    <div class="reset-scrim" id="resetScrim" aria-hidden="true">
+        <div class="reset-card" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
+
+            <div class="reset-panel" data-panel="ask">
+                <div class="reset-badge"><i class="fas fa-key" aria-hidden="true"></i></div>
+                <h3 class="reset-title" id="resetTitle">Reset your password</h3>
+                <p class="reset-sub">Enter the email you signed up with and we’ll send you a secure link to choose a new password.</p>
+                <form id="resetForm" class="reset-form" novalidate>
+                    <div class="field">
+                        <label class="field-icon" for="resetEmail" aria-hidden="true"><i class="fas fa-envelope"></i></label>
+                        <input class="input" type="email" id="resetEmail" placeholder="E-mail"
+                               autocomplete="email" inputmode="email" />
+                    </div>
+                    <div class="reset-msg" id="resetMsg" role="status" aria-live="polite"></div>
+                    <div class="reset-actions">
+                        <button type="button" class="reset-btn ghost" data-reset-close>Cancel</button>
+                        <button type="submit" class="reset-btn primary" id="resetSendBtn">Send reset link</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="reset-panel" data-panel="sent" hidden>
+                <div class="reset-badge ok"><i class="fas fa-paper-plane" aria-hidden="true"></i></div>
+                <h3 class="reset-title">Check your inbox</h3>
+                <p class="reset-sub">If <b id="resetSentEmail">that address</b> has a TIMAWA account, a reset link is on its way. The link works once and expires in an hour.</p>
+                <div class="reset-actions">
+                    <button type="button" class="reset-btn ghost" data-reset-close>Back to sign in</button>
+                    <button type="button" class="reset-btn primary" id="resetResendBtn" disabled>Resend in 60s</button>
+                </div>
+            </div>
+
+            <div class="reset-panel" data-panel="new" hidden>
+                <div class="reset-badge"><i class="fas fa-lock" aria-hidden="true"></i></div>
+                <h3 class="reset-title">Choose a new password</h3>
+                <p class="reset-sub">Setting a new password for <b id="resetForEmail">your account</b>.</p>
+                <form id="resetNewForm" class="reset-form" novalidate>
+                    <div class="field password-wrapper">
+                        <label class="field-icon" for="resetNewPassword" aria-hidden="true"><i class="fas fa-lock"></i></label>
+                        <input class="input" type="password" id="resetNewPassword" placeholder="New password"
+                               autocomplete="new-password" minlength="6" />
+                        <button type="button" class="toggle-password" onclick="togglePassword('resetNewPassword', this)"
+                                aria-label="Show password"><i class="fas fa-eye"></i></button>
+                    </div>
+                    <div class="field password-wrapper">
+                        <label class="field-icon" for="resetNewPassword2" aria-hidden="true"><i class="fas fa-check"></i></label>
+                        <input class="input" type="password" id="resetNewPassword2" placeholder="Confirm new password"
+                               autocomplete="new-password" minlength="6" />
+                    </div>
+                    <div class="reset-msg" id="resetNewMsg" role="status" aria-live="polite"></div>
+                    <div class="reset-actions">
+                        <button type="button" class="reset-btn ghost" data-reset-close>Cancel</button>
+                        <button type="submit" class="reset-btn primary" id="resetSaveBtn">Save &amp; sign in</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="reset-panel" data-panel="bad" hidden>
+                <div class="reset-badge warn"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></div>
+                <h3 class="reset-title">This link can’t be used</h3>
+                <p class="reset-sub" id="resetBadText">It may have expired or already been used. Reset links work once and last an hour.</p>
+                <div class="reset-actions">
+                    <button type="button" class="reset-btn ghost" data-reset-close>Close</button>
+                    <button type="button" class="reset-btn primary" id="resetAgainBtn">Send a new link</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
     <!-- ═══ Shared avatar cropper (circular preview before upload) ═══ -->
     <script src="avatar-crop.js?v=1.1.0"></script>
