@@ -1231,6 +1231,11 @@
             && root.getAttribute('data-timawa-mode') === mode
             && (!shapesBox || shapesBox.dataset.activeTheme === presetKey);
         if (samePaint) {
+            // The scene and light/dark are already on screen, but the *preference*
+            // may have changed (Dark -> Auto while the device is still dark). Keep
+            // the attribute truthful so the picker, the launch screen and the next
+            // page all read the same choice.
+            root.setAttribute('data-timawa-mode-pref', modePref);
             window.selectedTheme = { preset: presetKey, mode: modePref };
             return;
         }
@@ -2080,6 +2085,14 @@
             if (changed || !window.THEME_GROUPS || !window.THEME_GROUPS.some(g => g.id === 'today')) rebuildGroups();
             if (changed && typeof window.renderThemeGrid === 'function' && document.getElementById('themeGrid')) { try { window.renderThemeGrid(); } catch (e) { /* ignore */ } }
         }
+        // ★ Run it once, now, before any page reads the stored theme. Without this
+        // the holiday key (hundas / hhalloween / hxmas …) is not in THEMES on the
+        // first read, so a stored holiday preset looked "unknown" and the page
+        // fell back to the default LIGHT palette for one frame — the Profile page
+        // opening in a light launch screen and switching to the member's dark
+        // theme a moment later. The holiday scene is now a valid key from the
+        // very first script that asks.
+        syncThemes();
 
         const base = window.applyTheme;
         window.applyTheme = function (theme, opts) {
@@ -2094,10 +2107,14 @@
             const t = (theme && typeof theme === 'object') ? theme : {};
             let preset = t.preset;
             if (preset && window.THEMES[preset] && !HT[preset]) { try { localStorage.setItem(PREV, preset); } catch (e) { /* ignore */ } }
-            if (!preset || !window.THEMES[preset]) {                  // unknown, or a holiday theme whose day is over -> the theme they had before
+            if (!preset || !window.THEMES[preset] || HT[preset]) {    // unknown, a holiday scene, or a holiday whose day is over -> the theme they had before
                 let prev = null; try { prev = localStorage.getItem(PREV); } catch (e) { /* ignore */ }
                 preset = (prev && window.THEMES[prev] && !HT[prev]) ? prev : window.DEFAULT_THEME.preset;
             }
+            // A holiday scene is never the member's choice — it is today's override.
+            // Remember the preset behind it, so tomorrow (and the next page) still
+            // knows what they actually picked instead of dropping to the default.
+            window.__twRealPresetCache = preset;
             const real = { preset: preset, mode: window.normalizeThemeMode(t.mode) };
             const now = new Date(), ev = forced || find(now);
             if (manualNext) { manualNext = false; if (ev && !forced) markSkip(ev, now); }
@@ -2162,6 +2179,30 @@
         };
     })();
 
+    // ------------------------------------------------------------ auto mode
+    /* "Auto" means "follow the device". It used to be resolved once, at load, so a
+       member who was on Dark and then picked Auto kept dark until they reloaded —
+       the light/dark default looked like it came from their previous choice
+       instead of the phone. Re-resolve the moment the device flips, and write the
+       new palette straight away so the launch screen and the next page agree. */
+    (function autoModeWatch() {
+        let mq = null;
+        try { mq = window.matchMedia('(prefers-color-scheme: dark)'); } catch (e) { mq = null; }
+        if (!mq) return;
+        const sync = () => {
+            const real = window.__twReal || window.selectedTheme || null;
+            if (!real || !real.preset) return;
+            if (window.normalizeThemeMode(real.mode) !== 'auto') return;
+            window.applyTheme({ preset: real.preset, mode: 'auto' });
+        };
+        if (mq.addEventListener) mq.addEventListener('change', sync);
+        else if (mq.addListener) mq.addListener(sync);          // Safari < 14
+        // A page re-shown after the phone switched appearance while it was in
+        // the background has to catch up too.
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
+        window.__twAutoSync = sync;
+    })();
+
     // ------------------------------------------------------------ theme cache
     // The theme is the member's *profile* setting, so the copy kept on this
     // device is stored per account. A phone shared by two members must never
@@ -2176,8 +2217,23 @@
         try {
             if (!raw) return null;
             const parsed = JSON.parse(raw);
-            if (parsed && parsed.preset && window.THEMES[parsed.preset]) {
-                return { preset: parsed.preset, mode: window.normalizeThemeMode(parsed.mode) };
+            if (!parsed || !parsed.preset) return null;
+            const mode = window.normalizeThemeMode(parsed.mode);
+            // A holiday scene is today's override, never the member's own pick.
+            // It may still be sitting in the saved copy (it used to be written
+            // there), so resolve it to the theme they had before it instead of
+            // treating the whole entry as missing and dropping to the default
+            // light palette for the first frame.
+            const holiday = window.HOLIDAY_THEMES && window.HOLIDAY_THEMES[parsed.preset];
+            if (holiday) {
+                let prev = null;
+                try { prev = localStorage.getItem('tw_hol_prev'); } catch (e) { /* ignore */ }
+                const own = (prev && window.THEMES[prev] && !(window.HOLIDAY_THEMES && window.HOLIDAY_THEMES[prev]))
+                    ? prev : window.DEFAULT_THEME.preset;
+                return { preset: own, mode: mode };
+            }
+            if (window.THEMES[parsed.preset]) {
+                return { preset: parsed.preset, mode: mode };
             }
         } catch (e) { /* ignore */ }
         return null;
@@ -2223,9 +2279,15 @@
     window.persistThemeLocally = function (theme, uid) {
         if (!theme || typeof theme !== 'object') return;
         if (!theme.preset || !window.THEMES[theme.preset]) return;
+        // Never store a holiday scene as the member's theme: on the next page
+        // (or the next day) it is not a valid preset and the app would fall back
+        // to the default palette. Store the theme behind the scene instead.
+        const real = window.__twReal && window.__twReal.preset ? window.__twReal : null;
+        const holiday = window.HOLIDAY_THEMES && window.HOLIDAY_THEMES[theme.preset];
+        const presetKey = holiday && real && window.THEMES[real.preset] ? real.preset : theme.preset;
         const safe = {
-            preset: theme.preset,
-            mode: window.normalizeThemeMode(theme.mode)
+            preset: presetKey,
+            mode: window.normalizeThemeMode(holiday && real ? real.mode : theme.mode)
         };
         try { localStorage.setItem(window.THEME_STORAGE_KEY, JSON.stringify(safe)); } catch (e) { /* ignore */ }
         if (uid) {
@@ -2239,9 +2301,11 @@
     window.broadcastThemeChange = function (theme) {
         if (!theme || typeof theme !== 'object') return;
         if (!theme.preset || !window.THEMES[theme.preset]) return;
+        const real = window.__twReal && window.__twReal.preset ? window.__twReal : null;
+        const holiday = window.HOLIDAY_THEMES && window.HOLIDAY_THEMES[theme.preset];
         const safe = {
-            preset: theme.preset,
-            mode: window.normalizeThemeMode(theme.mode)
+            preset: holiday && real && window.THEMES[real.preset] ? real.preset : theme.preset,
+            mode: window.normalizeThemeMode(holiday && real ? real.mode : theme.mode)
         };
         try {
             if ('BroadcastChannel' in window) {

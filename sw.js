@@ -8,7 +8,7 @@
    Bump CACHE_VERSION whenever the shell files change.
    ========================================================================== */
 
-const CACHE_VERSION = 'v1.5.35';
+const CACHE_VERSION = 'v1.5.36';
 const SHELL_CACHE = `timawa-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `timawa-runtime-${CACHE_VERSION}`;
 const MAX_RUNTIME_ENTRIES = 60;
@@ -16,10 +16,11 @@ const MAX_RUNTIME_ENTRIES = 60;
 /* Small, always-needed files. Pages are cached on first visit instead of being
    precached, so installing the app does not download ~2 MB of HTML.
 
-   The one exception is Spin & Poll: it is the page members need when there is
-   no signal at all (an outing with no data), so it — and the two local files it
-   cannot render without — are precached. Firebase and Font Awesome come from
-   CDNs whose URLs every other page already loads into the browser cache. */
+   The exceptions are the two pages members need when there is no signal at all
+   (an outing with no data): Spin & Poll and Squad Games. Both — and the local
+   files they cannot render without — are precached. Firebase and Font Awesome
+   come from CDNs whose URLs every other page already loads into the browser
+   cache. */
 const SHELL_ASSETS = [
     './offline.html',
     './pwa.css',
@@ -30,6 +31,7 @@ const SHELL_ASSETS = [
     './presence.css',
     './presence.js',
     './squad-wheel.html',
+    './games.html',
     './theme.css',
     './theme.js',
     './mobile-nav.css',

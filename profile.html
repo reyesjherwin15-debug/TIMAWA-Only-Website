@@ -83,7 +83,7 @@
         html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
     </style>
     <link rel="stylesheet" href="theme.css?v=1.9.5" />
-    <script src="theme.js?v=1.10.0"></script>
+    <script src="theme.js?v=1.10.1"></script>
 
     <style>
         :root {
@@ -1915,6 +1915,7 @@
             <li><a href="calendar.html"><i class="fas fa-calendar-alt"></i> Calendar</a></li>
             <li><a href="dashboard.html"><i class="fas fa-gauge-high"></i> Dashboard</a></li>
             <li><a href="squad-wheel.html"><i class="fas fa-dharmachakra"></i> Spin &amp; Poll</a></li>
+            <li><a href="games.html"><i class="fas fa-dice"></i> Games</a></li>
             <li><a href="profile.html" class="profile-link active"><i class="fas fa-user"></i> Profile</a></li>
             <li class="announcement-li">
                 <div class="announcement-wrapper">
@@ -3539,7 +3540,7 @@
                     bio, location, birthday, occupation, interests,
                     status, loveLife: loveLife || '',
                     instagram, twitter, tiktok, facebook,
-                    theme: { preset: selectedTheme.preset, mode: selectedTheme.mode },
+                    theme: storedThemeChoice(),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 if (photoURL) updateData.photoURL = photoURL;
@@ -3982,17 +3983,39 @@
             }
         }
 
+        // The theme written to Firestore is the member's own choice, never the
+        // holiday scene painted on top of it. Saving 'hundas' / 'hhalloween' /
+        // 'hxmas' there used to make the next day open in a preset that no longer
+        // exists, which is what dropped the profile to the default palette.
+        function storedThemeChoice() {
+            const real = window.__twReal;
+            const isHoliday = !!(window.HOLIDAY_THEMES && window.HOLIDAY_THEMES[selectedTheme.preset]);
+            if (isHoliday && real && real.preset && THEMES[real.preset]) {
+                return { preset: real.preset, mode: normalizeThemeMode(real.mode) };
+            }
+            return {
+                preset: selectedTheme.preset,
+                mode: normalizeThemeMode(selectedTheme.mode)
+            };
+        }
+
         // ================================================================
         // ===== BOOT: apply cached theme + render UI =====
         // ================================================================
         (function bootProfileTheme() {
             const cached = readThemeFromStorage();
-            if (cached && THEMES[cached.preset]) {
+            const resolved = !!(cached && THEMES[cached.preset]);
+            if (resolved) {
                 selectedTheme = cached;
             }
-            if (THEMES[selectedTheme.preset]) {
-                applyTheme(selectedTheme);
-            } else if (!window.paintSnapshottedPalette || !window.paintSnapshottedPalette()) {
+            // Never paint the default palette over a page that already replayed
+            // the member's own one. The saved copy can hold a holiday scene or a
+            // preset this build doesn't know, and repainting with the fallback is
+            // exactly what made the launch screen open light on a dark theme and
+            // switch a moment later: the launch screen keeps the palette it
+            // booted with, and the profile repaints the moment Firestore answers.
+            const painted = !!(window.paintSnapshottedPalette && window.paintSnapshottedPalette());
+            if (resolved || !painted) {
                 applyTheme(selectedTheme);
             }
 

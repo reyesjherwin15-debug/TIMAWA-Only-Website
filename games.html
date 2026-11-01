@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- ═══ TIMAWA page header ═══ -->
+<!--
+  TIMAWA — Squad Games (drinking games)
+  ============================================================================
+    <style>      game shell, cards, impostor flow
+    <body>
+      nav         slim top bar (same links as every page)
+      games       Truth or Dare · Draw a card · Who's the Impostor
+    <script>     no Firebase, no CDN — every byte is local, so the page works
+                 with the network switched off entirely.
+
+  Everything this page needs (theme.css/theme.js, launch.css, pwa.css, the
+  icons it references and this file) is precached by sw.js, so the games are
+  available at an outing with no signal at all — the same deal Spin & Poll
+  gets.
+
+  No account is required to play: the page never reads Firestore. It only
+  uses localStorage for the deck, the player list and the last game opened.
+-->
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#1089d3" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="TIMAWA" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=3" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
+    <link rel="stylesheet" href="pwa.css?v=1.4.0" />
+    <link rel="stylesheet" href="launch.css?v=1.9.7" />
+    <title>TIMAWA — Squad Games</title>
+
+    <!-- ★ Shared theme system (before paint, avoids a theme flash) -->
+    <!-- First frame: replay the palette the profile last used, before any CSS
+         or theme.js runs, so the launch screen never flashes the default theme. -->
+    <script>
+    (function () {
+        try {
+            var p = JSON.parse(localStorage.getItem('timawa.theme.paint') || 'null');
+            if (!p || !p.vars) return;
+            var r = document.documentElement;
+            for (var k in p.vars) { if (Object.prototype.hasOwnProperty.call(p.vars, k)) r.style.setProperty(k, p.vars[k]); }
+            if (p.preset) r.setAttribute('data-timawa-theme', p.preset);
+            if (p.mode) { r.setAttribute('data-timawa-mode', p.mode); r.style.colorScheme = p.mode; }
+            if (p.pref) r.setAttribute('data-timawa-mode-pref', p.pref);
+            if (p.vars['--theme-bg']) r.style.backgroundColor = p.vars['--theme-bg'];
+        } catch (e) { /* ignore */ }
+    })();
+    </script>
+    <!-- Nothing paints before the member's palette is on <html>. -->
+    <style id="tSplashGate">
+        html:not(.t-themed) { background: #071322 !important; }
+        html:not(.t-themed) body { visibility: hidden; }
+        html:not(.t-themed) .loading-overlay.t-splash.active { opacity: 0 !important; pointer-events: none !important; }
+        html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
+    </style>
+    <link rel="stylesheet" href="theme.css?v=1.9.5" />
+    <script src="theme.js?v=1.10.1"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            min-height: 100vh;
+            background: var(--theme-bg, #fff);
+            color: var(--theme-text, #1a1a2e);
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+            transition: background .4s ease, color .4s ease;
+            padding-bottom: 90px;
+        }
+
+        /* ---------- navbar ---------- */
+        .navbar {
+            position: sticky; top: 0; left: 0; right: 0; z-index: 900;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 14px; padding: 12px max(16px, 4vw);
+            background: var(--theme-nav-bg, rgba(255,255,255,.98));
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--theme-border, rgba(0,0,0,.08));
+        }
+        .navbar-brand {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 800; letter-spacing: .06em; font-size: .95rem;
+            color: var(--theme-text, #1a1a2e); text-decoration: none; white-space: nowrap;
+        }
+        .navbar-brand span {
+            width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center;
+            background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1));
+            color: #fff; font-size: 1rem; box-shadow: 0 6px 18px -6px var(--theme-shadow, rgba(0,0,0,.3));
+        }
+        .navbar-links { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+        .navbar-links::-webkit-scrollbar { display: none; }
+        .navbar-links a {
+            padding: 8px 12px; border-radius: 10px; text-decoration: none; white-space: nowrap;
+            color: var(--theme-text-muted, #555); font-size: .85rem; font-weight: 600;
+            transition: background .2s ease, color .2s ease;
+        }
+        .navbar-links a:hover { background: var(--theme-primary-soft, #e0f2fe); color: var(--theme-primary, #1089d3); }
+        .navbar-links a.active {
+            color: #fff; background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1));
+            box-shadow: 0 8px 20px -10px var(--theme-shadow, rgba(0,0,0,.4));
+        }
+        @media (max-width: 720px) {
+            .navbar { padding: 10px 14px; flex-wrap: wrap; }
+            .navbar-links { order: 3; width: 100%; justify-content: flex-start; }
+            .navbar-links a { font-size: .78rem; padding: 7px 10px; }
+        }
+
+        /* ---------- shell ---------- */
+        .wrap { width: min(1080px, 100%); margin: 0 auto; padding: 26px max(14px, 4vw) 40px; }
+
+        .hero { text-align: center; margin-bottom: 22px; }
+        .hero h1 {
+            font-size: clamp(1.5rem, 4.6vw, 2.15rem); font-weight: 800; letter-spacing: -.02em;
+            background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1));
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .hero p { color: var(--theme-text-muted, #666); font-size: .92rem; margin-top: 4px; }
+        .hero .pill {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+            padding: 5px 12px; border-radius: 999px; font-size: .72rem; font-weight: 700;
+            letter-spacing: .04em; text-transform: uppercase;
+            color: var(--theme-primary, #1089d3);
+            background: var(--theme-primary-soft, #e0f2fe);
+            border: 1px solid var(--theme-border, #e0e7ff);
+        }
+
+        /* ---------- game switcher ---------- */
+        .switch {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+            padding: 6px; margin-bottom: 20px;
+            background: var(--theme-bg-soft, #f8faff);
+            border: 1px solid var(--theme-border, #eef2f7);
+            border-radius: 16px;
+        }
+        .switch button {
+            appearance: none; border: 0; cursor: pointer; font: inherit;
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
+            padding: 11px 6px; border-radius: 12px; background: transparent;
+            color: var(--theme-text-muted, #555); font-weight: 700; font-size: .82rem;
+            transition: background .2s ease, color .2s ease, transform .2s ease;
+        }
+        .switch button .ico { font-size: 1.15rem; line-height: 1; }
+        .switch button:hover { color: var(--theme-primary, #1089d3); }
+        .switch button.on {
+            color: #fff;
+            background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1));
+            box-shadow: 0 10px 24px -14px var(--theme-shadow, rgba(0,0,0,.5));
+        }
+
+        .panel { display: none; animation: panelIn .28s ease both; }
+        .panel.on { display: block; }
+        @keyframes panelIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+        .card {
+            background: var(--theme-card, #fff);
+            border: 1px solid var(--theme-border, #eef2f7);
+            border-radius: 22px; padding: 22px;
+            box-shadow: 0 22px 50px -34px var(--theme-shadow, rgba(0,0,0,.35));
+        }
+        .card + .card { margin-top: 16px; }
+        .card-title {
+            display: flex; align-items: center; gap: 9px;
+            font-size: .95rem; font-weight: 800; margin-bottom: 14px;
+        }
+        .card-title small {
+            margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--theme-text-dim, #888);
+            text-transform: uppercase; letter-spacing: .05em;
+        }
+        .hint { font-size: .8rem; color: var(--theme-text-dim, #888); margin-top: 10px; }
+
+        /* ---------- buttons ---------- */
+        .btn {
+            appearance: none; border: 1px solid transparent; cursor: pointer; font: inherit;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 18px; border-radius: 14px; font-weight: 700; font-size: .88rem;
+            color: #fff; background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1));
+            box-shadow: 0 14px 30px -18px var(--theme-shadow, rgba(0,0,0,.5));
+            transition: transform .16s ease, box-shadow .2s ease, filter .2s ease;
+            width: 100%;
+        }
+        .btn:hover { transform: translateY(-1px); filter: brightness(1.03); }
+        .btn:active { transform: translateY(0) scale(.99); }
+        .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+        .btn.ghost {
+            background: transparent; color: var(--theme-text-muted, #555);
+            border-color: var(--theme-border, #eef2f7); box-shadow: none;
+        }
+        .btn.ghost:hover { color: var(--theme-primary, #1089d3); border-color: var(--theme-primary, #1089d3); }
+        .btn.danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .btn.sun { background: linear-gradient(135deg, #f59e0b, #f97316); }
+        .row { display: flex; gap: 10px; }
+        .row .btn { width: auto; flex: 1; }
+
+        /* ---------- truth or dare ---------- */
+        .tod-stage {
+            position: relative; min-height: 268px; display: grid; place-items: center;
+            text-align: center; padding: 26px 18px; border-radius: 20px;
+            background:
+                radial-gradient(120% 120% at 20% 0%, color-mix(in srgb, var(--theme-primary, #1089d3) 16%, transparent), transparent 60%),
+                radial-gradient(120% 120% at 90% 100%, color-mix(in srgb, var(--theme-accent, #12b1d1) 18%, transparent), transparent 62%),
+                var(--theme-bg-soft, #f8faff);
+            border: 1px solid var(--theme-border, #eef2f7);
+            overflow: hidden;
+        }
+        .tod-kicker {
+            font-size: .7rem; font-weight: 900; letter-spacing: .16em; text-transform: uppercase;
+            color: var(--theme-primary, #1089d3);
+        }
+        .tod-text {
+            font-size: clamp(1.05rem, 3.4vw, 1.35rem); font-weight: 700; line-height: 1.45;
+            max-width: 40ch; color: var(--theme-text, #1a1a2e);
+        }
+        .tod-text.truth { color: var(--theme-primary, #1089d3); }
+        .tod-text.dare { color: #f97316; }
+        .tod-empty { color: var(--theme-text-dim, #888); font-size: .92rem; }
+        .tod-stage.flip .tod-text { animation: flipIn .44s cubic-bezier(.2,.8,.25,1) both; }
+        @keyframes flipIn {
+            from { opacity: 0; transform: rotateX(-70deg) translateY(6px); filter: blur(4px); }
+            to { opacity: 1; transform: none; filter: none; }
+        }
+        .tod-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+        .tod-count { display: flex; justify-content: space-between; font-size: .74rem; color: var(--theme-text-dim, #888); margin-top: 10px; }
+
+        /* ---------- playing cards ---------- */
+        .deal-row { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; align-items: start; }
+        @media (max-width: 760px) { .deal-row { grid-template-columns: 1fr; } }
+
+        .card-stage {
+            display: grid; place-items: center; padding: 18px;
+            border-radius: 20px; min-height: 300px;
+            background:
+                radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--theme-primary, #1089d3) 12%, transparent), transparent 65%),
+                var(--theme-bg-soft, #f8faff);
+            border: 1px solid var(--theme-border, #eef2f7);
+            perspective: 1200px;
+        }
+        .pcard {
+            position: relative; width: 150px; height: 210px; border-radius: 16px;
+            background: #fff; color: #111;
+            border: 1px solid rgba(0,0,0,.14);
+            box-shadow: 0 26px 50px -26px rgba(0,0,0,.55);
+            display: grid; grid-template-rows: auto 1fr auto; padding: 10px 12px;
+            transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2,.8,.25,1);
+        }
+        html[data-timawa-mode="dark"] .pcard { box-shadow: 0 26px 54px -22px rgba(0,0,0,.9); }
+        .pcard.dealing { transform: rotateY(92deg) scale(.94); }
+        .pcard .corner { display: flex; flex-direction: column; align-items: center; line-height: 1; font-weight: 800; }
+        .pcard .corner.bottom { justify-content: flex-end; transform: rotate(180deg); }
+        .pcard .rank { font-size: 1.32rem; letter-spacing: -.02em; }
+        .pcard .suit { font-size: 1.02rem; }
+        .pcard .pip { display: grid; place-items: center; font-size: 3.1rem; line-height: 1; }
+        .pcard.red { color: #d9243c; }
+        .pcard.black { color: #14181f; }
+        .pcard.joker { color: #7c3aed; text-align: center; }
+        .pcard.joker .jtxt { font-size: .62rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+        .pcard.placeholder { opacity: .38; box-shadow: none; }
+        .pcard.placeholder .pip { font-size: 2.4rem; color: var(--theme-text-faint, #aaa); }
+
+        .toggle-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 13px 14px; border-radius: 14px;
+            border: 1px solid var(--theme-border, #eef2f7); background: var(--theme-bg-soft, #f8faff);
+        }
+        .toggle-row b { font-size: .87rem; display: block; }
+        .toggle-row small { color: var(--theme-text-dim, #888); font-size: .75rem; }
+        .sw { position: relative; flex: 0 0 auto; width: 48px; height: 27px; display: inline-block; }
+        .sw input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+        .sw i {
+            position: absolute; inset: 0; border-radius: 999px; pointer-events: none;
+            background: var(--theme-border-input, #e0e7ff); transition: background .22s ease;
+        }
+        .sw i::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 21px; height: 21px; border-radius: 50%;
+            background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: transform .22s ease;
+        }
+        .sw input:checked + i { background: var(--theme-primary, #1089d3); }
+        .sw input:checked + i::after { transform: translateX(21px); }
+
+        .deck-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; font-size: .78rem; color: var(--theme-text-dim, #888); }
+        .mini-list { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+        .mini {
+            font-size: .72rem; font-weight: 700; padding: 4px 9px; border-radius: 8px;
+            background: var(--theme-primary-soft, #e0f2fe); color: var(--theme-primary, #1089d3);
+        }
+
+        /* ---------- impostor ---------- */
+        .players-input { display: flex; gap: 8px; }
+        .players-input input {
+            flex: 1; min-width: 0; font: inherit; font-size: .9rem; padding: 11px 13px; border-radius: 12px;
+            border: 1px solid var(--theme-border-input, #e0e7ff);
+            background: var(--theme-bg, #fff); color: var(--theme-text, #1a1a2e);
+        }
+        .players-input input:focus { outline: 2px solid color-mix(in srgb, var(--theme-primary, #1089d3) 40%, transparent); outline-offset: 1px; }
+        .players-input .btn { width: auto; flex: 0 0 auto; padding: 11px 16px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px 7px 12px;
+            border-radius: 999px; font-size: .83rem; font-weight: 700;
+            background: var(--theme-primary-soft, #e0f2fe); color: var(--theme-primary, #1089d3);
+            border: 1px solid var(--theme-border, #eef2f7);
+        }
+        .chip button { appearance: none; border: 0; background: transparent; cursor: pointer; font-size: .95rem; line-height: 1; color: inherit; opacity: .7; padding: 0 2px; }
+        .chip button:hover { opacity: 1; }
+
+        .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+        @media (max-width: 620px) { .setup-grid { grid-template-columns: 1fr; } }
+        .stepper { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--theme-border, #eef2f7); background: var(--theme-bg-soft, #f8faff); }
+        .stepper b { font-size: .87rem; }
+        .stepper .ctl { display: flex; align-items: center; gap: 8px; }
+        .stepper .ctl button {
+            width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--theme-border, #eef2f7); cursor: pointer;
+            background: var(--theme-card, #fff); color: var(--theme-text, #1a1a2e); font-size: 1rem; font-weight: 800; line-height: 1;
+        }
+        .stepper .ctl span { min-width: 22px; text-align: center; font-weight: 800; }
+
+        .word-packs { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 16px; }
+        .word-packs button {
+            appearance: none; cursor: pointer; font: inherit; font-size: .8rem; font-weight: 700;
+            padding: 10px; border-radius: 12px; border: 1px solid var(--theme-border, #eef2f7);
+            background: var(--theme-card, #fff); color: var(--theme-text-muted, #555);
+        }
+        .word-packs button.on { color: #fff; background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1)); border-color: transparent; }
+
+        .reveal-stage { text-align: center; padding: 8px 0 4px; }
+        .reveal-name { font-size: 1.35rem; font-weight: 800; margin-bottom: 4px; }
+        .reveal-sub { font-size: .84rem; color: var(--theme-text-dim, #888); margin-bottom: 18px; }
+        .secret-card {
+            min-height: 190px; display: grid; place-items: center; text-align: center;
+            border-radius: 20px; padding: 22px; cursor: pointer;
+            border: 1px dashed var(--theme-border-input, #e0e7ff);
+            background:
+                radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--theme-primary, #1089d3) 12%, transparent), transparent 62%),
+                var(--theme-bg-soft, #f8faff);
+            transition: transform .18s ease, border-color .2s ease;
+        }
+        .secret-card:active { transform: scale(.99); }
+        .secret-card .tap { font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--theme-text-dim, #888); }
+        .secret-card .word { font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 900; letter-spacing: -.01em; }
+        .secret-card .word.spy { color: #ef4444; }
+        .secret-card .word small { display: block; font-size: .74rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--theme-text-dim, #888); margin-top: 6px; }
+        .progress-dots { display: flex; gap: 6px; justify-content: center; margin: 16px 0 2px; }
+        .progress-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--theme-border-input, #e0e7ff); }
+        .progress-dots i.done { background: var(--theme-primary, #1089d3); }
+
+        .spy-list { display: grid; gap: 8px; margin-top: 14px; }
+        .spy-row {
+            display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px;
+            border: 1px solid var(--theme-border, #eef2f7); background: var(--theme-bg-soft, #f8faff); font-weight: 700; font-size: .88rem;
+        }
+        .spy-row.spy { border-color: #ef4444; color: #ef4444; background: color-mix(in srgb, #ef4444 10%, transparent); }
+        .spy-row .tag { margin-left: auto; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 900; }
+
+        .toast {
+            position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+            background: var(--theme-text, #1a1a2e); color: var(--theme-bg, #fff);
+            padding: 10px 18px; border-radius: 999px; font-size: .82rem; font-weight: 700;
+            opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease; z-index: 2000;
+        }
+        .toast.on { opacity: 1; transform: translate(-50%, 0); }
+    </style>
+</head>
+
+<body>
+    <!-- ═══ launch screen ═══ -->
+    <div class="loading-overlay t-splash active" id="loadingOverlay" aria-hidden="false">
+        <div class="t-splash-stage">
+            <div class="t-splash-mark" aria-hidden="true"><span class="t-splash-ring"></span><b>T</b></div>
+            <div class="t-splash-word" aria-hidden="true">TIMAWA</div>
+            <div class="t-splash-sub" aria-hidden="true">Squad Hub</div>
+            <div class="t-splash-bar" aria-hidden="true"><i></i></div>
+        </div>
+    </div>
+
+    <!-- ═══ navbar ═══ -->
+    <nav class="navbar">
+        <a class="navbar-brand" href="index.html"><span>T</span> TIMAWA</a>
+        <div class="navbar-links">
+            <a href="index.html">Home</a>
+            <a href="dashboard.html">Dashboard</a>
+            <a href="squad-wheel.html">Spin &amp; Poll</a>
+            <a href="games.html" class="active">Games</a>
+            <a href="profile.html">Profile</a>
+        </div>
+    </nav>
+
+    <main class="wrap">
+        <header class="hero">
+            <h1>Squad Games</h1>
+            <p>Truth or Dare · Cards · Impostor — pour something, pass the phone.</p>
+            <div class="pill">⚡ Works with no signal</div>
+        </header>
+
+        <div class="switch" role="tablist" aria-label="Choose a game">
+            <button type="button" role="tab" class="on" data-panel="tod" aria-selected="true">
+                <span class="ico">🎯</span> Truth or Dare
+            </button>
+            <button type="button" role="tab" data-panel="cards" aria-selected="false">
+                <span class="ico">🃏</span> Draw a Card
+            </button>
+            <button type="button" role="tab" data-panel="spy" aria-selected="false">
+                <span class="ico">🕵️</span> Impostor
+            </button>
+        </div>
+
+        <!-- ═══════════════════ TRUTH OR DARE ═══════════════════ -->
+        <section class="panel on" id="panel-tod">
+            <div class="card">
+                <div class="card-title">🎯 Truth or Dare <small id="todRound">Round 1</small></div>
+                <div class="tod-stage" id="todStage">
+                    <div class="tod-empty" id="todEmpty">Pick <b>Truth</b> or <b>Dare</b> to start.<br />Nobody has to scroll for a prompt.</div>
+                    <div class="tod-kicker" id="todKicker" hidden></div>
+                    <div class="tod-text" id="todText" hidden></div>
+                </div>
+                <div class="tod-actions">
+                    <button class="btn ghost" id="todTruth" type="button">💬 Truth</button>
+                    <button class="btn sun" id="todDare" type="button">🔥 Dare</button>
+                </div>
+                <div class="row" style="margin-top:10px">
+                    <button class="btn ghost" id="todAgain" type="button" disabled>↻ Another one</button>
+                    <button class="btn ghost" id="todReset" type="button">Reset round</button>
+                </div>
+                <div class="tod-count">
+                    <span id="todSeen">0 prompts shown</span>
+                    <span>Drink responsibly · skip is always allowed</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════ DRAW A CARD ═══════════════════ -->
+        <section class="panel" id="panel-cards">
+            <div class="deal-row">
+                <div class="card">
+                    <div class="card-title">🃏 Draw a Card <small id="deckLeft">52 left</small></div>
+                    <div class="card-stage">
+                        <div class="pcard placeholder" id="playingCard" aria-live="polite">
+                            <div class="corner"><span class="rank">?</span></div>
+                            <div class="pip">🂠</div>
+                            <div class="corner bottom"><span class="rank">?</span></div>
+                        </div>
+                    </div>
+                    <button class="btn" id="drawBtn" type="button" style="margin-top:14px">Draw a card</button>
+                    <div class="row" style="margin-top:10px">
+                        <button class="btn ghost" id="shuffleBtn" type="button">🔀 Shuffle deck</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <div class="card-title">⚙️ Deck</div>
+                        <div class="toggle-row">
+                            <div>
+                                <b>Include Jokers</b>
+                                <small>Adds two jokers to the deck</small>
+                            </div>
+                            <label class="sw"><input type="checkbox" id="jokerToggle" /><i></i></label>
+                        </div>
+                        <div class="deck-meta">
+                            <span id="deckSummary">Standard 52-card deck</span>
+                        </div>
+                        <div class="mini-list" id="drawnList"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">🎲 House rule</div>
+                        <div class="hint" id="houseRule" style="margin-top:0"></div>
+                        <button class="btn ghost" id="ruleBtn" type="button" style="margin-top:12px">New house rule</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════ IMPOSTOR ═══════════════════ -->
+        <section class="panel" id="panel-spy">
+            <div class="card" id="spySetup">
+                <div class="card-title">🕵️ Who's the Impostor <small id="spyCount">0 players</small></div>
+                <p class="hint" style="margin:0 0 12px">One phone. Everyone gets a secret word — except the impostor. Take turns saying one word that fits; the impostor bluffs.</p>
+
+                <div class="players-input">
+                    <input type="text" id="playerName" placeholder="Add a player…" maxlength="18" autocomplete="off" />
+                    <button class="btn" id="addPlayer" type="button">Add</button>
+                </div>
+                <div class="chips" id="playerChips"></div>
+
+                <div class="setup-grid">
+                    <div class="stepper">
+                        <b>Impostors</b>
+                        <div class="ctl">
+                            <button type="button" id="spyMinus" aria-label="Fewer impostors">−</button>
+                            <span id="spyNum">1</span>
+                            <button type="button" id="spyPlus" aria-label="More impostors">+</button>
+                        </div>
+                    </div>
+                    <div class="stepper">
+                        <b>Word pack</b>
+                        <div class="ctl"><span id="packName" style="font-size:.8rem;font-weight:800">Squad</span></div>
+                    </div>
+                </div>
+
+                <div class="word-packs" id="packs"></div>
+
+                <button class="btn" id="startSpy" type="button" style="margin-top:16px">Start round</button>
+                <div class="hint" id="spyHint"></div>
+            </div>
+
+            <div class="card" id="spyReveal" hidden>
+                <div class="card-title">🤫 Pass the phone <small id="spyStep">1 / 4</small></div>
+                <div class="reveal-stage">
+                    <div class="reveal-name" id="spyWho">—</div>
+                    <div class="reveal-sub" id="spySub">Pass the phone to this player, then tap below.</div>
+                    <div class="secret-card" id="secretCard" role="button" tabindex="0">
+                        <div class="tap">Tap to reveal your word</div>
+                    </div>
+                </div>
+                <div class="progress-dots" id="spyDots"></div>
+                <div class="row" style="margin-top:14px">
+                    <button class="btn ghost" id="spyQuit" type="button">Stop</button>
+                </div>
+            </div>
+
+            <div class="card" id="spyPlay" hidden>
+                <div class="card-title">🗣️ Talk it out <small id="spyPlayWord"></small></div>
+                <p class="hint" style="margin:0 0 12px">Everyone says one word that fits the secret word. Then vote. When you're ready, reveal the impostor.</p>
+                <div class="spy-list" id="spyList"></div>
+                <div class="row" style="margin-top:14px">
+                    <button class="btn danger" id="revealSpy" type="button">Reveal impostor</button>
+                    <button class="btn ghost" id="newRound" type="button">New round</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="toast" id="toast" role="status"></div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        /* ─────────────────────────── helpers ─────────────────────────── */
+        const $ = (id) => document.getElementById(id);
+        const LS = {
+            get(key, fallback) {
+                try {
+                    const raw = localStorage.getItem(key);
+                    return raw === null ? fallback : JSON.parse(raw);
+                } catch (e) { return fallback; }
+            },
+            set(key, value) {
+                try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* ignore */ }
+            }
+        };
+        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        const shuffled = (arr) => {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const t = a[i]; a[i] = a[j]; a[j] = t;
+            }
+            return a;
+        };
+        let toastTimer = null;
+        function toast(msg) {
+            const el = $('toast');
+            el.textContent = msg;
+            el.classList.add('on');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('on'), 1900);
+        }
+
+        /* ─────────────────────── game switcher ─────────────────────── */
+        const PANELS = ['tod', 'cards', 'spy'];
+        const tabs = Array.prototype.slice.call(document.querySelectorAll('.switch button'));
+        function showPanel(name, remember) {
+            PANELS.forEach((p) => {
+                const panel = $('panel-' + p);
+                if (panel) panel.classList.toggle('on', p === name);
+            });
+            tabs.forEach((b) => {
+                const on = b.dataset.panel === name;
+                b.classList.toggle('on', on);
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            if (remember !== false) LS.set('timawa.games.tab', name);
+        }
+        tabs.forEach((b) => b.addEventListener('click', () => showPanel(b.dataset.panel)));
+        showPanel(PANELS.indexOf(LS.get('timawa.games.tab', 'tod')) >= 0 ? LS.get('timawa.games.tab', 'tod') : 'tod', false);
+
+        /* ═══════════════════════ TRUTH OR DARE ═══════════════════════ */
+        const TRUTHS = [
+            'What is the last lie you told the squad?',
+            'Who here would you trust with your phone unlocked?',
+            'What is the most embarrassing thing in your camera roll?',
+            'Which member here would survive longest in a zombie apocalypse?',
+            'What is the pettiest reason you ever stopped talking to someone?',
+            'Name one thing you pretend not to care about.',
+            'What is the biggest amount you ever spent on one night out?',
+            'Who in this room have you judged the most — and why?',
+            'What is your most irrational fear?',
+            'What is the last thing you searched for at 3 AM?',
+            'Which of your friends would you swap lives with for a week?',
+            'What is the worst advice you have ever given?',
+            'What is one compliment you have never said out loud?',
+            'Who here texts the slowest, and how much does it annoy you?',
+            'What is the most trouble you got into at school?',
+            'Which app would you delete forever if you had to?',
+            'What is a rumour about you that turned out to be true?',
+            'What is the most childish thing you still do?',
+            'What is the last thing you cried about?',
+            'Who in this room knows the most about your life?',
+            'What is something you have never told your parents?',
+            'Which song is your guilty pleasure — play it now?',
+            'What is the biggest risk you have ever taken?',
+            'Who was your first crush, and did they ever find out?',
+            'What is the most useless talent you have?',
+            'What is one thing you would change about this squad?',
+            'What is the worst gift you have ever received?',
+            'Have you ever pretended to be busy to avoid someone here?',
+            'What is the pettiest thing you have done to win an argument?',
+            'What would you do with one day of being invisible?'
+        ];
+        const DARES = [
+            'Speak in an accent until your next turn.',
+            'Text the third person in your recent chats "I knew it".',
+            'Do your best impression of the person on your left.',
+            'Let the group pick your profile photo for the next hour.',
+            'Sing the chorus of the last song you listened to.',
+            'Do ten seconds of your best dance move — no music.',
+            'Call yourself by a new name until the next round.',
+            'Show the last photo you took — no explanation.',
+            'Say the alphabet backwards in under 20 seconds.',
+            'Give a 30-second speech about why you are the funniest here.',
+            'Talk in third person until someone else makes a mistake.',
+            'Swap seats with the person across from you.',
+            'Let someone post one emoji as your status.',
+            'Do a dramatic reading of the last message you sent.',
+            'Balance a glass on your head for one full round.',
+            'Imitate a squad member until the group guesses who.',
+            'Do your best runway walk across the room.',
+            'Let the person on your right restyle your hair.',
+            'Say a compliment to every person here — no repeats.',
+            'Speak only in questions until your next turn.',
+            'Do the robot for 15 seconds. Commit fully.',
+            'Read your most recent notification out loud.',
+            'Hold a plank while answering the next truth.',
+            'Pretend to accept an award — give a full speech.',
+            'Show everyone your most used emoji and defend it.',
+            'Do a slow-motion replay of how you walked in tonight.',
+            'Let the group give you a new nickname for the night.',
+            'Try to make the person on your left laugh in 10 seconds.',
+            'Say the last thing you said out loud, but as a movie trailer.',
+            'Do an interpretive dance of your week — 20 seconds.'
+        ];
+        const HOUSE_RULES = [
+            'Red cards mean the person on your left drinks.',
+            'A drawn joker means everyone finishes their drink.',
+            'Face cards let you give out that many sips.',
+            'Aces are waterfall — keep drinking until the person before you stops.',
+            "Whenever someone says a player's name, they drink.",
+            'No saying "drink" for one round — say "sip" instead.',
+            'Last person to touch their nose drinks.',
+            'Seven or lower: you pick someone to sip with you.',
+            'Whoever checks their phone drinks.',
+            'Everyone who is wearing black drinks.',
+            'The person who drew the card asks a question; no answer means a sip.',
+            'Each round the loser of the last round becomes the judge.'
+        ];
+
+        let todState = LS.get('timawa.games.tod', { seen: 0, truth: [], dare: [] });
+        if (!todState || typeof todState !== 'object') todState = { seen: 0, truth: [], dare: [] };
+        if (!Array.isArray(todState.truth)) todState.truth = [];
+        if (!Array.isArray(todState.dare)) todState.dare = [];
+
+        function todNext(kind) {
+            const source = kind === 'truth' ? TRUTHS : DARES;
+            let poolKey = kind;
+            if (!todState[poolKey].length) todState[poolKey] = shuffled(source);
+            const text = todState[poolKey].pop();
+            todState.seen = (todState.seen || 0) + 1;
+            LS.set('timawa.games.tod', todState);
+
+            const stage = $('todStage');
+            $('todEmpty').hidden = true;
+            const kicker = $('todKicker');
+            const body = $('todText');
+            kicker.hidden = false; body.hidden = false;
+            kicker.textContent = kind === 'truth' ? 'Truth' : 'Dare';
+            kicker.style.color = kind === 'truth' ? 'var(--theme-primary, #1089d3)' : '#f97316';
+            body.className = 'tod-text ' + kind;
+            body.textContent = text;
+            stage.classList.remove('flip');
+            void stage.offsetWidth;
+            stage.classList.add('flip');
+
+            $('todAgain').disabled = false;
+            $('todAgain').dataset.kind = kind;
+            $('todRound').textContent = 'Round ' + Math.max(1, Math.ceil(todState.seen / 2));
+            $('todSeen').textContent = todState.seen + (todState.seen === 1 ? ' prompt shown' : ' prompts shown');
+        }
+        $('todTruth').addEventListener('click', () => todNext('truth'));
+        $('todDare').addEventListener('click', () => todNext('dare'));
+        $('todAgain').addEventListener('click', function () {
+            todNext(this.dataset.kind === 'dare' ? 'dare' : 'truth');
+        });
+        $('todReset').addEventListener('click', () => {
+            todState = { seen: 0, truth: [], dare: [] };
+            LS.set('timawa.games.tod', todState);
+            $('todEmpty').hidden = false;
+            $('todKicker').hidden = true;
+            $('todText').hidden = true;
+            $('todAgain').disabled = true;
+            $('todRound').textContent = 'Round 1';
+            $('todSeen').textContent = '0 prompts shown';
+            toast('Round reset — fresh prompts');
+        });
+
+        /* ═════════════════════════ CARD DRAW ═════════════════════════ */
+        const SUITS = [
+            { key: 's', glyph: '♠', colour: 'black' },
+            { key: 'h', glyph: '♥', colour: 'red' },
+            { key: 'd', glyph: '♦', colour: 'red' },
+            { key: 'c', glyph: '♣', colour: 'black' }
+        ];
+        const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+        function buildDeck(withJokers) {
+            const deck = [];
+            SUITS.forEach((suit) => {
+                RANKS.forEach((rank) => deck.push({ rank: rank, suit: suit.key, glyph: suit.glyph, colour: suit.colour }));
+            });
+            if (withJokers) {
+                deck.push({ rank: 'JOKER', joker: true, colour: 'joker' });
+                deck.push({ rank: 'JOKER', joker: true, colour: 'joker' });
+            }
+            return shuffled(deck);
+        }
+
+        let cardState = LS.get('timawa.games.cards', null);
+        if (!cardState || typeof cardState !== 'object' || !Array.isArray(cardState.deck)) {
+            cardState = { jokers: false, deck: buildDeck(false), drawn: [] };
+        }
+        if (typeof cardState.jokers !== 'boolean') cardState.jokers = false;
+        if (!Array.isArray(cardState.drawn)) cardState.drawn = [];
+
+        function saveCards() { LS.set('timawa.games.cards', cardState); }
+
+        function labelCard(c) {
+            if (c.joker) return 'Joker';
+            const suit = SUITS.filter((s) => s.key === c.suit)[0];
+            return c.rank + (suit ? suit.glyph : '');
+        }
+
+        function renderDeck() {
+            const total = cardState.jokers ? 54 : 52;
+            $('deckLeft').textContent = cardState.deck.length + ' left';
+            $('deckSummary').textContent = (cardState.jokers ? '54 cards · jokers included' : 'Standard 52-card deck') +
+                ' · ' + cardState.drawn.length + ' drawn';
+            const list = $('drawnList');
+            list.innerHTML = '';
+            cardState.drawn.slice(-8).reverse().forEach((c) => {
+                const b = document.createElement('span');
+                b.className = 'mini';
+                b.textContent = labelCard(c);
+                list.appendChild(b);
+            });
+            if (!cardState.deck.length) {
+                $('deckLeft').textContent = 'deck empty';
+                $('drawBtn').textContent = 'Reshuffle & draw';
+            } else {
+                $('drawBtn').textContent = 'Draw a card';
+            }
+            if (cardState.deck.length === total) {
+                $('drawnList').innerHTML = '<span class="mini" style="opacity:.7">No cards drawn yet</span>';
+            }
+        }
+
+        function paintCard(c) {
+            const el = $('playingCard');
+            el.classList.remove('placeholder', 'red', 'black', 'joker');
+            if (!c) {
+                el.classList.add('placeholder');
+                el.innerHTML = '<div class="corner"><span class="rank">?</span></div>' +
+                    '<div class="pip">🂠</div>' +
+                    '<div class="corner bottom"><span class="rank">?</span></div>';
+                return;
+            }
+            el.classList.add(c.colour);
+            if (c.joker) {
+                el.classList.add('joker');
+                el.innerHTML = '<div class="corner"><span class="rank">★</span></div>' +
+                    '<div class="pip jtxt">Joker</div>' +
+                    '<div class="corner bottom"><span class="rank">★</span></div>';
+                return;
+            }
+            el.innerHTML =
+                '<div class="corner"><span class="rank">' + c.rank + '</span><span class="suit">' + c.glyph + '</span></div>' +
+                '<div class="pip">' + c.glyph + '</div>' +
+                '<div class="corner bottom"><span class="rank">' + c.rank + '</span><span class="suit">' + c.glyph + '</span></div>';
+        }
+
+        function drawCard() {
+            if (!cardState.deck.length) {
+                cardState.deck = buildDeck(cardState.jokers);
+                cardState.drawn = [];
+                toast('Deck reshuffled');
+            }
+            const card = cardState.deck.pop();
+            cardState.drawn.push(card);
+            saveCards();
+
+            const el = $('playingCard');
+            el.classList.add('dealing');
+            setTimeout(() => {
+                paintCard(card);
+                el.classList.remove('dealing');
+                renderDeck();
+            }, 180);
+            if (card.joker) toast('Joker! House rule time.');
+        }
+
+        $('drawBtn').addEventListener('click', drawCard);
+        $('playingCard').addEventListener('click', drawCard);
+        $('shuffleBtn').addEventListener('click', () => {
+            cardState.deck = buildDeck(cardState.jokers);
+            cardState.drawn = [];
+            saveCards();
+            paintCard(null);
+            renderDeck();
+            toast('Shuffled · ' + cardState.deck.length + ' cards');
+        });
+        $('jokerToggle').addEventListener('change', function () {
+            cardState.jokers = this.checked;
+            cardState.deck = buildDeck(cardState.jokers);
+            cardState.drawn = [];
+            saveCards();
+            paintCard(null);
+            renderDeck();
+            toast(this.checked ? 'Jokers added to the deck' : 'Standard deck — jokers removed');
+        });
+
+        let houseRule = pick(HOUSE_RULES);
+        function renderRule() { $('houseRule').textContent = houseRule; }
+        $('ruleBtn').addEventListener('click', () => {
+            let next = houseRule;
+            while (next === houseRule && HOUSE_RULES.length > 1) next = pick(HOUSE_RULES);
+            houseRule = next;
+            renderRule();
+        });
+
+        $('jokerToggle').checked = cardState.jokers;
+        paintCard(cardState.drawn.length ? cardState.drawn[cardState.drawn.length - 1] : null);
+        renderDeck();
+        renderRule();
+
+        /* ══════════════════════ WHO'S THE IMPOSTOR ══════════════════════ */
+        const PACKS = {
+            squad: {
+                label: 'Squad',
+                words: ['Night out', 'Group chat', 'Karaoke', 'Road trip', 'Beach trip', 'Samgyeopsal', 'Coffee shop',
+                    'Birthday party', 'Movie night', 'Study session', 'Basketball', 'Videoke', 'Camping', 'Wedding',
+                    'Reunion', 'Sleepover', 'Food trip', 'Gym', 'Concert', 'Church']
+            },
+            food: {
+                label: 'Food',
+                words: ['Adobo', 'Sinigang', 'Lechon', 'Pancit', 'Halo-halo', 'Sisig', 'Lumpia', 'Bulalo',
+                    'Kare-kare', 'Tapsilog', 'Bibingka', 'Puto', 'Balut', 'Isaw', 'Fishball', 'Mango float',
+                    'Champorado', 'Embutido', 'Menudo', 'Tinola']
+            },
+            places: {
+                label: 'Places',
+                words: ['Boracay', 'Baguio', 'Siargao', 'Palawan', 'Cebu', 'Vigan', 'Tagaytay', 'Batac',
+                    'Batanes', 'Iloilo', 'Dumaguete', 'Sagada', 'Bohol', 'Camiguin', 'Zambales',
+                    'Subic', 'Manila', 'Quezon City', 'Makati', 'Pangasinan']
+            },
+            random: {
+                label: 'Anything',
+                words: ['Traffic', 'Monday', 'Wi-Fi', 'Password', 'K-drama', 'Meme', 'Gym bro', 'Ghosting',
+                    'Payday', 'Alarm clock', 'Group project', 'Receipt', 'Umbrella', 'Sunscreen', 'Ate',
+                    'Kuya', 'Coach', 'Barangay', 'Tita', 'Wedding video']
+            }
+        };
+
+        let spyState = LS.get('timawa.games.spy', null);
+        if (!spyState || typeof spyState !== 'object') spyState = {};
+        let players = Array.isArray(spyState.players) ? spyState.players.filter((p) => typeof p === 'string' && p.trim()) : [];
+        let impostorCount = Math.max(1, Math.min(3, parseInt(spyState.impostors, 10) || 1));
+        let packKey = PACKS[spyState.pack] ? spyState.pack : 'squad';
+
+        let round = null;      // { word, impostors:[name], order:[name], index, revealed:bool[] }
+        let revealIndex = 0;
+        let wordShown = false;
+
+        function saveSpy() {
+            spyState.players = players;
+            spyState.impostors = impostorCount;
+            spyState.pack = packKey;
+            LS.set('timawa.games.spy', spyState);
+        }
+
+        function renderPlayers() {
+            const box = $('playerChips');
+            box.innerHTML = '';
+            players.forEach((name, i) => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.innerHTML = '<span></span><button type="button" aria-label="Remove"></button>';
+                chip.firstElementChild.textContent = name;
+                chip.lastElementChild.textContent = '×';
+                chip.lastElementChild.addEventListener('click', () => {
+                    players.splice(i, 1);
+                    saveSpy();
+                    renderPlayers();
+                });
+                box.appendChild(chip);
+            });
+            $('spyCount').textContent = players.length + (players.length === 1 ? ' player' : ' players');
+            const max = Math.max(1, Math.min(3, Math.floor(players.length / 3)));
+            if (impostorCount > max) impostorCount = max;
+            $('spyNum').textContent = impostorCount;
+            $('startSpy').disabled = players.length < 3;
+            $('spyHint').textContent = players.length < 3
+                ? 'Add at least 3 players to start.'
+                : impostorCount + ' impostor' + (impostorCount > 1 ? 's' : '') + ' among ' + players.length + ' players.';
+        }
+
+        function addPlayer() {
+            const input = $('playerName');
+            const name = input.value.trim().replace(/\s+/g, ' ');
+            if (!name) return;
+            if (players.length >= 12) { toast('12 players max'); return; }
+            if (players.some((p) => p.toLowerCase() === name.toLowerCase())) { toast('Already in the list'); return; }
+            players.push(name);
+            input.value = '';
+            saveSpy();
+            renderPlayers();
+            input.focus();
+        }
+        $('addPlayer').addEventListener('click', addPlayer);
+        $('playerName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addPlayer(); } });
+
+        function renderPacks() {
+            const box = $('packs');
+            box.innerHTML = '';
+            Object.keys(PACKS).forEach((key) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = PACKS[key].label;
+                b.className = key === packKey ? 'on' : '';
+                b.addEventListener('click', () => {
+                    packKey = key;
+                    saveSpy();
+                    renderPacks();
+                    $('packName').textContent = PACKS[key].label;
+                });
+                box.appendChild(b);
+            });
+            $('packName').textContent = PACKS[packKey].label;
+        }
+
+        $('spyPlus').addEventListener('click', () => {
+            const max = Math.max(1, Math.min(3, Math.floor(players.length / 3)));
+            if (impostorCount >= max) { toast('Not enough players for another impostor'); return; }
+            impostorCount += 1; saveSpy(); renderPlayers();
+        });
+        $('spyMinus').addEventListener('click', () => {
+            if (impostorCount <= 1) return;
+            impostorCount -= 1; saveSpy(); renderPlayers();
+        });
+
+        function startRound() {
+            if (players.length < 3) { toast('Add at least 3 players'); return; }
+            const word = pick(PACKS[packKey].words);
+            const order = shuffled(players);
+            const spies = order.slice(0, Math.min(impostorCount, order.length - 1));
+            round = { word: word, impostors: spies, order: order };
+            revealIndex = 0;
+            wordShown = false;
+            $('spySetup').hidden = true;
+            $('spyPlay').hidden = true;
+            $('spyReveal').hidden = false;
+            renderReveal();
+        }
+
+        function renderReveal() {
+            if (!round) return;
+            const name = round.order[revealIndex];
+            const isSpy = round.impostors.indexOf(name) >= 0;
+            $('spyWho').textContent = name;
+            $('spyStep').textContent = (revealIndex + 1) + ' / ' + round.order.length;
+            $('spySub').textContent = 'Pass the phone to ' + name + '. Nobody else should look.';
+            const card = $('secretCard');
+            card.innerHTML = '<div class="tap">Tap to reveal your word</div>';
+            wordShown = false;
+            card.dataset.spy = isSpy ? '1' : '0';
+            card.dataset.word = isSpy ? '' : round.word;
+
+            const dots = $('spyDots');
+            dots.innerHTML = '';
+            round.order.forEach((_, i) => {
+                const d = document.createElement('i');
+                if (i < revealIndex) d.className = 'done';
+                dots.appendChild(d);
+            });
+        }
+
+        function toggleSecret() {
+            const card = $('secretCard');
+            if (wordShown) {
+                nextPlayer();
+                return;
+            }
+            const isSpy = card.dataset.spy === '1';
+            card.innerHTML = isSpy
+                ? '<div class="word spy">YOU ARE THE IMPOSTOR<small>Bluff. Nobody knows your word.</small></div>'
+                : '<div class="word">' + card.dataset.word + '<small>Remember it. Don\'t say it.</small></div>';
+            wordShown = true;
+        }
+
+        function nextPlayer() {
+            if (!round) return;
+            revealIndex += 1;
+            if (revealIndex >= round.order.length) {
+                $('spyReveal').hidden = true;
+                $('spyPlay').hidden = false;
+                $('spyPlayWord').textContent = '';
+                renderSpyList(false);
+                return;
+            }
+            renderReveal();
+        }
+
+        function renderSpyList(show) {
+            const box = $('spyList');
+            box.innerHTML = '';
+            round.order.forEach((name) => {
+                const isSpy = round.impostors.indexOf(name) >= 0;
+                const row = document.createElement('div');
+                row.className = 'spy-row' + (show && isSpy ? ' spy' : '');
+                row.innerHTML = '<span></span><span class="tag"></span>';
+                row.firstElementChild.textContent = name;
+                row.lastElementChild.textContent = show && isSpy ? 'Impostor' : '';
+                box.appendChild(row);
+            });
+        }
+
+        $('secretCard').addEventListener('click', toggleSecret);
+        $('secretCard').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSecret(); }
+        });
+        $('spyQuit').addEventListener('click', () => {
+            round = null;
+            $('spyReveal').hidden = true;
+            $('spyPlay').hidden = true;
+            $('spySetup').hidden = false;
+            renderPlayers();
+        });
+        $('revealSpy').addEventListener('click', () => {
+            if (!round) return;
+            renderSpyList(true);
+            $('spyPlayWord').textContent = 'Word: ' + round.word;
+            toast('Impostor' + (round.impostors.length > 1 ? 's' : '') + ': ' + round.impostors.join(', '));
+        });
+        $('newRound').addEventListener('click', () => {
+            if (!round) { startRound(); return; }
+            startRound();
+        });
+        $('startSpy').addEventListener('click', startRound);
+
+        renderPlayers();
+        renderPacks();
+
+        /* ═════════════════════════ splash / offline ═════════════════════════ */
+        function hideSplash() {
+            const overlay = $('loadingOverlay');
+            if (!overlay) return;
+            overlay.classList.remove('active');
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.style.display = 'none';
+        }
+        if (window.theme && typeof window.theme.applyAll === 'function') { /* no-op guard */ }
+        // theme.js has painted by now; make sure the gate can never stay shut.
+        document.documentElement.classList.add('t-themed');
+        setTimeout(hideSplash, 320);
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => { /* offline anyway */ });
+            });
+        }
+    })();
+    </script>
+</body>
+</html>
