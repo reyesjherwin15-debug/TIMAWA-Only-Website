@@ -8,8 +8,10 @@
     <body>
       nav         slim top bar (same links as every page)
       games       Truth or Dare · Draw a card · Who's the Impostor
-    <script>     no Firebase, no CDN — every byte is local, so the page works
-                 with the network switched off entirely.
+    <script>     No Firebase and no data requests: the games are pure local
+                 state, so they play with the network switched off entirely.
+                 The only outside file is the Font Awesome stylesheet every page
+                 already loads (its icons are decorative — the labels stay).
 
   Everything this page needs (theme.css/theme.js, launch.css, pwa.css, the
   icons it references and this file) is precached by sw.js, so the games are
@@ -32,6 +34,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=3" />
     <link rel="stylesheet" href="pwa.css?v=1.4.0" />
     <link rel="stylesheet" href="launch.css?v=1.9.7" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <title>TIMAWA — Squad Games</title>
 
     <!-- ★ Shared theme system (before paint, avoids a theme flash) -->
@@ -76,45 +80,51 @@
             padding-bottom: 90px;
         }
 
-        /* ---------- navbar ---------- */
+        /* ---------- navbar (identical to every other page) ---------- */
         .navbar {
-            position: sticky; top: 0; left: 0; right: 0; z-index: 900;
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 14px; padding: 12px max(16px, 4vw);
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            padding: 14px 40px;
+            display: flex; justify-content: space-between; align-items: center;
             background: var(--theme-nav-bg, rgba(255,255,255,.98));
             backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--theme-border, rgba(0,0,0,.08));
+            box-shadow: 0 2px 20px rgba(0,0,0,.04);
+            flex-wrap: wrap;
         }
-        .navbar-brand {
-            display: flex; align-items: center; gap: 10px;
-            font-weight: 800; letter-spacing: .06em; font-size: .95rem;
-            color: var(--theme-text, #1a1a2e); text-decoration: none; white-space: nowrap;
+        .navbar .logo {
+            font-size: 25px; font-weight: 900; letter-spacing: 2px;
+            color: var(--theme-primary); text-decoration: none; flex-shrink: 0;
+            display: inline-flex; align-items: center; gap: 8px;
         }
-        .navbar-brand span {
-            width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center;
-            background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1));
-            color: #fff; font-size: 1rem; box-shadow: 0 6px 18px -6px var(--theme-shadow, rgba(0,0,0,.3));
+        .navbar .logo span {
+            background: var(--theme-gradient);
+            padding: 2px 10px; border-radius: 8px;
+            font-size: 10px; color: #fff; letter-spacing: 1px;
         }
-        .navbar-links { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-        .navbar-links::-webkit-scrollbar { display: none; }
-        .navbar-links a {
-            padding: 8px 12px; border-radius: 10px; text-decoration: none; white-space: nowrap;
-            color: var(--theme-text-muted, #555); font-size: .85rem; font-weight: 600;
-            transition: background .2s ease, color .2s ease;
+        .navbar .nav-links { display: flex; align-items: center; gap: 6px; list-style: none; flex-wrap: wrap; }
+        .navbar .nav-links a {
+            text-decoration: none; color: var(--theme-text-muted);
+            font-weight: 500; font-size: 13px; padding: 7px 11px;
+            border-radius: 9px; white-space: nowrap; transition: all .25s ease;
+            display: inline-flex; align-items: center; gap: 6px;
         }
-        .navbar-links a:hover { background: var(--theme-primary-soft, #e0f2fe); color: var(--theme-primary, #1089d3); }
-        .navbar-links a.active {
-            color: #fff; background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1));
-            box-shadow: 0 8px 20px -10px var(--theme-shadow, rgba(0,0,0,.4));
+        .navbar .nav-links a:hover { color: var(--theme-primary); background: color-mix(in srgb, var(--theme-primary) 8%, transparent); }
+        .navbar .nav-links a.active { color: var(--theme-primary); background: color-mix(in srgb, var(--theme-primary) 12%, transparent); font-weight: 700; }
+        .navbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .navbar .mobile-toggle {
+            display: none; align-items: center; justify-content: center;
+            width: 40px; height: 40px; border-radius: 12px; cursor: pointer; font-size: 15px;
+            background: var(--theme-card); border: 1px solid var(--theme-border); color: var(--theme-text);
         }
-        @media (max-width: 720px) {
-            .navbar { padding: 10px 14px; flex-wrap: wrap; }
-            .navbar-links { order: 3; width: 100%; justify-content: flex-start; }
-            .navbar-links a { font-size: .78rem; padding: 7px 10px; }
+        @media (max-width: 768px) {
+            .navbar { padding: 12px 18px; flex-direction: row; align-items: center; gap: 10px; }
+            .navbar .logo { font-size: 21px; }
+            .navbar .mobile-toggle { display: inline-flex; }
         }
 
         /* ---------- shell ---------- */
-        .wrap { width: min(1080px, 100%); margin: 0 auto; padding: 26px max(14px, 4vw) 40px; }
+        .wrap { width: min(1080px, 100%); margin: 0 auto; padding: 96px max(14px, 4vw) 40px; }
+        @media (max-width: 768px) { .wrap { padding-top: 86px; } }
 
         .hero { text-align: center; margin-bottom: 22px; }
         .hero h1 {
@@ -229,40 +239,169 @@
         .tod-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
         .tod-count { display: flex; justify-content: space-between; font-size: .74rem; color: var(--theme-text-dim, #888); margin-top: 10px; }
 
+        /* ---------- your own prompts / words ---------- */
+        .custom-box {
+            margin-top: 14px; overflow: hidden; border-radius: 16px;
+            border: 1px solid var(--theme-border, #eef2f7); background: var(--theme-bg-soft, #f8faff);
+        }
+        .custom-toggle {
+            width: 100%; display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+            border: 0; background: transparent; cursor: pointer; font: inherit;
+            font-size: .85rem; font-weight: 800; color: var(--theme-text, #1a1a2e); text-align: left;
+        }
+        .custom-toggle .count {
+            margin-left: auto; font-size: .72rem; font-weight: 800; padding: 2px 9px; border-radius: 999px;
+            background: var(--theme-primary-soft, #e0f2fe); color: var(--theme-primary, #1089d3);
+        }
+        .custom-toggle .chev { opacity: .55; transition: transform .22s ease; }
+        .custom-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+        .custom-body { padding: 0 14px 14px; display: grid; gap: 10px; }
+        .seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; width: fit-content; background: var(--theme-card, #fff); border: 1px solid var(--theme-border, #eef2f7); }
+        .seg button {
+            appearance: none; border: 0; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 800;
+            padding: 6px 14px; border-radius: 9px; background: transparent; color: var(--theme-text-muted, #555);
+        }
+        .seg button.on { color: #fff; background: var(--theme-gradient, linear-gradient(45deg,#1089d3,#12b1d1)); }
+        .custom-list { display: grid; gap: 6px; max-height: 190px; overflow-y: auto; }
+        .custom-item {
+            display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; border-radius: 11px;
+            background: var(--theme-card, #fff); border: 1px solid var(--theme-border, #eef2f7);
+            font-size: .82rem; line-height: 1.45;
+        }
+        .custom-item span { flex: 1; min-width: 0; }
+        .custom-item button { appearance: none; border: 0; background: transparent; cursor: pointer; color: var(--theme-text-dim, #888); font-size: 1rem; line-height: 1; padding: 0 2px; flex: 0 0 auto; }
+        .custom-item button:hover { color: #ef4444; }
+        .custom-empty { font-size: .78rem; color: var(--theme-text-dim, #888); }
+
         /* ---------- playing cards ---------- */
         .deal-row { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; align-items: start; }
         @media (max-width: 760px) { .deal-row { grid-template-columns: 1fr; } }
 
         .card-stage {
-            display: grid; place-items: center; padding: 18px;
-            border-radius: 20px; min-height: 300px;
+            position: relative; display: grid; place-items: center; padding: 30px 18px 40px;
+            border-radius: 22px; min-height: 348px; overflow: hidden;
             background:
-                radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--theme-primary, #1089d3) 12%, transparent), transparent 65%),
+                radial-gradient(90% 74% at 50% 4%, color-mix(in srgb, var(--theme-primary, #1089d3) 22%, transparent), transparent 70%),
+                radial-gradient(70% 60% at 50% 104%, color-mix(in srgb, var(--theme-accent, #12b1d1) 20%, transparent), transparent 74%),
                 var(--theme-bg-soft, #f8faff);
             border: 1px solid var(--theme-border, #eef2f7);
-            perspective: 1200px;
+            perspective: 1500px;
+            isolation: isolate;
         }
+        /* table vignette */
+        .card-stage::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+            background: radial-gradient(120% 90% at 50% 46%, transparent 44%, color-mix(in srgb, var(--theme-text, #1a1a2e) 20%, transparent) 100%);
+            opacity: .5;
+        }
+
+        /* the deck the card comes off */
+        .deck-stack { position: absolute; bottom: 12px; left: 50%; width: 104px; height: 146px; margin-left: -52px; pointer-events: none; z-index: 0; }
+        .deck-stack i {
+            position: absolute; inset: 0; border-radius: 12px;
+            background:
+                radial-gradient(circle at 50% 50%, rgba(255,255,255,.14) 0 2px, transparent 2px 100%) 0 0 / 12px 12px,
+                repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 5px, transparent 5px 10px),
+                linear-gradient(150deg, #1b3a6b 0%, #0f2347 60%, #0a1730 100%);
+            border: 1px solid rgba(255,255,255,.24);
+            box-shadow: 0 16px 26px -18px rgba(0,0,0,.75);
+            opacity: .5;
+        }
+        .deck-stack i:nth-child(1) { transform: translate(-13px, 9px) rotate(-7deg); }
+        .deck-stack i:nth-child(2) { transform: translate(-6px, 5px) rotate(-3deg); }
+        .deck-stack i:nth-child(3) { transform: none; opacity: .68; }
+
+        /* ---------- the card ---------- */
         .pcard {
-            position: relative; width: 150px; height: 210px; border-radius: 16px;
-            background: #fff; color: #111;
-            border: 1px solid rgba(0,0,0,.14);
-            box-shadow: 0 26px 50px -26px rgba(0,0,0,.55);
-            display: grid; grid-template-rows: auto 1fr auto; padding: 10px 12px;
-            transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2,.8,.25,1);
+            position: relative; width: 168px; height: 240px; z-index: 2;
+            transform-style: preserve-3d;
+            transition: opacity .3s ease;
+            will-change: transform;
         }
-        html[data-timawa-mode="dark"] .pcard { box-shadow: 0 26px 54px -22px rgba(0,0,0,.9); }
-        .pcard.dealing { transform: rotateY(92deg) scale(.94); }
-        .pcard .corner { display: flex; flex-direction: column; align-items: center; line-height: 1; font-weight: 800; }
+        .pcard-inner {
+            position: absolute; inset: 0; transform-style: preserve-3d;
+            transition: transform .72s cubic-bezier(.2,.9,.22,1.12);
+        }
+        .pcard.down .pcard-inner { transform: rotateY(180deg); }
+        .pcard-face {
+            position: absolute; inset: 0; border-radius: 16px; overflow: hidden;
+            backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            box-shadow: 0 30px 60px -30px rgba(0,0,0,.55);
+        }
+        html[data-timawa-mode="dark"] .pcard-face { box-shadow: 0 34px 62px -26px rgba(0,0,0,.95); }
+
+        .pcard-front {
+            display: grid; grid-template-rows: auto 1fr auto; padding: 11px 13px;
+            background: linear-gradient(168deg, #ffffff 0%, #fbfcff 55%, #f2f5fb 100%);
+            color: #14181f; border: 1px solid rgba(15,23,42,.16);
+        }
+        .pcard-front::before {
+            content: ''; position: absolute; inset: 5px; border-radius: 12px;
+            border: 1px solid rgba(15,23,42,.09); pointer-events: none;
+        }
+        .pcard .corner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; line-height: .95; font-weight: 800; }
         .pcard .corner.bottom { justify-content: flex-end; transform: rotate(180deg); }
-        .pcard .rank { font-size: 1.32rem; letter-spacing: -.02em; }
-        .pcard .suit { font-size: 1.02rem; }
-        .pcard .pip { display: grid; place-items: center; font-size: 3.1rem; line-height: 1; }
-        .pcard.red { color: #d9243c; }
-        .pcard.black { color: #14181f; }
-        .pcard.joker { color: #7c3aed; text-align: center; }
-        .pcard.joker .jtxt { font-size: .62rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
-        .pcard.placeholder { opacity: .38; box-shadow: none; }
-        .pcard.placeholder .pip { font-size: 2.4rem; color: var(--theme-text-faint, #aaa); }
+        .pcard .rank { font-size: 1.36rem; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+        .pcard .suit { font-size: 1.02rem; margin-top: 1px; }
+        .pcard .pip { position: relative; z-index: 1; display: grid; place-items: center; font-size: 4.1rem; line-height: 1; text-shadow: 0 3px 14px rgba(0,0,0,.12); }
+        .pcard.red .pcard-front { color: #cf1f3a; }
+        .pcard.joker .pcard-front { color: #7c3aed; background: linear-gradient(168deg,#ffffff 0%,#f9f5ff 58%,#efe6ff 100%); }
+        .pcard.joker .pip { font-size: 2.5rem; }
+        .pcard.joker .jtxt { font-size: .58rem; font-weight: 900; letter-spacing: .3em; text-transform: uppercase; margin-top: 7px; }
+        .pcard.placeholder .pcard-front { border-style: dashed; opacity: .62; }
+        .pcard.placeholder .pip { font-size: 2.6rem; color: var(--theme-text-faint, #aaa); }
+
+        .pcard-back {
+            transform: rotateY(180deg);
+            display: grid; place-items: center;
+            background:
+                radial-gradient(circle at 50% 50%, rgba(255,255,255,.16) 0 2px, transparent 2px 100%) 0 0 / 14px 14px,
+                repeating-linear-gradient(45deg, rgba(255,255,255,.07) 0 5px, transparent 5px 10px),
+                linear-gradient(150deg, #1b3a6b 0%, #0f2347 55%, #0a1730 100%);
+            border: 1px solid rgba(255,255,255,.24);
+        }
+        .pcard-back::before { content: ''; position: absolute; inset: 7px; border-radius: 11px; border: 1px solid rgba(255,255,255,.3); }
+        .pcard-back b {
+            width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center;
+            font-size: 1.5rem; font-weight: 900; color: #eaf3ff;
+            background: radial-gradient(circle at 34% 28%, rgba(255,255,255,.24), rgba(255,255,255,.02));
+            border: 1px solid rgba(255,255,255,.36);
+            box-shadow: 0 0 28px rgba(120,170,255,.38);
+        }
+
+        /* ---------- the deal: fly up off the deck, flip, settle ---------- */
+        .pcard.dealing { animation: dealUp 1.24s cubic-bezier(.18,.8,.2,1) both; }
+        @keyframes dealUp {
+            0%   { transform: translate3d(0, 104px, -460px) rotateZ(-26deg) scale(.48); opacity: .15; }
+            34%  { transform: translate3d(-18px, 2px, 110px) rotateZ(-9deg) scale(1.12); opacity: 1; }
+            58%  { transform: translate3d(12px, -16px, 70px) rotateZ(4deg) scale(1.05); }
+            78%  { transform: translate3d(-5px, 6px, 0) rotateZ(-1.6deg) scale(1.015); }
+            100% { transform: none; }
+        }
+        .card-stage.burst::before {
+            content: ''; position: absolute; left: 50%; top: 50%; z-index: 1; pointer-events: none;
+            width: 230px; height: 230px; margin: -115px 0 0 -115px; border-radius: 50%;
+            background: radial-gradient(circle, color-mix(in srgb, var(--theme-primary, #1089d3) 60%, transparent) 0%, transparent 62%);
+            animation: cardBurst .8s ease-out both;
+        }
+        @keyframes cardBurst {
+            0%   { transform: scale(.2); opacity: .85; }
+            55%  { opacity: .45; }
+            100% { transform: scale(1.95); opacity: 0; }
+        }
+        .card-stage.shuffling .deck-stack i { animation: riffle .55s ease-in-out; }
+        .card-stage.shuffling .deck-stack i:nth-child(2) { animation-delay: .06s; }
+        .card-stage.shuffling .deck-stack i:nth-child(3) { animation-delay: .12s; }
+        @keyframes riffle {
+            0%, 100% { transform: translate(0,0) rotate(0); }
+            40% { transform: translate(-24px, -10px) rotate(-13deg); }
+            72% { transform: translate(13px, 7px) rotate(9deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .pcard.dealing { animation-duration: .01ms; }
+            .card-stage.burst::before { animation-duration: .01ms; }
+            .pcard-inner { transition-duration: .01ms; }
+        }
 
         .toggle-row {
             display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -380,15 +519,21 @@
     </div>
 
     <!-- ═══ navbar ═══ -->
-    <nav class="navbar">
-        <a class="navbar-brand" href="index.html"><span>T</span> TIMAWA</a>
-        <div class="navbar-links">
-            <a href="index.html">Home</a>
-            <a href="dashboard.html">Dashboard</a>
-            <a href="squad-wheel.html">Spin &amp; Poll</a>
-            <a href="games.html" class="active">Games</a>
-            <a href="profile.html">Profile</a>
+    <nav class="navbar" id="navbar">
+        <a href="index.html" class="logo">TIMAWA <span>HUB</span></a>
+
+        <div class="navbar-right">
+            <button class="mobile-toggle" onclick="toggleMobileMenu()" aria-label="Open menu"><i class="fas fa-bars"></i></button>
         </div>
+
+        <ul class="nav-links" id="navLinks">
+            <li><a href="index.html"><i class="fas fa-house"></i> Home</a></li>
+            <li><a href="calendar.html"><i class="fas fa-calendar-alt"></i> Calendar</a></li>
+            <li><a href="dashboard.html"><i class="fas fa-gauge-high"></i> Dashboard</a></li>
+            <li><a href="squad-wheel.html"><i class="fas fa-dharmachakra"></i> Spin &amp; Poll</a></li>
+            <li><a href="games.html" class="active"><i class="fas fa-dice"></i> Games</a></li>
+            <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+        </ul>
     </nav>
 
     <main class="wrap">
@@ -431,6 +576,24 @@
                     <span id="todSeen">0 prompts shown</span>
                     <span>Drink responsibly · skip is always allowed</span>
                 </div>
+
+                <div class="custom-box">
+                    <button class="custom-toggle" id="todCustomToggle" type="button" aria-expanded="false" aria-controls="todCustomBody">
+                        ✍️ Your own prompts <span class="count" id="todCustomCount">0</span> <span class="chev">⌄</span>
+                    </button>
+                    <div class="custom-body" id="todCustomBody" hidden>
+                        <div class="seg" id="todTypeSeg" role="group" aria-label="Prompt type">
+                            <button type="button" class="on" data-kind="truth">Truth</button>
+                            <button type="button" data-kind="dare">Dare</button>
+                        </div>
+                        <div class="players-input">
+                            <input type="text" id="todCustomInput" maxlength="140" placeholder="Write a truth…" autocomplete="off" />
+                            <button class="btn" id="todCustomAdd" type="button">Add</button>
+                        </div>
+                        <div class="custom-list" id="todCustomList"></div>
+                        <p class="hint">Saved on this device and shuffled into the deck with the built-in ones.</p>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -439,11 +602,17 @@
             <div class="deal-row">
                 <div class="card">
                     <div class="card-title">🃏 Draw a Card <small id="deckLeft">52 left</small></div>
-                    <div class="card-stage">
+                    <div class="card-stage" id="cardStage">
+                        <div class="deck-stack" aria-hidden="true"><i></i><i></i><i></i></div>
                         <div class="pcard placeholder" id="playingCard" aria-live="polite">
-                            <div class="corner"><span class="rank">?</span></div>
-                            <div class="pip">🂠</div>
-                            <div class="corner bottom"><span class="rank">?</span></div>
+                            <div class="pcard-inner">
+                                <div class="pcard-face pcard-back" aria-hidden="true"><b>T</b></div>
+                                <div class="pcard-face pcard-front" id="cardFace">
+                                    <div class="corner"><span class="rank">?</span><span class="suit">?</span></div>
+                                    <div class="pip">🂠</div>
+                                    <div class="corner bottom"><span class="rank">?</span><span class="suit">?</span></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <button class="btn" id="drawBtn" type="button" style="margin-top:14px">Draw a card</button>
@@ -505,6 +674,20 @@
                 </div>
 
                 <div class="word-packs" id="packs"></div>
+
+                <div class="custom-box">
+                    <button class="custom-toggle" id="spyCustomToggle" type="button" aria-expanded="false" aria-controls="spyCustomBody">
+                        ✍️ Your own words <span class="count" id="spyCustomCount">0</span> <span class="chev">⌄</span>
+                    </button>
+                    <div class="custom-body" id="spyCustomBody" hidden>
+                        <div class="players-input">
+                            <input type="text" id="spyWordInput" maxlength="26" placeholder="Write a secret word…" autocomplete="off" />
+                            <button class="btn" id="spyWordAdd" type="button">Add</button>
+                        </div>
+                        <div class="chips" id="spyWordChips"></div>
+                        <p class="hint">They become their own <b>Mine</b> pack, saved on this device.</p>
+                    </div>
+                </div>
 
                 <button class="btn" id="startSpy" type="button" style="margin-top:16px">Start round</button>
                 <div class="hint" id="spyHint"></div>
@@ -677,8 +860,66 @@
         if (!Array.isArray(todState.truth)) todState.truth = [];
         if (!Array.isArray(todState.dare)) todState.dare = [];
 
+        /* ---- the prompts the squad writes themselves -------------------------
+           Kept on this device only (localStorage), so they are there with the
+           network off and never leave the phone. They are shuffled in with the
+           built-in list rather than replacing it. */
+        let customTod = LS.get('timawa.games.custom.tod', { truth: [], dare: [] });
+        if (!customTod || typeof customTod !== 'object') customTod = { truth: [], dare: [] };
+        ['truth', 'dare'].forEach((k) => {
+            if (!Array.isArray(customTod[k])) customTod[k] = [];
+            customTod[k] = customTod[k].filter((x) => typeof x === 'string' && x.trim());
+        });
+        let todKind = 'truth';
+
+        function todPool(kind) {
+            const base = kind === 'truth' ? TRUTHS : DARES;
+            return base.concat(customTod[kind] || []);
+        }
+        function saveCustomTod() { LS.set('timawa.games.custom.tod', customTod); }
+        function clearTodPools() { todState.truth = []; todState.dare = []; LS.set('timawa.games.tod', todState); }
+
+        function renderCustomTod() {
+            const total = customTod.truth.length + customTod.dare.length;
+            $('todCustomCount').textContent = total;
+            const box = $('todCustomList');
+            const list = customTod[todKind];
+            box.innerHTML = '';
+            if (!list.length) {
+                box.innerHTML = '<p class="custom-empty">No ' + todKind + ' prompts yet — write one above.</p>';
+                return;
+            }
+            list.forEach((text, i) => {
+                const row = document.createElement('div');
+                row.className = 'custom-item';
+                row.innerHTML = '<span></span><button type="button" aria-label="Delete">×</button>';
+                row.firstElementChild.textContent = text;
+                row.lastElementChild.addEventListener('click', () => {
+                    customTod[todKind].splice(i, 1);
+                    saveCustomTod();
+                    clearTodPools();
+                    renderCustomTod();
+                });
+                box.appendChild(row);
+            });
+        }
+
+        function addCustomTod() {
+            const input = $('todCustomInput');
+            const text = input.value.trim().replace(/\s+/g, ' ');
+            if (!text) { input.focus(); return; }
+            if (customTod[todKind].some((x) => x.toLowerCase() === text.toLowerCase())) { toast('Already in your list'); return; }
+            if (customTod[todKind].length >= 100) { toast('100 prompts max'); return; }
+            customTod[todKind].push(text);
+            saveCustomTod();
+            clearTodPools();          // a new prompt must be able to show up this round
+            input.value = '';
+            renderCustomTod();
+            toast('Added to your ' + todKind + 's');
+        }
+
         function todNext(kind) {
-            const source = kind === 'truth' ? TRUTHS : DARES;
+            const source = todPool(kind);
             let poolKey = kind;
             if (!todState[poolKey].length) todState[poolKey] = shuffled(source);
             const text = todState[poolKey].pop();
@@ -719,6 +960,28 @@
             $('todSeen').textContent = '0 prompts shown';
             toast('Round reset — fresh prompts');
         });
+
+        $('todCustomToggle').addEventListener('click', function () {
+            const body = $('todCustomBody');
+            const open = body.hidden;
+            body.hidden = !open;
+            this.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        Array.prototype.forEach.call(document.querySelectorAll('#todTypeSeg button'), (b) => {
+            b.addEventListener('click', () => {
+                todKind = b.dataset.kind;
+                Array.prototype.forEach.call(document.querySelectorAll('#todTypeSeg button'), (x) => {
+                    x.classList.toggle('on', x === b);
+                });
+                $('todCustomInput').placeholder = todKind === 'truth' ? 'Write a truth…' : 'Write a dare…';
+                renderCustomTod();
+            });
+        });
+        $('todCustomAdd').addEventListener('click', addCustomTod);
+        $('todCustomInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addCustomTod(); }
+        });
+        renderCustomTod();
 
         /* ═════════════════════════ CARD DRAW ═════════════════════════ */
         const SUITS = [
@@ -780,31 +1043,41 @@
             }
         }
 
+        const reducedMotion = (() => {
+            try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+        })();
+
         function paintCard(c) {
             const el = $('playingCard');
+            const face = $('cardFace');
             el.classList.remove('placeholder', 'red', 'black', 'joker');
             if (!c) {
                 el.classList.add('placeholder');
-                el.innerHTML = '<div class="corner"><span class="rank">?</span></div>' +
+                face.innerHTML =
+                    '<div class="corner"><span class="rank">?</span><span class="suit">?</span></div>' +
                     '<div class="pip">🂠</div>' +
-                    '<div class="corner bottom"><span class="rank">?</span></div>';
+                    '<div class="corner bottom"><span class="rank">?</span><span class="suit">?</span></div>';
                 return;
             }
             el.classList.add(c.colour);
             if (c.joker) {
                 el.classList.add('joker');
-                el.innerHTML = '<div class="corner"><span class="rank">★</span></div>' +
-                    '<div class="pip jtxt">Joker</div>' +
-                    '<div class="corner bottom"><span class="rank">★</span></div>';
+                face.innerHTML =
+                    '<div class="corner"><span class="rank">★</span><span class="suit">★</span></div>' +
+                    '<div class="pip">🃏<div class="jtxt">Joker</div></div>' +
+                    '<div class="corner bottom"><span class="rank">★</span><span class="suit">★</span></div>';
                 return;
             }
-            el.innerHTML =
+            face.innerHTML =
                 '<div class="corner"><span class="rank">' + c.rank + '</span><span class="suit">' + c.glyph + '</span></div>' +
                 '<div class="pip">' + c.glyph + '</div>' +
                 '<div class="corner bottom"><span class="rank">' + c.rank + '</span><span class="suit">' + c.glyph + '</span></div>';
         }
 
+        let drawing = false;
+
         function drawCard() {
+            if (drawing) return;
             if (!cardState.deck.length) {
                 cardState.deck = buildDeck(cardState.jokers);
                 cardState.drawn = [];
@@ -815,13 +1088,42 @@
             saveCards();
 
             const el = $('playingCard');
-            el.classList.add('dealing');
-            setTimeout(() => {
+            const stage = $('cardStage');
+
+            if (reducedMotion) {
+                el.classList.remove('down', 'dealing');
                 paintCard(card);
-                el.classList.remove('dealing');
                 renderDeck();
-            }, 180);
-            if (card.joker) toast('Joker! House rule time.');
+                announce(card);
+                return;
+            }
+
+            drawing = true;
+            // 1. turn the card face-down and paint the new face while it is hidden
+            el.classList.remove('dealing');
+            el.classList.add('down');
+            paintCard(card);
+            void el.offsetWidth;
+            // 2. deal it up off the deck, off-axis, with the glow burst
+            el.classList.add('dealing');
+            stage.classList.remove('burst');
+            void stage.offsetWidth;
+            stage.classList.add('burst');
+            // 3. flip it over once it has landed
+            setTimeout(() => el.classList.remove('down'), 560);
+            setTimeout(() => {
+                el.classList.remove('dealing');
+                stage.classList.remove('burst');
+                drawing = false;
+                renderDeck();
+            }, 1260);
+            setTimeout(() => announce(card), 900);
+        }
+
+        function announce(card) {
+            if (card.joker) { toast('Joker! House rule time.'); return; }
+            if (card.rank === 'A') toast('Ace — waterfall!');
+            else if (['K', 'Q', 'J'].indexOf(card.rank) >= 0) toast(card.rank + ' — face card');
         }
 
         $('drawBtn').addEventListener('click', drawCard);
@@ -830,8 +1132,17 @@
             cardState.deck = buildDeck(cardState.jokers);
             cardState.drawn = [];
             saveCards();
+            const el = $('playingCard');
+            const stage = $('cardStage');
+            el.classList.remove('dealing');
             paintCard(null);
             renderDeck();
+            if (!reducedMotion) {
+                stage.classList.remove('shuffling');
+                void stage.offsetWidth;
+                stage.classList.add('shuffling');
+                setTimeout(() => stage.classList.remove('shuffling'), 620);
+            }
             toast('Shuffled · ' + cardState.deck.length + ' cards');
         });
         $('jokerToggle').addEventListener('change', function () {
@@ -885,6 +1196,22 @@
                     'Kuya', 'Coach', 'Barangay', 'Tita', 'Wedding video']
             }
         };
+
+        /* ---- words the squad writes themselves -------------------------------
+           Saved on the device and exposed as an extra "Mine" pack, so a custom
+           word is chosen deliberately instead of being mixed into the built-in
+           packs behind the member's back. */
+        let customWords = LS.get('timawa.games.custom.words', []);
+        if (!Array.isArray(customWords)) customWords = [];
+        customWords = customWords
+            .filter((w) => typeof w === 'string' && w.trim())
+            .map((w) => w.trim());
+        function syncMinePack() {
+            if (customWords.length) PACKS.mine = { label: 'Mine', words: customWords };
+            else delete PACKS.mine;
+        }
+        syncMinePack();
+        function saveCustomWords() { LS.set('timawa.games.custom.words', customWords); }
 
         let spyState = LS.get('timawa.games.spy', null);
         if (!spyState || typeof spyState !== 'object') spyState = {};
@@ -943,6 +1270,47 @@
         }
         $('addPlayer').addEventListener('click', addPlayer);
         $('playerName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addPlayer(); } });
+
+        function renderCustomWords() {
+            $('spyCustomCount').textContent = customWords.length;
+            const box = $('spyWordChips');
+            box.innerHTML = '';
+            if (!customWords.length) {
+                box.innerHTML = '<p class="custom-empty">No words yet — write one above.</p>';
+                return;
+            }
+            customWords.forEach((word, i) => {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.innerHTML = '<span></span><button type="button" aria-label="Remove">×</button>';
+                chip.firstElementChild.textContent = word;
+                chip.lastElementChild.addEventListener('click', () => {
+                    customWords.splice(i, 1);
+                    saveCustomWords();
+                    syncMinePack();
+                    if (!PACKS[packKey]) packKey = 'squad';
+                    saveSpy();
+                    renderPacks();
+                    renderCustomWords();
+                });
+                box.appendChild(chip);
+            });
+        }
+
+        function addCustomWord() {
+            const input = $('spyWordInput');
+            const word = input.value.trim().replace(/\s+/g, ' ');
+            if (!word) { input.focus(); return; }
+            if (customWords.some((w) => w.toLowerCase() === word.toLowerCase())) { toast('Already in your list'); return; }
+            if (customWords.length >= 200) { toast('200 words max'); return; }
+            customWords.push(word);
+            saveCustomWords();
+            syncMinePack();
+            input.value = '';
+            renderPacks();
+            renderCustomWords();
+            toast('Added to your words');
+        }
 
         function renderPacks() {
             const box = $('packs');
@@ -1072,8 +1440,20 @@
         });
         $('startSpy').addEventListener('click', startRound);
 
+        $('spyCustomToggle').addEventListener('click', function () {
+            const body = $('spyCustomBody');
+            const open = body.hidden;
+            body.hidden = !open;
+            this.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        $('spyWordAdd').addEventListener('click', addCustomWord);
+        $('spyWordInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addCustomWord(); }
+        });
+
         renderPlayers();
         renderPacks();
+        renderCustomWords();
 
         /* ═════════════════════════ splash / offline ═════════════════════════ */
         function hideSplash() {
@@ -1095,5 +1475,6 @@
         }
     })();
     </script>
+    <script src="mobile-nav.js?v=1.3.0"></script>
 </body>
 </html>
