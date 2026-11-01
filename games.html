@@ -65,6 +65,13 @@
     <link rel="stylesheet" href="theme.css?v=1.9.5" />
     <script src="theme.js?v=1.10.1"></script>
 
+    <!-- Firebase is used for exactly one thing on this page: Sign out. The games
+         never touch it, so a device that opens this page with no signal still
+         plays normally — and if these two files cannot be fetched, the Logout
+         button simply falls back to returning to the home page. -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -116,6 +123,13 @@
             width: 40px; height: 40px; border-radius: 12px; cursor: pointer; font-size: 15px;
             background: var(--theme-card); border: 1px solid var(--theme-border); color: var(--theme-text);
         }
+        .navbar .logout-btn {
+            background: var(--theme-card); border: 2px solid var(--theme-danger-soft);
+            color: var(--theme-danger); padding: 7px 14px; border-radius: 50px;
+            cursor: pointer; font: inherit; font-size: 12px; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 6px; transition: all .25s ease;
+        }
+        .navbar .logout-btn:hover { background: var(--theme-danger-soft); transform: scale(1.03); }
         @media (max-width: 768px) {
             .navbar { padding: 12px 18px; flex-direction: row; align-items: center; gap: 10px; }
             .navbar .logo { font-size: 21px; }
@@ -256,6 +270,9 @@
         .custom-toggle .chev { opacity: .55; transition: transform .22s ease; }
         .custom-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
         .custom-body { padding: 0 14px 14px; display: grid; gap: 10px; }
+        /* `display: grid` above would otherwise defeat the `hidden` attribute,
+           leaving both "Your own …" boxes permanently open. */
+        .custom-body[hidden] { display: none; }
         .seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; width: fit-content; background: var(--theme-card, #fff); border: 1px solid var(--theme-border, #eef2f7); }
         .seg button {
             appearance: none; border: 0; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 800;
@@ -431,14 +448,23 @@
         }
 
         /* ---------- impostor ---------- */
-        .players-input { display: flex; gap: 8px; }
+        .players-input { display: flex; gap: 10px; align-items: stretch; }
         .players-input input {
-            flex: 1; min-width: 0; font: inherit; font-size: .9rem; padding: 11px 13px; border-radius: 12px;
+            flex: 1 1 auto; min-width: 0; font: inherit; font-size: .9rem; padding: 12px 14px; border-radius: 12px;
             border: 1px solid var(--theme-border-input, #e0e7ff);
             background: var(--theme-bg, #fff); color: var(--theme-text, #1a1a2e);
         }
         .players-input input:focus { outline: 2px solid color-mix(in srgb, var(--theme-primary, #1089d3) 40%, transparent); outline-offset: 1px; }
-        .players-input .btn { width: auto; flex: 0 0 auto; padding: 11px 16px; }
+        /* The Add button gets real breathing room instead of being squeezed
+           against the input's rounded corner. */
+        .players-input .btn {
+            width: auto; flex: 0 0 auto; min-width: 104px; padding: 12px 22px;
+            white-space: nowrap; letter-spacing: .01em;
+        }
+        @media (max-width: 420px) {
+            .players-input { gap: 8px; }
+            .players-input .btn { min-width: 84px; padding: 12px 16px; }
+        }
         .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
         .chip {
             display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px 7px 12px;
@@ -533,6 +559,7 @@
             <li><a href="squad-wheel.html"><i class="fas fa-dharmachakra"></i> Spin &amp; Poll</a></li>
             <li><a href="games.html" class="active"><i class="fas fa-dice"></i> Games</a></li>
             <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+            <li><button class="logout-btn" onclick="logout()"><i class="fas fa-right-from-bracket"></i> Logout</button></li>
         </ul>
     </nav>
 
@@ -635,9 +662,17 @@
                             <span id="deckSummary">Standard 52-card deck</span>
                         </div>
                         <div class="mini-list" id="drawnList"></div>
+
+                        <div class="toggle-row" style="margin-top:12px">
+                            <div>
+                                <b>House rules</b>
+                                <small>A drinking rule with every draw</small>
+                            </div>
+                            <label class="sw"><input type="checkbox" id="houseToggle" /><i></i></label>
+                        </div>
                     </div>
 
-                    <div class="card">
+                    <div class="card" id="houseCard">
                         <div class="card-title">🎲 House rule</div>
                         <div class="hint" id="houseRule" style="margin-top:0"></div>
                         <button class="btn ghost" id="ruleBtn" type="button" style="margin-top:12px">New house rule</button>
@@ -1009,6 +1044,7 @@
             cardState = { jokers: false, deck: buildDeck(false), drawn: [] };
         }
         if (typeof cardState.jokers !== 'boolean') cardState.jokers = false;
+        if (typeof cardState.houseRules !== 'boolean') cardState.houseRules = true;
         if (!Array.isArray(cardState.drawn)) cardState.drawn = [];
 
         function saveCards() { LS.set('timawa.games.cards', cardState); }
@@ -1121,7 +1157,13 @@
         }
 
         function announce(card) {
-            if (card.joker) { toast('Joker! House rule time.'); return; }
+            const rules = cardState.houseRules !== false;
+            // The card and its rule move together: with house rules on, every
+            // draw rolls a fresh rule (the subtitle promises "a rule with every
+            // draw"). Switched off, nothing about the rules is shown.
+            if (rules) rotateHouseRule();
+            if (card.joker) { toast(rules ? 'Joker! House rule time.' : 'Joker!'); return; }
+            if (!rules) return;
             if (card.rank === 'A') toast('Ace — waterfall!');
             else if (['K', 'Q', 'J'].indexOf(card.rank) >= 0) toast(card.rank + ' — face card');
         }
@@ -1157,17 +1199,38 @@
 
         let houseRule = pick(HOUSE_RULES);
         function renderRule() { $('houseRule').textContent = houseRule; }
-        $('ruleBtn').addEventListener('click', () => {
-            let next = houseRule;
-            while (next === houseRule && HOUSE_RULES.length > 1) next = pick(HOUSE_RULES);
-            houseRule = next;
+        // Never show the same rule twice in a row — that read as "nothing happened".
+        function rotateHouseRule() {
+            if (HOUSE_RULES.length > 1) {
+                let next = houseRule;
+                while (next === houseRule) next = pick(HOUSE_RULES);
+                houseRule = next;
+            }
             renderRule();
+        }
+
+        // House rules can be switched off entirely: the rule card disappears and
+        // a draw only announces the card itself.
+        function renderHouseRule() {
+            const on = cardState.houseRules !== false;
+            $('houseToggle').checked = on;
+            $('houseCard').hidden = !on;
+        }
+        $('houseToggle').addEventListener('change', function () {
+            cardState.houseRules = this.checked;
+            saveCards();
+            renderHouseRule();
+            toast(this.checked ? 'House rules on' : 'House rules off');
+        });
+        $('ruleBtn').addEventListener('click', () => {
+            rotateHouseRule();
         });
 
         $('jokerToggle').checked = cardState.jokers;
         paintCard(cardState.drawn.length ? cardState.drawn[cardState.drawn.length - 1] : null);
         renderDeck();
         renderRule();
+        renderHouseRule();
 
         /* ══════════════════════ WHO'S THE IMPOSTOR ══════════════════════ */
         const PACKS = {
@@ -1344,8 +1407,11 @@
         function startRound() {
             if (players.length < 3) { toast('Add at least 3 players'); return; }
             const word = pick(PACKS[packKey].words);
+            // Two independent shuffles: who opens the phone first and who is an
+            // impostor are unrelated. Taking the impostors off the front of the
+            // reveal order made the first player the impostor every round.
             const order = shuffled(players);
-            const spies = order.slice(0, Math.min(impostorCount, order.length - 1));
+            const spies = shuffled(players).slice(0, Math.min(impostorCount, players.length - 1));
             round = { word: word, impostors: spies, order: order };
             revealIndex = 0;
             wordShown = false;
@@ -1454,6 +1520,36 @@
         renderPlayers();
         renderPacks();
         renderCustomWords();
+
+        /* ═══════════════════════════ sign out ═══════════════════════════
+           Same contract as every other page: confirm, then sign out and go home.
+           Firebase is optional here — the games never read it — so a device with
+           no signal still signs out from its local session, and if the SDK never
+           loaded at all the button simply returns to the home page. */
+        const FIREBASE_CONFIG = {
+            apiKey: 'AIzaSyC05mMZ304IN_S0-NRv2Uf7E5_tZLiM4Js',
+            authDomain: 'timawa2.firebaseapp.com',
+            projectId: 'timawa2',
+            storageBucket: 'timawa2.firebasestorage.app',
+            messagingSenderId: '1051426551565',
+            appId: '1:1051426551565:web:01d33631309bb9336fe244'
+        };
+        let gamesAuth = null;
+        try {
+            if (window.firebase && typeof firebase.initializeApp === 'function') {
+                try { firebase.app(); } catch (notBooted) { firebase.initializeApp(FIREBASE_CONFIG); }
+                gamesAuth = firebase.auth();
+            }
+        } catch (e) { gamesAuth = null; }
+
+        window.logout = function () {
+            if (!window.confirm('Sign out of TIMAWA?')) return;
+            const go = () => { window.location.href = 'index.html'; };
+            try {
+                if (gamesAuth) gamesAuth.signOut().then(go, go);
+                else go();
+            } catch (e) { go(); }
+        };
 
         /* ═════════════════════════ splash / offline ═════════════════════════ */
         function hideSplash() {
