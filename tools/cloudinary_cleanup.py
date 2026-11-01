@@ -247,6 +247,18 @@ def drain_queue(db, key: str, secret: str, args) -> tuple[int, int]:
         log("queue: empty")
         return 0, 0
 
+    # A queued id is only deleted when nothing points at it *now*. A profile
+    # picture can be queued by mistake — an earlier build queued the picture that
+    # was still in use on every save — and deleting it turns every page's avatar
+    # into a broken image. This is the same reference scan the orphan sweep uses,
+    # and a failed scan keeps everything.
+    try:
+        live = referenced_ids(db, args.scan_limit)
+    except Exception as exc:  # noqa: BLE001
+        log(f"queue: nothing deleted — reference scan failed ({exc})")
+        log("::warning::refusing to delete queued media without a complete reference scan")
+        return 0, 0
+
     log(f"queue: {len(docs)} pending asset(s)")
     for doc in docs:
         item = doc.to_dict() or {}
@@ -262,6 +274,12 @@ def drain_queue(db, key: str, secret: str, args) -> tuple[int, int]:
             doc.reference.update({"status": "failed",
                                   "lastError": f"outside {args.prefix}"})
             failed += 1
+            continue
+
+        if pid in live:
+            log(f"  - keep {pid} (still referenced)")
+            if not args.dry_run:
+                doc.reference.delete()     # the request is stale, the file is not
             continue
 
         ok, msg = destroy(pid, rtype, key, secret, args.dry_run)

@@ -306,6 +306,31 @@ class QueueDrain(unittest.TestCase):
         self.assertIn("signature", req.posts[0]["data"])
         self.assertTrue(req.posts[0]["data"]["invalidate"] == "true")
 
+    def test_queued_but_still_referenced_is_kept(self):
+        # The bug this guard exists for: an earlier build queued the picture that
+        # was still the member's avatar, so the queue run deleted a live file and
+        # every page fell back to initials.
+        db = FakeDB({"mediaCleanupQueue": {"d1": {"publicId": "t-imawa/profiles/live",
+                                                  "status": "pending", "attempts": 0}},
+                     "users": {"u1": {"photoURL": URL.format("t-imawa/profiles/live")}}})
+        req = FakeRequests(destroy_results=[])
+        use_requests(req)
+        done, failed = quiet(cc.drain_queue, db, "k", "s", args())
+        self.assertEqual((done, failed), (0, 0))
+        self.assertEqual(req.posts, [])                  # nothing destroyed
+        self.assertEqual(db.docs("mediaCleanupQueue"), {})   # stale request dropped
+
+    def test_queue_scan_failure_deletes_nothing(self):
+        db = FakeDB({"mediaCleanupQueue": {"d1": {"publicId": "t-imawa/stories/1",
+                                                  "status": "pending"}}},
+                    broken=("users",))
+        req = FakeRequests(destroy_results=[FakeResponse(200, {"result": "ok"})])
+        use_requests(req)
+        done, failed = quiet(cc.drain_queue, db, "k", "s", args())
+        self.assertEqual((done, failed), (0, 0))
+        self.assertEqual(req.posts, [])
+        self.assertIn("d1", db.docs("mediaCleanupQueue"))
+
     def test_already_gone_counts_as_done(self):
         db = FakeDB({"mediaCleanupQueue": {"d1": {"publicId": "t-imawa/x", "status": "pending"}}})
         req = FakeRequests(destroy_results=[FakeResponse(200, {"result": "not found"})])

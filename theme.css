@@ -1490,3 +1490,20 @@ html[data-tw-perf="eco"] .theme-bg-shapes::after { animation: none !important; }
    comes from <html>, which theme.js paints before the first frame.
    ========================================================================== */
 html[data-timawa-theme] body { background-color: transparent; }
+
+/* ============================================================================
+   ARTIST THEMES — album-era scenes (palettes in theme.js, shapes inline)
+   One theme per artist; the sleeves along the bottom are their albums, in era order.
+   ========================================================================== */
+[data-timawa-theme="taylor"] .theme-bg-base{background:linear-gradient(180deg,#fbf9ff 0%,#efeafb 58%,#e2d9f6 100%)}
+[data-timawa-theme="taylor"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0b0814 0%,#16112a 58%,#1d1733 100%)}
+[data-timawa-theme="olivia"] .theme-bg-base{background:linear-gradient(180deg,#fff8fe 0%,#f4e7fb 58%,#efd8f6 100%)}
+[data-timawa-theme="olivia"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#12081a 0%,#1d0f28 58%,#28143a 100%)}
+[data-timawa-theme="ariana"] .theme-bg-base{background:linear-gradient(180deg,#fffdfb 0%,#f6eefc 58%,#e9dcfa 100%)}
+[data-timawa-theme="ariana"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#09070f 0%,#141022 58%,#1b1530 100%)}
+[data-timawa-theme="conan"] .theme-bg-base{background:linear-gradient(180deg,#fffaf9 0%,#fce9e6 58%,#f6d8d4 100%)}
+[data-timawa-theme="conan"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0f0908 0%,#1a100f 58%,#241413 100%)}
+[data-timawa-theme="maki"] .theme-bg-base{background:linear-gradient(180deg,#fffdf4 0%,#fdf3d9 58%,#fbe9b8 100%)}
+[data-timawa-theme="maki"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0f0d07 0%,#1a160b 58%,#231d0f 100%)}
+[data-timawa-theme="lany"] .theme-bg-base{background:linear-gradient(180deg,#fbfdff 0%,#eef5fd 58%,#dfeaf8 100%)}
+[data-timawa-theme="lany"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#050b14 0%,#0b1523 58%,#122033 100%)}

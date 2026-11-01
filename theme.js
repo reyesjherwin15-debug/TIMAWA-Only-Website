@@ -292,6 +292,30 @@
         hundas: `
 <div class="shape " style="left:0;right:0;top:0;height:50%;background-image:radial-gradient(1.3px 1.3px at 51% 45%,#fff,transparent),radial-gradient(1.6px 1.6px at 24% 52%,#fff,transparent),radial-gradient(1.6px 1.6px at 91% 39%,#fff,transparent),radial-gradient(1.8px 1.8px at 52% 96%,#fff,transparent),radial-gradient(1.7px 1.7px at 4% 34%,#fff,transparent),radial-gradient(2.0px 2.0px at 5% 59%,#fff,transparent),radial-gradient(1.4px 1.4px at 22% 95%,#fff,transparent),radial-gradient(1.7px 1.7px at 35% 86%,#fff,transparent),radial-gradient(1.2px 1.2px at 77% 10%,#fff,transparent),radial-gradient(1.5px 1.5px at 78% 7%,#fff,transparent),radial-gradient(1.2px 1.2px at 39% 30%,#fff,transparent),radial-gradient(1.5px 1.5px at 49% 96%,#fff,transparent),radial-gradient(1.1px 1.1px at 74% 88%,#fff,transparent),radial-gradient(1.7px 1.7px at 15% 21%,#fff,transparent),radial-gradient(1.3px 1.3px at 25% 9%,#fff,transparent),radial-gradient(1.1px 1.1px at 31% 82%,#fff,transparent),radial-gradient(1.5px 1.5px at 76% 26%,#fff,transparent),radial-gradient(1.5px 1.5px at 10% 41%,#fff,transparent),radial-gradient(1.2px 1.2px at 16% 88%,#fff,transparent),radial-gradient(1.7px 1.7px at 5% 87%,#fff,transparent);opacity:var(--hus)"></div><div class="shape ha-pulse" style="left:80%;top:16%;width:min(80vmin,640px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--hum),transparent 65%);"></div><div class="shape " style="left:calc(80% - clamp(30px,4.5vw,64px));top:calc(16% - clamp(30px,4.5vw,64px));width:clamp(60px,9vw,128px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 36% 34%,#fffbe8,#efe6c8 66%,#d0c8a0)"></div><div class="shape " style="left:-10%;right:-10%;bottom:0;height:28%;border-radius:50% 50% 0 0/100% 100% 0 0;background:var(--q6)"></div><svg class="shape opt" viewBox="0 0 160 190" style="left:2%;bottom:16%;width:clamp(90px,13vw,190px)"><rect class='q5' x='6' y='40' width='22' height='150'/><rect class='q5' x='132' y='40' width='22' height='150'/><path class='q5' d='M0 40Q80 -20 160 40L160 52Q80 -4 0 52Z'/><rect class='q5' x='74' y='-14' width='12' height='46'/><rect class='q5' x='62' y='-2' width='36' height='10'/></svg><svg class="shape " viewBox="0 0 400 150" style="left:12%;bottom:6%;width:min(88%,860px)"><path class='q5' d='M10 140V101.0Q10 84 27.0 84Q44 84 44 101.0V140Z'/><path class='q5' d='M60 140V109.0Q60 94 75.0 94Q90 94 90 109.0V140Z'/><rect class='q5' x='134.0' y='64' width='8' height='76'/><rect class='q5' x='122.0' y='80' width='32' height='8'/><path class='q5' d='M176 140V105.0Q176 88 193.0 88Q210 88 210 105.0V140Z'/><path class='q5' d='M240 140V96.0Q240 80 256.0 80Q272 80 272 96.0V140Z'/><rect class='q5' x='310.0' y='70' width='8' height='70'/><rect class='q5' x='298.0' y='86' width='32' height='8'/><path class='q5' d='M350 140V104.0Q350 86 368.0 86Q386 86 386 104.0V140Z'/></svg><div class="shape " style="left:0;right:0;bottom:0;height:9%;background:var(--q7)"></div><div class="shape ha-drift" style="left:-10%;right:-10%;bottom:6%;height:26%;background:linear-gradient(0deg,rgba(255,255,255,.2),transparent)"></div><svg class="shape " viewBox="0 0 400 150" style="left:12%;bottom:3%;width:min(88%,860px)"><circle cx='34' cy='138' r='7' style='fill:#ff9f1c'/><circle cx='42' cy='132' r='7' style='fill:#ff9f1c'/><circle cx='26' cy='134' r='7' style='fill:#ff9f1c'/><circle cx='104' cy='138' r='7' style='fill:#ffd45c'/><circle cx='112' cy='132' r='7' style='fill:#ffd45c'/><circle cx='96' cy='134' r='7' style='fill:#ffd45c'/><circle cx='160' cy='138' r='7' style='fill:#fff'/><circle cx='168' cy='132' r='7' style='fill:#fff'/><circle cx='152' cy='134' r='7' style='fill:#fff'/><circle cx='222' cy='138' r='7' style='fill:#ff9f1c'/><circle cx='230' cy='132' r='7' style='fill:#ff9f1c'/><circle cx='214' cy='134' r='7' style='fill:#ff9f1c'/><circle cx='280' cy='138' r='7' style='fill:#ffd45c'/><circle cx='288' cy='132' r='7' style='fill:#ffd45c'/><circle cx='272' cy='134' r='7' style='fill:#ffd45c'/><circle cx='338' cy='138' r='7' style='fill:#fff'/><circle cx='346' cy='132' r='7' style='fill:#fff'/><circle cx='330' cy='134' r='7' style='fill:#fff'/><circle cx='394' cy='138' r='7' style='fill:#ff9f1c'/><circle cx='402' cy='132' r='7' style='fill:#ff9f1c'/><circle cx='386' cy='134' r='7' style='fill:#ff9f1c'/><rect x='36' y='106' width='8' height='34' rx='2' style='fill:#f4ead0'/><ellipse cx='40' cy='100' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='74' y='112' width='8' height='28' rx='2' style='fill:#f4ead0'/><ellipse cx='78' cy='106' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='146' y='98' width='8' height='42' rx='2' style='fill:#f4ead0'/><ellipse cx='150' cy='92' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='192' y='108' width='8' height='32' rx='2' style='fill:#f4ead0'/><ellipse cx='196' cy='102' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='258' y='100' width='8' height='40' rx='2' style='fill:#f4ead0'/><ellipse cx='262' cy='94' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='316' y='110' width='8' height='30' rx='2' style='fill:#f4ead0'/><ellipse cx='320' cy='104' rx='3.4' ry='6.4' style='fill:#ffcf70'/><rect x='364' y='104' width='8' height='36' rx='2' style='fill:#f4ead0'/><ellipse cx='368' cy='98' rx='3.4' ry='6.4' style='fill:#ffcf70'/></svg><div class="shape ha-flick" style="left:12%;bottom:3%;width:min(88%,860px);aspect-ratio:400/150;background:radial-gradient(circle 9% at 10.0% 66.7%,var(--hug),transparent),radial-gradient(circle 9% at 19.5% 70.7%,var(--hug),transparent),radial-gradient(circle 9% at 37.5% 61.3%,var(--hug),transparent),radial-gradient(circle 9% at 49.0% 68.0%,var(--hug),transparent),radial-gradient(circle 9% at 65.5% 62.7%,var(--hug),transparent),radial-gradient(circle 9% at 80.0% 69.3%,var(--hug),transparent),radial-gradient(circle 9% at 92.0% 65.3%,var(--hug),transparent)"></div>
         `,
+        // ★ taylor — artist theme (album eras)
+        taylor: `
+<div class="shape ha-pulse" style="left:20%;top:22%;width:min(82vmin,680px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--theme-primary),transparent 64%);opacity:.2"></div><div class="shape ha-spin" style="left:9%;top:12%;width:clamp(180px,26vw,360px);aspect-ratio:1;translate:-40% -40%;border-radius:50%;background:repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.05) 0 3px,transparent 3px 7px),conic-gradient(#15121c,#221c2e,#15121c,#241d32,#15121c);box-shadow:0 40px 80px -46px rgba(0,0,0,.8);opacity:.6"></div><div class="shape" style="left:9%;top:12%;width:clamp(180px,26vw,360px);aspect-ratio:1;translate:-40% -40%;border-radius:50%;background:radial-gradient(circle,var(--theme-accent) 0 17%,transparent 17.6%)"></div><div class="shape" style="right:8%;top:14%;width:clamp(4px,.6vw,8px);height:clamp(140px,22vh,240px);background:linear-gradient(180deg,transparent,var(--theme-accent),transparent);opacity:.45"></div><div class="shape" style="left:50%;bottom:0;translate:-50% 0;width:min(96vw,1000px);display:flex;flex-wrap:wrap;gap:clamp(6px,.9vw,12px);justify-content:center;align-items:flex-end"><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#b7d8cf;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#d8b26a;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#8b5e9e;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#b0303a;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#a8cfe0;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#2b2b2b;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#f2a7c3;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#b7b7ae;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#d9c7a7;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#7c6fa8;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#e8e2d2;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i></div><div class="shape ha-tw" style="left:0;right:0;top:0;height:clamp(30px,4.4vw,54px);background:repeating-linear-gradient(90deg,transparent 0 18px,rgba(255,255,255,.5) 18px 26px);opacity:.16"></div>
+        `,
+        // ★ olivia — artist theme (album eras)
+        olivia: `
+<div class="shape ha-pulse" style="left:76%;top:26%;width:min(80vmin,640px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--theme-primary),transparent 64%);opacity:.22"></div><svg class="shape opt" viewBox="0 0 120 110" style="right:7%;top:16%;width:clamp(120px,15vw,220px);opacity:.55"><path d="M60 100C20 72 6 52 6 36C6 18 20 8 34 8C46 8 55 15 60 24C65 15 74 8 86 8C100 8 114 18 114 36C114 52 100 72 60 100Z" style="fill:none;stroke:var(--theme-accent);stroke-width:3;stroke-linejoin:round"/><path d="M60 30L52 52L64 60L54 84" style="fill:none;stroke:var(--theme-accent);stroke-width:2.6;stroke-linecap:round"/></svg><div class="shape" style="left:6%;top:20%;width:clamp(120px,17vw,240px);height:clamp(90px,13vw,180px);border-radius:6px;background:repeating-linear-gradient(180deg,rgba(255,255,255,.55) 0 2px,transparent 2px 14px),var(--theme-bg-soft);border:1px solid var(--theme-border);transform:rotate(-6deg);opacity:.55"></div><div class="shape" style="left:50%;bottom:0;translate:-50% 0;width:min(96vw,1000px);display:flex;flex-wrap:wrap;gap:clamp(10px,1.6vw,20px);justify-content:center;align-items:flex-end"><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#6b3fa0;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#c9432f;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#e87d9a;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i></div><div class="shape ha-drift" style="left:-10%;right:-10%;bottom:0;height:16%;background:linear-gradient(0deg,var(--theme-primary),transparent);opacity:.14"></div>
+        `,
+        // ★ ariana — artist theme (album eras)
+        ariana: `
+<div class="shape ha-pulse" style="left:22%;top:20%;width:min(84vmin,700px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--theme-primary),transparent 66%);opacity:.2"></div><div class="shape" style="right:9%;top:10%;width:clamp(70px,10vw,140px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 36% 32%,#fffdf7,#f0e4d4 72%,#d8c7b2);box-shadow:0 0 60px 12px rgba(255,246,230,.35)"></div><div class="shape ha-drift" style="left:2%;top:30%;width:clamp(140px,22vw,300px);aspect-ratio:2/1;border-radius:999px;background:radial-gradient(circle at 30% 60%,#fff,transparent 62%),radial-gradient(circle at 70% 40%,#fff,transparent 60%);opacity:.5"></div><div class="shape ha-drift" style="right:4%;top:44%;width:clamp(120px,18vw,240px);aspect-ratio:2/1;border-radius:999px;background:radial-gradient(circle at 40% 50%,#fff,transparent 60%);opacity:.35;animation-delay:-8s"></div><div class="shape" style="left:50%;bottom:0;translate:-50% 0;width:min(96vw,1000px);display:flex;flex-wrap:wrap;gap:clamp(6px,.9vw,12px);justify-content:center;align-items:flex-end"><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#f3e0c7;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#f0c4d4;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#2a2a2e;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#f7d9c4;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#f2b8c6;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#cfc9d6;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#e8dcc4;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i></div><div class="shape" style="left:0;right:0;bottom:0;height:14%;background:linear-gradient(0deg,var(--theme-accent),transparent);opacity:.18"></div>
+        `,
+        // ★ conan — artist theme (album eras)
+        conan: `
+<div class="shape ha-pulse" style="left:50%;top:10%;width:min(70vmin,520px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--theme-accent),transparent 62%);opacity:.16"></div><div class="shape" style="left:50%;top:0;width:clamp(160px,26vw,360px);height:60%;translate:-50% 0;background:linear-gradient(180deg,rgba(255,255,255,.32),transparent 78%);clip-path:polygon(42% 0,58% 0,100% 100%,0 100%);opacity:.55"></div><div class="shape" style="left:-10%;right:-10%;bottom:0;height:18%;background:repeating-conic-gradient(var(--theme-text-faint) 0 25%,transparent 0 50%) 0 0/40px 40px;opacity:.22"></div><div class="shape" style="left:0;right:0;bottom:15%;height:3px;background:linear-gradient(90deg,transparent,var(--theme-accent),transparent);opacity:.6"></div><div class="shape" style="left:50%;bottom:0;translate:-50% 0;width:min(96vw,1000px);display:flex;flex-wrap:wrap;gap:clamp(12px,2vw,26px);justify-content:center;align-items:flex-end"><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#1f3b52;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#d4553f;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#2f7f8a;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i></div><div class="shape ha-tw" style="left:0;right:0;top:0;height:clamp(26px,3.6vw,44px);background:repeating-linear-gradient(90deg,transparent 0 22px,rgba(255,255,255,.45) 22px 30px);opacity:.14"></div>
+        `,
+        // ★ maki — artist theme (album eras)
+        maki: `
+<div class="shape ha-pulse" style="left:50%;top:34%;width:min(92vmin,760px);aspect-ratio:1;translate:-50% -50%;background:conic-gradient(from 0deg,rgba(242,194,0,.32) 0 6deg,transparent 6deg 18deg,rgba(242,194,0,.32) 18deg 24deg,transparent 24deg 36deg);opacity:.5"></div><div class="shape" style="left:50%;top:34%;width:clamp(110px,16vw,220px);aspect-ratio:1;translate:-50% -50%;border-radius:50%;background:radial-gradient(circle at 42% 38%,#ffe89a,var(--theme-primary) 72%);box-shadow:0 0 80px 24px rgba(255,208,60,.28)"></div><div class="shape" style="left:-10%;right:-10%;bottom:0;height:20%;background:repeating-linear-gradient(180deg,#e0483c 0 12px,#2f6fed 12px 24px,#f2c200 24px 36px);opacity:.18"></div><div class="shape" style="left:50%;bottom:0;translate:-50% 0;width:min(96vw,1000px);display:flex;flex-wrap:wrap;gap:clamp(10px,1.8vw,22px);justify-content:center;align-items:flex-end"><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#6a4f8a;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#7fa8c9;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#f2c200;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#e0483c;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i></div><div class="shape ha-drift" style="left:-10%;right:-10%;bottom:14%;height:10%;background:linear-gradient(0deg,rgba(47,111,237,.4),transparent);opacity:.5"></div>
+        `,
+        // ★ lany — artist theme (album eras)
+        lany: `
+<div class="shape ha-pulse" style="left:74%;top:16%;width:min(70vmin,560px);aspect-ratio:1;translate:-50% -50%;background:radial-gradient(circle,var(--theme-accent),transparent 64%);opacity:.2"></div><div class="shape" style="left:74%;top:16%;width:clamp(60px,9vw,130px);aspect-ratio:1;translate:-50% -50%;border-radius:50%;background:radial-gradient(circle at 42% 40%,#fff6f8,var(--theme-accent) 70%)"></div><div class="shape" style="left:0;right:0;bottom:0;height:26%;background:linear-gradient(180deg,var(--theme-primary),transparent);opacity:.22"></div><div class="shape" style="left:0;right:0;bottom:24%;height:2px;background:var(--theme-accent);opacity:.45"></div><div class="shape ha-drift" style="left:-10%;right:-10%;bottom:6%;height:14%;background:repeating-linear-gradient(90deg,transparent 0 60px,rgba(255,255,255,.35) 60px 62px);opacity:.35"></div><div class="shape" style="left:50%;bottom:0;translate:-50% 0;width:min(96vw,1000px);display:flex;flex-wrap:wrap;gap:clamp(6px,.9vw,12px);justify-content:center;align-items:flex-end"><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#1e2a38;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#2f4a6b;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#d9a441;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#e05a8a;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#7fa3c9;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i><i style="width:clamp(30px,3.1vw,44px);aspect-ratio:1;border-radius:6px 6px 0 0;background:#f0c9d4;box-shadow:0 12px 24px -14px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.3)"></i></div><div class="shape" style="left:0;right:0;top:0;height:46%;background-image:radial-gradient(1.4px 1.4px at 12% 22%,#fff,transparent),radial-gradient(1.6px 1.6px at 34% 12%,#fff,transparent),radial-gradient(1.2px 1.2px at 58% 30%,#fff,transparent),radial-gradient(1.6px 1.6px at 82% 18%,#fff,transparent),radial-gradient(1.3px 1.3px at 22% 40%,#fff,transparent),radial-gradient(1.5px 1.5px at 68% 8%,#fff,transparent);opacity:.55"></div>
+        `,
     };
 
     // ================================================================
@@ -1097,18 +1121,172 @@
                 '--theme-shadow-soft': 'rgba(255,122,184,0.16)',
                 '--theme-nav-bg': 'rgba(8,5,28,0.98)'
             }
-        }
+        },
+        taylor: {
+            name: 'Taylor Swift', sub: 'Eras · Lavender & Gold', emoji: '🪩', group: 'artists',
+            preview: { primary: '#7d6bb5', gradient: 'linear-gradient(135deg, #7d6bb5 0%, #d8b25c 100%)' },
+            light: {
+                '--theme-primary': '#7d6bb5', '--theme-accent': '#d8b25c', '--theme-primary-dark': '#61548f',
+                '--theme-primary-soft': '#ece8fa', '--theme-primary-soft-2': '#f6f4fd',
+                '--theme-bg': '#ffffff', '--theme-bg-soft': '#faf8ff', '--theme-card': '#ffffff',
+                '--theme-text': '#1d1830', '--theme-text-muted': '#4f4768', '--theme-text-dim': '#7d7595', '--theme-text-faint': '#ada7c0',
+                '--theme-border': '#ece7f8', '--theme-border-soft': '#f4f1fc', '--theme-border-input': '#ded6f2',
+                '--theme-gradient': 'linear-gradient(45deg, #7d6bb5 0%, #d8b25c 100%)',
+                '--theme-shadow': 'rgba(125,107,181,0.16)', '--theme-shadow-soft': 'rgba(216,178,92,0.20)',
+                '--theme-nav-bg': 'rgba(255,255,255,0.98)'
+            },
+            dark: {
+                '--theme-primary': '#b3a3f0', '--theme-accent': '#e8c877', '--theme-primary-dark': '#9282d6',
+                '--theme-primary-soft': '#241f38', '--theme-primary-soft-2': '#151228',
+                '--theme-bg': '#0f0c19', '--theme-bg-soft': '#171327', '--theme-card': '#171327',
+                '--theme-text': '#f0ecff', '--theme-text-muted': '#b9b0d8', '--theme-text-dim': '#918ab0', '--theme-text-faint': '#6b6588',
+                '--theme-border': '#272139', '--theme-border-soft': '#1d1830', '--theme-border-input': '#272139',
+                '--theme-gradient': 'linear-gradient(45deg, #b3a3f0 0%, #e8c877 100%)',
+                '--theme-shadow': 'rgba(179,163,240,0.22)', '--theme-shadow-soft': 'rgba(232,200,119,0.16)',
+                '--theme-nav-bg': 'rgba(15,12,25,0.98)'
+            }
+        },
+        olivia: {
+            name: 'Olivia Rodrigo', sub: 'SOUR · GUTS', emoji: '🍒', group: 'artists',
+            preview: { primary: '#7a2f9e', gradient: 'linear-gradient(135deg, #7a2f9e 0%, #e8384f 100%)' },
+            light: {
+                '--theme-primary': '#7a2f9e', '--theme-accent': '#e8384f', '--theme-primary-dark': '#5f2179',
+                '--theme-primary-soft': '#f3e6fa', '--theme-primary-soft-2': '#faf2fd',
+                '--theme-bg': '#fffbfe', '--theme-bg-soft': '#fdf5ff', '--theme-card': '#ffffff',
+                '--theme-text': '#2b0f36', '--theme-text-muted': '#5d3a6b', '--theme-text-dim': '#8b639a', '--theme-text-faint': '#bda2c7',
+                '--theme-border': '#f2e4f8', '--theme-border-soft': '#f8eefb', '--theme-border-input': '#e6d0ef',
+                '--theme-gradient': 'linear-gradient(45deg, #7a2f9e 0%, #e8384f 100%)',
+                '--theme-shadow': 'rgba(122,47,158,0.16)', '--theme-shadow-soft': 'rgba(232,56,79,0.16)',
+                '--theme-nav-bg': 'rgba(255,251,254,0.98)'
+            },
+            dark: {
+                '--theme-primary': '#c99ae6', '--theme-accent': '#ff6b7e', '--theme-primary-dark': '#a877c9',
+                '--theme-primary-soft': '#2b1436', '--theme-primary-soft-2': '#190a1f',
+                '--theme-bg': '#140a1a', '--theme-bg-soft': '#1d1024', '--theme-card': '#1d1024',
+                '--theme-text': '#f6e8fd', '--theme-text-muted': '#c9b1d8', '--theme-text-dim': '#a189b0', '--theme-text-faint': '#766082',
+                '--theme-border': '#301a3c', '--theme-border-soft': '#241330', '--theme-border-input': '#301a3c',
+                '--theme-gradient': 'linear-gradient(45deg, #c99ae6 0%, #ff6b7e 100%)',
+                '--theme-shadow': 'rgba(201,154,230,0.22)', '--theme-shadow-soft': 'rgba(255,107,126,0.16)',
+                '--theme-nav-bg': 'rgba(20,10,26,0.98)'
+            }
+        },
+        ariana: {
+            name: 'Ariana Grande', sub: 'Sweetener · Positions', emoji: '☁️', group: 'artists',
+            preview: { primary: '#9b7ede', gradient: 'linear-gradient(135deg, #9b7ede 0%, #f7c8a8 100%)' },
+            light: {
+                '--theme-primary': '#9b7ede', '--theme-accent': '#f7c8a8', '--theme-primary-dark': '#7f63bd',
+                '--theme-primary-soft': '#efe9fc', '--theme-primary-soft-2': '#f8f4fe',
+                '--theme-bg': '#fffdfb', '--theme-bg-soft': '#fbf7fd', '--theme-card': '#ffffff',
+                '--theme-text': '#221a33', '--theme-text-muted': '#54456b', '--theme-text-dim': '#867aa0', '--theme-text-faint': '#b6abc8',
+                '--theme-border': '#efe8fa', '--theme-border-soft': '#f6f1fc', '--theme-border-input': '#e0d5f2',
+                '--theme-gradient': 'linear-gradient(45deg, #9b7ede 0%, #f7c8a8 100%)',
+                '--theme-shadow': 'rgba(155,126,222,0.16)', '--theme-shadow-soft': 'rgba(247,200,168,0.22)',
+                '--theme-nav-bg': 'rgba(255,253,251,0.98)'
+            },
+            dark: {
+                '--theme-primary': '#c4adf5', '--theme-accent': '#ffd9c0', '--theme-primary-dark': '#a48ce0',
+                '--theme-primary-soft': '#221a38', '--theme-primary-soft-2': '#141024',
+                '--theme-bg': '#0d0a15', '--theme-bg-soft': '#151122', '--theme-card': '#151122',
+                '--theme-text': '#f4eeff', '--theme-text-muted': '#c0b6db', '--theme-text-dim': '#978cb4', '--theme-text-faint': '#6d6489',
+                '--theme-border': '#241d3a', '--theme-border-soft': '#1b1530', '--theme-border-input': '#241d3a',
+                '--theme-gradient': 'linear-gradient(45deg, #c4adf5 0%, #ffd9c0 100%)',
+                '--theme-shadow': 'rgba(196,173,245,0.22)', '--theme-shadow-soft': 'rgba(255,217,192,0.16)',
+                '--theme-nav-bg': 'rgba(13,10,21,0.98)'
+            }
+        },
+        conan: {
+            name: 'Conan Gray', sub: 'Kid Krow · Found Heaven', emoji: '🌊', group: 'artists',
+            preview: { primary: '#c2453c', gradient: 'linear-gradient(135deg, #c2453c 0%, #2f9d96 100%)' },
+            light: {
+                '--theme-primary': '#c2453c', '--theme-accent': '#2f9d96', '--theme-primary-dark': '#9b342d',
+                '--theme-primary-soft': '#fbe6e3', '--theme-primary-soft-2': '#fdf3f2',
+                '--theme-bg': '#fffafa', '--theme-bg-soft': '#fdf5f4', '--theme-card': '#ffffff',
+                '--theme-text': '#2a1210', '--theme-text-muted': '#633b36', '--theme-text-dim': '#96665f', '--theme-text-faint': '#c7a29d',
+                '--theme-border': '#f7e5e2', '--theme-border-soft': '#fbf0ee', '--theme-border-input': '#efd3ce',
+                '--theme-gradient': 'linear-gradient(45deg, #c2453c 0%, #2f9d96 100%)',
+                '--theme-shadow': 'rgba(194,69,60,0.16)', '--theme-shadow-soft': 'rgba(47,157,150,0.18)',
+                '--theme-nav-bg': 'rgba(255,250,250,0.98)'
+            },
+            dark: {
+                '--theme-primary': '#f0786e', '--theme-accent': '#4fd1c8', '--theme-primary-dark': '#d0564c',
+                '--theme-primary-soft': '#331714', '--theme-primary-soft-2': '#1d0d0b',
+                '--theme-bg': '#120b0a', '--theme-bg-soft': '#1c1211', '--theme-card': '#1c1211',
+                '--theme-text': '#fbeae7', '--theme-text-muted': '#d3b3ad', '--theme-text-dim': '#a98a84', '--theme-text-faint': '#7d615c',
+                '--theme-border': '#331d1a', '--theme-border-soft': '#261513', '--theme-border-input': '#331d1a',
+                '--theme-gradient': 'linear-gradient(45deg, #f0786e 0%, #4fd1c8 100%)',
+                '--theme-shadow': 'rgba(240,120,110,0.22)', '--theme-shadow-soft': 'rgba(79,209,200,0.16)',
+                '--theme-nav-bg': 'rgba(18,11,10,0.98)'
+            }
+        },
+        maki: {
+            name: 'Maki', sub: 'Dilaw · KOLORCOASTER', emoji: '🌻', group: 'artists',
+            preview: { primary: '#d99400', gradient: 'linear-gradient(135deg, #d99400 0%, #2f6fed 100%)' },
+            light: {
+                '--theme-primary': '#d99400', '--theme-accent': '#2f6fed', '--theme-primary-dark': '#b07700',
+                '--theme-primary-soft': '#fff2d1', '--theme-primary-soft-2': '#fdf8ec',
+                '--theme-bg': '#fffdf6', '--theme-bg-soft': '#fdf8ec', '--theme-card': '#ffffff',
+                '--theme-text': '#2b2105', '--theme-text-muted': '#5f5124', '--theme-text-dim': '#918147', '--theme-text-faint': '#c2b58a',
+                '--theme-border': '#f6edd7', '--theme-border-soft': '#fbf6e8', '--theme-border-input': '#ecdfbd',
+                '--theme-gradient': 'linear-gradient(45deg, #d99400 0%, #2f6fed 100%)',
+                '--theme-shadow': 'rgba(217,148,0,0.18)', '--theme-shadow-soft': 'rgba(47,111,237,0.16)',
+                '--theme-nav-bg': 'rgba(255,253,246,0.98)'
+            },
+            dark: {
+                '--theme-primary': '#ffcb3d', '--theme-accent': '#6f9dff', '--theme-primary-dark': '#e0a200',
+                '--theme-primary-soft': '#33280c', '--theme-primary-soft-2': '#1d1707',
+                '--theme-bg': '#12100a', '--theme-bg-soft': '#1c1810', '--theme-card': '#1c1810',
+                '--theme-text': '#fdf3d8', '--theme-text-muted': '#d4c49a', '--theme-text-dim': '#a89a74', '--theme-text-faint': '#7c7154',
+                '--theme-border': '#332a14', '--theme-border-soft': '#261f10', '--theme-border-input': '#332a14',
+                '--theme-gradient': 'linear-gradient(45deg, #ffcb3d 0%, #6f9dff 100%)',
+                '--theme-shadow': 'rgba(255,203,61,0.22)', '--theme-shadow-soft': 'rgba(111,157,255,0.16)',
+                '--theme-nav-bg': 'rgba(18,16,10,0.98)'
+            }
+        },
+        lany: {
+            name: 'LANY', sub: 'Malibu Nights · blur', emoji: '🌴', group: 'artists',
+            preview: { primary: '#3d6ea8', gradient: 'linear-gradient(135deg, #3d6ea8 0%, #f2a2b6 100%)' },
+            light: {
+                '--theme-primary': '#3d6ea8', '--theme-accent': '#f2a2b6', '--theme-primary-dark': '#2f5687',
+                '--theme-primary-soft': '#e3edf9', '--theme-primary-soft-2': '#f2f7fd',
+                '--theme-bg': '#fbfdff', '--theme-bg-soft': '#f6faff', '--theme-card': '#ffffff',
+                '--theme-text': '#101c2b', '--theme-text-muted': '#3a4f68', '--theme-text-dim': '#6a8098', '--theme-text-faint': '#9fb0c2',
+                '--theme-border': '#e3ecf6', '--theme-border-soft': '#eff5fb', '--theme-border-input': '#d2e0ef',
+                '--theme-gradient': 'linear-gradient(45deg, #3d6ea8 0%, #f2a2b6 100%)',
+                '--theme-shadow': 'rgba(61,110,168,0.16)', '--theme-shadow-soft': 'rgba(242,162,182,0.18)',
+                '--theme-nav-bg': 'rgba(251,253,255,0.98)'
+            },
+            dark: {
+                '--theme-primary': '#8fb8e6', '--theme-accent': '#ffb8c9', '--theme-primary-dark': '#6f9dd1',
+                '--theme-primary-soft': '#15243a', '--theme-primary-soft-2': '#0b1522',
+                '--theme-bg': '#070d17', '--theme-bg-soft': '#0f1826', '--theme-card': '#0f1826',
+                '--theme-text': '#e6f0fb', '--theme-text-muted': '#aac0d6', '--theme-text-dim': '#849bb2', '--theme-text-faint': '#5d748a',
+                '--theme-border': '#16273c', '--theme-border-soft': '#101d2c', '--theme-border-input': '#16273c',
+                '--theme-gradient': 'linear-gradient(45deg, #8fb8e6 0%, #ffb8c9 100%)',
+                '--theme-shadow': 'rgba(143,184,230,0.22)', '--theme-shadow-soft': 'rgba(255,184,201,0.16)',
+                '--theme-nav-bg': 'rgba(7,13,23,0.98)'
+            }
+        },
     };
 
     // ★ v7 — theme groups (picker): Cozy Places / Seasons / Holidays. Order of window.THEMES already follows the groups.
     window.THEME_GROUP_META = [
         { id: 'places', label: 'Cozy Places', emoji: '🏡' },
         { id: 'seasons', label: 'Seasons', emoji: '🍂' },
+        { id: 'artists', label: 'Artists', emoji: '🎤' },
         { id: 'holidays', label: 'Holidays', emoji: '🎉' }
     ];
     window.THEME_GROUPS = window.THEME_GROUP_META.map(function (g) {
         return { id: g.id, label: g.label, emoji: g.emoji, keys: Object.keys(window.THEMES).filter(function (k) { return window.THEMES[k].group === g.id; }) };
     });
+
+    // Artist themes borrow the pointer badge of a scene with a similar palette.
+    (function artistCursors() {
+        var alias = { taylor: 'starry', olivia: 'crimson', ariana: 'nebula', conan: 'moonlit', maki: 'sunshine', lany: 'sakura' };
+        Object.keys(alias).forEach(function (key) {
+            var from = alias[key];
+            if (!window.THEME_CURSORS[key] && window.THEME_CURSORS[from]) window.THEME_CURSORS[key] = window.THEME_CURSORS[from];
+        });
+    })();
 
 
     // ── themed cursor (v7) — NATIVE, zero-lag ──
