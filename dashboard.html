@@ -8463,6 +8463,23 @@
             return url.replace('/upload/', `/upload/w_${size},h_${size},c_fill,g_face,q_auto:good,f_auto/`);
         }
 
+        /* Same avatar fallback as index.html: retry the untouched original once,
+           then drop to the member's initials inside the same circle. */
+        function twAvatarFallback(img) {
+            if (!img) return;
+            const raw = img.getAttribute('data-raw') || '';
+            if (raw && img.dataset.triedRaw !== '1') {
+                img.dataset.triedRaw = '1';
+                img.src = raw;
+                return;
+            }
+            img.onerror = null;
+            const holder = img.parentElement;
+            if (!holder) { img.style.display = 'none'; return; }
+            holder.textContent = img.getAttribute('data-initials') || '';
+        }
+        window.twAvatarFallback = twAvatarFallback;
+
         // ===== HELPERS =====
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -16957,7 +16974,9 @@ function startReplyTo(commentId, authorName) {
 
                 const statusInfo = getStatusLabel(status);
                 const loveLifeInfo = getLoveLifeLabel(loveLife);
-                const avatarThumb = photoUrl ? cloudinaryThumb(photoUrl, 128) : '';
+                // Same square face crop the members grid on the home page uses,
+                // so a member's picture looks identical on every page.
+                const avatarThumb = photoUrl ? cloudinaryAvatar(photoUrl, 200) : '';
                 const memberIdSafe = escapeAttr(docId);
 
                 const note = notesCache[docId];
@@ -16981,7 +17000,7 @@ function startReplyTo(commentId, authorName) {
                     <div class="member-card" data-member-id="${memberIdSafe}">
                         <div class="card-top">
                             <div class="avatar">
-                                ${avatarThumb ? `<img src="${avatarThumb}" alt="${escapeAttr(name)}" loading="lazy" decoding="async" />` : escapeHtml(initials)}
+                                ${avatarThumb ? `<img src="${escapeAttr(avatarThumb)}" data-raw="${escapeAttr(photoUrl)}" data-initials="${escapeAttr(initials)}" alt="${escapeAttr(name)}" loading="lazy" decoding="async" onerror="twAvatarFallback(this)" />` : escapeHtml(initials)}
                             </div>
                             <div class="name-section">
                                 <div class="name">${escapeHtml(name)}</div>

@@ -3549,10 +3549,17 @@
 
                 // The photo that was just replaced is referenced by nothing now, so
                 // queue it: otherwise every avatar ever uploaded stays in the account.
+                // Only the photo that was actually REPLACED may be queued for
+                // deletion. This used to compare against updateData.photoURL,
+                // which is undefined on a save that changes only the bio — the
+                // check then looked like "the photo changed" and queued the URL
+                // that was still in use, so the cleanup workflow deleted the
+                // member's live picture and every page fell back to initials.
                 const previousPhoto = (profileData && profileData.photoURL) || '';
-                if (previousPhoto && previousPhoto !== (updateData.photoURL || '')) {
-                    const oldAvatarId = publicIdFromCloudinaryUrl(previousPhoto);
-                    if (oldAvatarId) queueCloudinaryCleanup([oldAvatarId], { source: 'profile', sourceId: currentUser.uid });
+                const previousId = previousPhoto ? publicIdFromCloudinaryUrl(previousPhoto) : '';
+                const nextId = photoURL ? publicIdFromCloudinaryUrl(photoURL) : '';
+                if (photoURL && previousId && previousId !== nextId) {
+                    queueCloudinaryCleanup([previousId], { source: 'profile', sourceId: currentUser.uid });
                 }
 
                 const mergedData = { ...(profileData || {}), ...updateData };

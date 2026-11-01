@@ -7719,11 +7719,13 @@ function startHighlightReply(commentId, authorName) {
                 const avatarSrc = photoUrl ? cloudinaryAvatar(photoUrl, 400) : '';
 
                 const avatarContent = photoUrl
-                    ? `<img src="${avatarSrc}"
+                    ? `<img src="${escapeAttr(avatarSrc)}"
+                            data-raw="${escapeAttr(photoUrl)}"
+                            data-initials="${escapeAttr(initials)}"
                             alt="${escapeAttr(name)}"
                             loading="lazy"
                             decoding="async"
-                            onerror="this.parentElement.innerHTML='<span style=\\'font-size:56px;font-weight:800;letter-spacing:2px;\\'>${escapeHtml(initials)}</span>';"
+                            onerror="twAvatarFallback(this)"
                        />`
                     : escapeHtml(initials);
 
@@ -8936,6 +8938,26 @@ function startHighlightReply(commentId, authorName) {
             if (/^[a-z]_/.test(afterUpload) || /^[a-z]+,[a-z]/.test(afterUpload)) return url;
             return url.replace('/upload/', `/upload/w_${size},h_${size},c_fill,g_face,q_auto:good,f_auto/`);
         }
+
+        /* The one avatar fallback used on this page.
+           A picture can fail for a moment (a slow CDN, an old copy of a URL that
+           was replaced) — the untouched original is tried once before the circle
+           drops to the member's initials, so a stale URL never leaves a
+           broken-image icon in the members grid. */
+        function twAvatarFallback(img) {
+            if (!img) return;
+            const raw = img.getAttribute('data-raw') || '';
+            if (raw && img.dataset.triedRaw !== '1') {
+                img.dataset.triedRaw = '1';
+                img.src = raw;
+                return;
+            }
+            img.onerror = null;
+            const holder = img.parentElement;
+            if (!holder) { img.style.display = 'none'; return; }
+            holder.textContent = img.getAttribute('data-initials') || '';
+        }
+        window.twAvatarFallback = twAvatarFallback;
 
         async function getCurrentUserProfileCached(user) {
             const CACHE_KEY = 'timawa_me_' + user.uid;
