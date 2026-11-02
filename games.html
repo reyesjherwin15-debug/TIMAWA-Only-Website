@@ -1409,10 +1409,10 @@
         function startRound() {
             if (players.length < 3) { toast('Add at least 3 players'); return; }
             const word = pick(PACKS[packKey].words);
-            // Two independent shuffles: who opens the phone first and who is an
-            // impostor are unrelated. Taking the impostors off the front of the
-            // reveal order made the first player the impostor every round.
-            const order = shuffled(players);
+            // The pass-the-phone order is fixed: it always follows the player
+            // list exactly as it was entered, so every round runs in the same
+            // pattern. Only who is an impostor is random.
+            const order = players.slice();
             const spies = shuffled(players).slice(0, Math.min(impostorCount, players.length - 1));
             round = { word: word, impostors: spies, order: order };
             revealIndex = 0;
