@@ -82,8 +82,8 @@
         html:not(.t-themed) .loading-overlay.t-splash.active { opacity: 0 !important; pointer-events: none !important; }
         html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
     </style>
-    <link rel="stylesheet" href="theme.css?v=1.10.0" />
-    <script src="theme.js?v=1.11.0"></script>
+    <link rel="stylesheet" href="theme.css?v=1.17.5" />
+    <script src="theme.js?v=1.41.11"></script>
 
     <style>
         :root {
@@ -1713,6 +1713,17 @@
             margin: 10px 2px 0;
         }
         .theme-group-label:first-child { margin-top: 0; }
+        .theme-group-label em {
+            margin-left: auto;
+            font-style: normal;
+            font-weight: 600;
+            letter-spacing: 0;
+            text-transform: none;
+            font-size: 10px;
+            opacity: .55;
+            white-space: nowrap;
+        }
+
         .theme-empty {
             grid-column: 1 / -1;
             padding: 30px 10px;
@@ -3735,7 +3746,7 @@
                 const keys = (g.keys || []).filter(k => THEMES[k]);
                 if (!keys.length) return;
                 keys.forEach(k => { seen[k] = true; });
-                groups.push({ id: g.id, label: g.label, emoji: g.emoji || '', keys });
+                groups.push({ id: g.id, label: g.label, emoji: g.emoji || '', sub: g.sub || '', keys });
             });
             const rest = Object.keys(THEMES).filter(k => !seen[k]);
             if (rest.length) groups.push({ id: 'more', label: 'More themes', emoji: '✨', keys: rest });
@@ -3774,8 +3785,11 @@
                 const keys = group.keys;
                 if (!keys.length) return;
 
-                html += `<div class="theme-group-label"><span aria-hidden="true">${group.emoji}</span>${group.label}</div>`;
-                keys.forEach(key => {
+                const isWorld = group.id.indexOf('artist_') === 0 && typeof window.twArtistHero === 'function';
+                html += isWorld
+                    ? window.twArtistHero(group.id)
+                    : `<div class="theme-group-label"><span aria-hidden="true">${group.emoji}</span>${group.label}${group.sub ? `<em>${group.sub} · ${keys.length}</em>` : ''}</div>`;
+                keys.forEach((key, i) => {
                     const theme = THEMES[key];
                     const isActive = key === (selectedTheme && selectedTheme.preset);
                     html += `
@@ -3785,7 +3799,9 @@
                                 data-group="${group.id}"
                                 onclick="selectThemePreset('${key}')"
                                 title="${theme.name} — ${theme.sub || ''}">
-                            <div class="preview" style="background: ${theme.preview.gradient};"></div>
+                            <div class="preview" style="background: ${theme.preview.gradient};">
+                                ${isWorld ? `<span class="tw-era">ERA ${String(i + 1).padStart(2, '0')}</span>` : ''}
+                            </div>
                             <div class="preset-name">${theme.emoji || ''} ${theme.name}</div>
                             ${theme.sub ? `<div class="preset-sub">${theme.sub}</div>` : ''}
                         </button>

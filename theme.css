@@ -1492,18 +1492,487 @@ html[data-tw-perf="eco"] .theme-bg-shapes::after { animation: none !important; }
 html[data-timawa-theme] body { background-color: transparent; }
 
 /* ============================================================================
-   ARTIST THEMES — album-era scenes (palettes in theme.js, shapes inline)
-   One theme per artist; the sleeves along the bottom are their albums, in era order.
+   ARTIST WORLDS — ambient motion, depth, and the album change transition
+   ----------------------------------------------------------------------------
+   Every album scene writes its own animation vocabulary (see _scenes.py:
+   MOTION / MOTION_ALBUM). The shapes carry data-anim + --tw-dur / --tw-delay and
+   this block gives them the keyframes. Only opacity and the individual
+   translate / rotate / scale properties animate, so the inline transforms that
+   place each prop (rotations, flips, centring) are never overwritten.
    ========================================================================== */
-[data-timawa-theme="taylor"] .theme-bg-base{background:linear-gradient(180deg,#fbf9ff 0%,#efeafb 58%,#e2d9f6 100%)}
-[data-timawa-theme="taylor"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0b0814 0%,#16112a 58%,#1d1733 100%)}
-[data-timawa-theme="olivia"] .theme-bg-base{background:linear-gradient(180deg,#fff8fe 0%,#f4e7fb 58%,#efd8f6 100%)}
-[data-timawa-theme="olivia"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#12081a 0%,#1d0f28 58%,#28143a 100%)}
-[data-timawa-theme="ariana"] .theme-bg-base{background:linear-gradient(180deg,#fffdfb 0%,#f6eefc 58%,#e9dcfa 100%)}
-[data-timawa-theme="ariana"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#09070f 0%,#141022 58%,#1b1530 100%)}
-[data-timawa-theme="conan"] .theme-bg-base{background:linear-gradient(180deg,#fffaf9 0%,#fce9e6 58%,#f6d8d4 100%)}
-[data-timawa-theme="conan"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0f0908 0%,#1a100f 58%,#241413 100%)}
-[data-timawa-theme="maki"] .theme-bg-base{background:linear-gradient(180deg,#fffdf4 0%,#fdf3d9 58%,#fbe9b8 100%)}
-[data-timawa-theme="maki"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0f0d07 0%,#1a160b 58%,#231d0f 100%)}
-[data-timawa-theme="lany"] .theme-bg-base{background:linear-gradient(180deg,#fbfdff 0%,#eef5fd 58%,#dfeaf8 100%)}
-[data-timawa-theme="lany"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#050b14 0%,#0b1523 58%,#122033 100%)}
+.theme-bg-shapes .tw-amb {
+    animation-duration: var(--tw-dur, 26s);
+    animation-delay: var(--tw-delay, 0s);
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+.theme-bg-shapes .tw-amb[data-anim="drift"]   { animation-name: twDrift; }
+.theme-bg-shapes .tw-amb[data-anim="sway"]    { animation-name: twSway; }
+.theme-bg-shapes .tw-amb[data-anim="twinkle"] { animation-name: twTwinkle; }
+.theme-bg-shapes .tw-amb[data-anim="pop"]     { animation-name: twPop; }
+.theme-bg-shapes .tw-amb[data-anim="spin"]    { animation-name: twSpin; }
+.theme-bg-shapes .tw-amb[data-anim="float"]   { animation-name: twFloat; }
+.theme-bg-shapes .tw-amb[data-anim="glide"]   { animation-name: twGlide; }
+.theme-bg-shapes .tw-amb[data-anim="flicker"] { animation-name: twFlicker; }
+.theme-bg-shapes .tw-amb[data-anim="settle"]  { animation-name: twSettle; }
+.theme-bg-shapes .tw-amb[data-anim="breathe"] { animation-name: twBreathe; }
+.theme-bg-shapes .tw-amb[data-anim="pulse"]   { animation-name: twPulse; }
+
+@keyframes twDrift   { from { translate: 0 0; } to { translate: 10px -22px; } }
+@keyframes twSway    { from { rotate: -1.6deg; translate: -4px 0; } to { rotate: 1.6deg; translate: 4px 0; } }
+@keyframes twTwinkle { 0%, 100% { opacity: calc(var(--tw-o, .5) * .55); } 50% { opacity: var(--tw-o, .5); } }
+@keyframes twPop     { from { scale: .94; } to { scale: 1.07; } }
+@keyframes twSpin    { from { rotate: -8deg; } to { rotate: 8deg; } }
+@keyframes twFloat   { from { translate: 0 10px; } to { translate: 0 -26px; } }
+@keyframes twGlide   { from { translate: -12px 0; } to { translate: 12px -6px; } }
+@keyframes twFlicker { 0%, 100% { opacity: calc(var(--tw-o, .5) * .45); }
+                       34% { opacity: var(--tw-o, .5); }
+                       42% { opacity: calc(var(--tw-o, .5) * .6); }
+                       64% { opacity: var(--tw-o, .5); } }
+@keyframes twSettle  { from { translate: 0 -8px; } to { translate: 6px 10px; } }
+@keyframes twBreathe { from { scale: 1; } to { scale: 1.05; } }
+@keyframes twPulse   { 0%, 100% { opacity: calc(var(--tw-o, .5) * .5); } 50% { opacity: var(--tw-o, .5); } }
+
+/* depth shared by every album: a low horizon light, a soft edge vignette and
+   a fine paper grain — one layer each, no blur filters */
+.theme-bg-shapes .tw-vignette {
+    background: radial-gradient(125% 92% at 50% 118%, transparent 44%, rgba(30, 20, 40, .20) 100%);
+}
+[data-timawa-mode="dark"] .theme-bg-shapes .tw-vignette {
+    background: radial-gradient(125% 92% at 50% 118%, transparent 48%, rgba(0, 0, 0, .46) 100%);
+}
+/* a pale page needs a little more presence from its scenery */
+[data-timawa-mode="light"] .theme-bg-shapes { --tw-lift: 1.45; }
+[data-timawa-mode="light"] .theme-bg-shapes .tw-shaft { opacity: .42; }
+[data-timawa-mode="light"] .theme-bg-shapes .tw-floor { opacity: .42; }
+.theme-bg-shapes .tw-grain {
+    background-image: radial-gradient(rgba(255, 255, 255, .5) .6px, transparent .6px);
+    background-size: 3px 3px;
+    opacity: .12;
+}
+[data-timawa-mode="dark"] .theme-bg-shapes .tw-grain { opacity: .08; }
+/* stage light and floor: the shared "room" every album sits in */
+.theme-bg-shapes .tw-shaft {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, .10) 62%, transparent 88%);
+    clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%);
+    opacity: .28;
+}
+[data-timawa-mode="dark"] .theme-bg-shapes .tw-shaft {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent) 42%, transparent) 0%, transparent 86%);
+    opacity: .20;
+}
+.theme-bg-shapes .tw-floor {
+    background: linear-gradient(0deg, color-mix(in srgb, var(--theme-primary) 26%, transparent) 0%, transparent 82%);
+    opacity: .30;
+}
+[data-timawa-mode="dark"] .theme-bg-shapes .tw-floor {
+    background: linear-gradient(0deg, color-mix(in srgb, var(--theme-accent) 20%, transparent) 0%, transparent 84%);
+    opacity: .22;
+}
+
+/* a little less air on phones; the props stay where they are */
+@media (max-width: 720px) {
+    .theme-bg-shapes .tw-air:nth-of-type(2n) { display: none; }
+}
+
+/* ------------------------------ album change ---------------------------- */
+/* A single overlay, reused for every switch. Its effect depends on whose
+   world you are entering: a page turn for Taylor, a camera flash for Olivia,
+   a bloom for Ariana, a film flicker for Conan, a rain wash for Maki and a
+   neon sweep for LANY. */
+.tw-world-veil {
+    position: fixed; inset: 0; z-index: 8;
+    pointer-events: none; opacity: 0;
+    contain: strict;
+}
+.tw-world-veil.on[data-fx="page"]  { animation: twVeilSweep .86s ease-out both; }
+.tw-world-veil.on[data-fx="flash"] { animation: twVeilFade .58s ease-out both; }
+.tw-world-veil.on[data-fx="glow"]  { animation: twVeilBloom .9s ease-out both; }
+.tw-world-veil.on[data-fx="film"]  { animation: twVeilFade .8s ease-out both; }
+.tw-world-veil.on[data-fx="rain"]  { animation: twVeilRain .9s ease-out both; }
+.tw-world-veil.on[data-fx="neon"]  { animation: twVeilSweep .8s ease-out both; }
+
+.tw-world-veil::before { content: ''; position: absolute; inset: 0; opacity: .9; }
+.tw-world-veil[data-fx="page"]::before {
+    background: linear-gradient(102deg, transparent 30%, rgba(255, 255, 255, .5) 47%,
+                var(--tw-veil-b) 52%, transparent 68%);
+}
+.tw-world-veil[data-fx="flash"]::before {
+    background: radial-gradient(circle at 50% 42%, #fff 0%, rgba(255, 255, 255, .5) 34%, transparent 70%);
+}
+.tw-world-veil[data-fx="glow"]::before {
+    background: radial-gradient(circle at 50% 38%, var(--tw-veil-b) 0%,
+                color-mix(in srgb, var(--tw-veil-a) 55%, transparent) 42%, transparent 72%);
+}
+.tw-world-veil[data-fx="film"]::before {
+    background: linear-gradient(180deg, rgba(0, 0, 0, .42), transparent 22%,
+                transparent 78%, rgba(0, 0, 0, .42)),
+                radial-gradient(circle at 50% 50%, var(--tw-veil-a), transparent 72%);
+    opacity: .6;
+}
+.tw-world-veil[data-fx="rain"]::before {
+    background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, .18) 36%,
+                var(--tw-veil-b) 62%, transparent 88%);
+    opacity: .55;
+}
+.tw-world-veil[data-fx="neon"]::before {
+    background: linear-gradient(90deg, transparent 12%, var(--tw-veil-b) 40%,
+                var(--tw-veil-a) 54%, transparent 86%);
+    opacity: .5;
+}
+
+@keyframes twVeilFade  { 0% { opacity: 0; } 22% { opacity: .5; } 100% { opacity: 0; } }
+@keyframes twVeilSweep { 0% { opacity: 0; transform: translate3d(-12%, 0, 0); }
+                         24% { opacity: .55; }
+                         100% { opacity: 0; transform: translate3d(12%, 0, 0); } }
+@keyframes twVeilBloom { 0% { opacity: 0; scale: .92; } 34% { opacity: .5; } 100% { opacity: 0; scale: 1.08; } }
+@keyframes twVeilRain  { 0% { opacity: 0; translate: 0 -18%; }
+                         30% { opacity: .5; }
+                         100% { opacity: 0; translate: 0 16%; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .tw-world-veil { display: none; }
+}
+html[data-tw-lite] .tw-world-veil { display: none; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ============================================================================
+   ARTIST THEMES — one theme per album
+   Each artist is a world in the picker; every album keeps its own palette,
+   backdrop, ambient props and transition gesture. The scenes are generated
+   from the album's own two colours (no artwork, no silhouettes) so the whole
+   discography can ship offline and stay light.
+   ========================================================================== */
+[data-timawa-theme="taylor_debut"] .theme-bg-base{background:linear-gradient(180deg,#f2faf7 0%,#e1f4ed 58%,#c9ede1 100%)}
+[data-timawa-theme="taylor_debut"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e1b16 0%,#172e26 58%,#1e4336 100%)}
+[data-timawa-theme="taylor_debut"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#57c79f 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f5d889 78%,#0f0c14)}
+[data-timawa-theme="taylor_debut"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#62c6a2;--tw-ink2:#f5d889}
+[data-timawa-theme="taylor_fearless"] .theme-bg-base{background:linear-gradient(180deg,#fcf8f0 0%,#f9f0dc 58%,#f7e6bf 100%)}
+[data-timawa-theme="taylor_fearless"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e180a 0%,#352a10 58%,#4d3c14 100%)}
+[data-timawa-theme="taylor_fearless"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#ecaf27 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcdd8e 78%,#0f0c14)}
+[data-timawa-theme="taylor_fearless"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e8b43f;--tw-ink2:#fcdd8e}
+[data-timawa-theme="taylor_speaknow"] .theme-bg-base{background:linear-gradient(180deg,#f6f2fa 0%,#ebe1f4 58%,#ddc9ed 100%)}
+[data-timawa-theme="taylor_speaknow"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#150e1b 0%,#23172e 58%,#321e43 100%)}
+[data-timawa-theme="taylor_speaknow"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#7f45b0 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#d8a1f7 78%,#0f0c14)}
+[data-timawa-theme="taylor_speaknow"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9868c0;--tw-ink2:#d8a1f7}
+[data-timawa-theme="taylor_red"] .theme-bg-base{background:linear-gradient(180deg,#fcf0f1 0%,#f9dcdd 58%,#f7bfc2 100%)}
+[data-timawa-theme="taylor_red"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e0b0c 0%,#351012 58%,#4d1417 100%)}
+[data-timawa-theme="taylor_red"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#c8141d 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fb9677 78%,#0f0c14)}
+[data-timawa-theme="taylor_red"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e7414a;--tw-ink2:#fb9677}
+[data-timawa-theme="taylor_1989"] .theme-bg-base{background:linear-gradient(180deg,#f2f7fb 0%,#dfedf6 58%,#c6dff0 100%)}
+[data-timawa-theme="taylor_1989"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e161b 0%,#16252f 58%,#1d3444 100%)}
+[data-timawa-theme="taylor_1989"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#499cd5 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#98d0ee 78%,#0f0c14)}
+[data-timawa-theme="taylor_1989"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#55a0d2;--tw-ink2:#98d0ee}
+[data-timawa-theme="taylor_reputation"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f7f7f8 58%,#f1f1f3 100%)}
+[data-timawa-theme="taylor_reputation"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#111113 0%,#1d1d20 58%,#28282e 100%)}
+[data-timawa-theme="taylor_reputation"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#3a3a40 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#a8a8b0 78%,#0f0c14)}
+[data-timawa-theme="taylor_reputation"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#aaaab2;--tw-ink2:#a8a8b0}
+[data-timawa-theme="taylor_lover"] .theme-bg-base{background:linear-gradient(180deg,#fcf0f6 0%,#f9dcea 58%,#f7bfda 100%)}
+[data-timawa-theme="taylor_lover"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1f0a14 0%,#360f22 58%,#4f122f 100%)}
+[data-timawa-theme="taylor_lover"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#f22c8a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#af86f4 78%,#0f0c14)}
+[data-timawa-theme="taylor_lover"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ed3b90;--tw-ink2:#af86f4}
+[data-timawa-theme="taylor_folklore"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f7f8f8 58%,#f1f3f3 100%)}
+[data-timawa-theme="taylor_folklore"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#111213 0%,#1d1f20 58%,#282d2e 100%)}
+[data-timawa-theme="taylor_folklore"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#767b7d 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#c9c7c0 78%,#0f0c14)}
+[data-timawa-theme="taylor_folklore"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#919597;--tw-ink2:#c9c7c0}
+[data-timawa-theme="taylor_evermore"] .theme-bg-base{background:linear-gradient(180deg,#faf6f2 0%,#f4ece1 58%,#edddc9 100%)}
+[data-timawa-theme="taylor_evermore"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1b150e 0%,#2e2417 58%,#43321e 100%)}
+[data-timawa-theme="taylor_evermore"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#b67d36 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#eac88e 78%,#0f0c14)}
+[data-timawa-theme="taylor_evermore"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ca9a5e;--tw-ink2:#eac88e}
+[data-timawa-theme="taylor_midnights"] .theme-bg-base{background:linear-gradient(180deg,#f1f3fb 0%,#dee3f7 58%,#c4cef3 100%)}
+[data-timawa-theme="taylor_midnights"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d101c 0%,#141a31 58%,#1b2446 100%)}
+[data-timawa-theme="taylor_midnights"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#213eab 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#8ca9f9 78%,#0f0c14)}
+[data-timawa-theme="taylor_midnights"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#506dd8;--tw-ink2:#8ca9f9}
+[data-timawa-theme="taylor_ttpd"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f8f7f7 58%,#f3f2f1 100%)}
+[data-timawa-theme="taylor_ttpd"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#131211 0%,#201f1d 58%,#2e2c28 100%)}
+[data-timawa-theme="taylor_ttpd"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#8c8478 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#ead8ae 78%,#0f0c14)}
+[data-timawa-theme="taylor_ttpd"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9c968b;--tw-ink2:#ead8ae}
+[data-timawa-theme="taylor_showgirl"] .theme-bg-base{background:linear-gradient(180deg,#fcf4f0 0%,#f9e6dc 58%,#f7d2bf 100%)}
+[data-timawa-theme="taylor_showgirl"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#201109 0%,#371c0e 58%,#4f2611 100%)}
+[data-timawa-theme="taylor_showgirl"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#f8641a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f95443 78%,#0f0c14)}
+[data-timawa-theme="taylor_showgirl"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f47434;--tw-ink2:#f95443}
+[data-timawa-theme="olivia_sour"] .theme-bg-base{background:linear-gradient(180deg,#f5f0fc 0%,#e7dcf9 58%,#d4c1f6 100%)}
+[data-timawa-theme="olivia_sour"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#120c1d 0%,#1e1232 58%,#2a1849 100%)}
+[data-timawa-theme="olivia_sour"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#571cbc 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#cc8dfb 78%,#0f0c14)}
+[data-timawa-theme="olivia_sour"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#8149de;--tw-ink2:#cc8dfb}
+[data-timawa-theme="olivia_guts"] .theme-bg-base{background:linear-gradient(180deg,#fcf1f0 0%,#f9dfdc 58%,#f7c5bf 100%)}
+[data-timawa-theme="olivia_guts"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#200b09 0%,#37120e 58%,#4f1711 100%)}
+[data-timawa-theme="olivia_guts"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#db1a07 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fba18d 78%,#0f0c14)}
+[data-timawa-theme="olivia_guts"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f44634;--tw-ink2:#fba18d}
+[data-timawa-theme="olivia_spilled"] .theme-bg-base{background:linear-gradient(180deg,#f9f1fc 0%,#f1ddf9 58%,#e7c1f5 100%)}
+[data-timawa-theme="olivia_spilled"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#180c1d 0%,#2a1332 58%,#3c1849 100%)}
+[data-timawa-theme="olivia_spilled"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#9b1fc8 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f997ca 78%,#0f0c14)}
+[data-timawa-theme="olivia_spilled"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#b64add;--tw-ink2:#f997ca}
+[data-timawa-theme="olivia_sadlove"] .theme-bg-base{background:linear-gradient(180deg,#f2f7fa 0%,#e1edf4 58%,#c9e0ed 100%)}
+[data-timawa-theme="olivia_sadlove"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e161b 0%,#17262e 58%,#1e3643 100%)}
+[data-timawa-theme="olivia_sadlove"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#659ab9 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcb49c 78%,#0f0c14)}
+[data-timawa-theme="olivia_sadlove"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#6f9eb9;--tw-ink2:#fcb49c}
+[data-timawa-theme="ariana_yours"] .theme-bg-base{background:linear-gradient(180deg,#f7f2fa 0%,#ece0f5 58%,#dec7ef 100%)}
+[data-timawa-theme="ariana_yours"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#150e1b 0%,#24162e 58%,#331e43 100%)}
+[data-timawa-theme="ariana_yours"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#984cd2 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f1d2a7 78%,#0f0c14)}
+[data-timawa-theme="ariana_yours"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9c58d0;--tw-ink2:#f1d2a7}
+[data-timawa-theme="ariana_myeverything"] .theme-bg-base{background:linear-gradient(180deg,#fcf0f5 0%,#f9dce8 58%,#f7bfd6 100%)}
+[data-timawa-theme="ariana_myeverything"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e0b13 0%,#34111f 58%,#4c152b 100%)}
+[data-timawa-theme="ariana_myeverything"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e8357d 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fb9dc2 78%,#0f0c14)}
+[data-timawa-theme="ariana_myeverything"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e54384;--tw-ink2:#fb9dc2}
+[data-timawa-theme="ariana_dangerous"] .theme-bg-base{background:linear-gradient(180deg,#f5f2fa 0%,#e9e1f4 58%,#d8c9ed 100%)}
+[data-timawa-theme="ariana_dangerous"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#130e1b 0%,#20172e 58%,#2d1e43 100%)}
+[data-timawa-theme="ariana_dangerous"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#60428a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#b58eea 78%,#0f0c14)}
+[data-timawa-theme="ariana_dangerous"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#997fbe;--tw-ink2:#b58eea}
+[data-timawa-theme="ariana_sweetener"] .theme-bg-base{background:linear-gradient(180deg,#fcf5f0 0%,#f9e7dc 58%,#f7d5bf 100%)}
+[data-timawa-theme="ariana_sweetener"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#201209 0%,#371e0e 58%,#4f2a11 100%)}
+[data-timawa-theme="ariana_sweetener"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#f87826 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcce9c 78%,#0f0c14)}
+[data-timawa-theme="ariana_sweetener"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f37f35;--tw-ink2:#fcce9c}
+[data-timawa-theme="ariana_tun"] .theme-bg-base{background:linear-gradient(180deg,#faf2f7 0%,#f5e0ec 58%,#efc7de 100%)}
+[data-timawa-theme="ariana_tun"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1b0e15 0%,#2e1624 58%,#431e33 100%)}
+[data-timawa-theme="ariana_tun"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#d24c98 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#eeaadd 78%,#0f0c14)}
+[data-timawa-theme="ariana_tun"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#d0589c;--tw-ink2:#eeaadd}
+[data-timawa-theme="ariana_positions"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f7f7f8 58%,#f2f1f3 100%)}
+[data-timawa-theme="ariana_positions"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#111113 0%,#1e1d20 58%,#2a282e 100%)}
+[data-timawa-theme="ariana_positions"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#8f8aa0 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#c8b9df 78%,#0f0c14)}
+[data-timawa-theme="ariana_positions"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#8e899f;--tw-ink2:#c8b9df}
+[data-timawa-theme="ariana_eternal"] .theme-bg-base{background:linear-gradient(180deg,#fcf8f0 0%,#f9efdc 58%,#f6e3c1 100%)}
+[data-timawa-theme="ariana_eternal"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1d170c 0%,#332712 58%,#493818 100%)}
+[data-timawa-theme="ariana_eternal"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e2a83b 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f2dba6 78%,#0f0c14)}
+[data-timawa-theme="ariana_eternal"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#dfab49;--tw-ink2:#f2dba6}
+[data-timawa-theme="conan_kidkrow"] .theme-bg-base{background:linear-gradient(180deg,#f1f7fb 0%,#deecf7 58%,#c4dff3 100%)}
+[data-timawa-theme="conan_kidkrow"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d151c 0%,#142430 58%,#1b3346 100%)}
+[data-timawa-theme="conan_kidkrow"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#226faa 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#79bbee 78%,#0f0c14)}
+[data-timawa-theme="conan_kidkrow"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#5ca4da;--tw-ink2:#79bbee}
+[data-timawa-theme="conan_superache"] .theme-bg-base{background:linear-gradient(180deg,#fcf1f0 0%,#f9dfdc 58%,#f7c6bf 100%)}
+[data-timawa-theme="conan_superache"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e0d0a 0%,#351410 58%,#4d1a14 100%)}
+[data-timawa-theme="conan_superache"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e72e15 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcb19c 78%,#0f0c14)}
+[data-timawa-theme="conan_superache"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e85340;--tw-ink2:#fcb19c}
+[data-timawa-theme="conan_foundheaven"] .theme-bg-base{background:linear-gradient(180deg,#f0fbfc 0%,#dcf6f9 58%,#bff0f7 100%)}
+[data-timawa-theme="conan_foundheaven"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0b1b1d 0%,#112f33 58%,#16444b 100%)}
+[data-timawa-theme="conan_foundheaven"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#17a2b5 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#97f1d7 78%,#0f0c14)}
+[data-timawa-theme="conan_foundheaven"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#46cfe2;--tw-ink2:#97f1d7}
+[data-timawa-theme="conan_wishbone"] .theme-bg-base{background:linear-gradient(180deg,#f0f6fc 0%,#dcebf9 58%,#bfdcf7 100%)}
+[data-timawa-theme="conan_wishbone"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0a151f 0%,#0f2336 58%,#12314f 100%)}
+[data-timawa-theme="conan_wishbone"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#2c91f2 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f95443 78%,#0f0c14)}
+[data-timawa-theme="conan_wishbone"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#3b96ed;--tw-ink2:#f95443}
+[data-timawa-theme="maki_tanong"] .theme-bg-base{background:linear-gradient(180deg,#f6f2fa 0%,#eae1f4 58%,#dac9ed 100%)}
+[data-timawa-theme="maki_tanong"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#140e1b 0%,#21172e 58%,#2f1e43 100%)}
+[data-timawa-theme="maki_tanong"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#6836a3 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#cc96f1 78%,#0f0c14)}
+[data-timawa-theme="maki_tanong"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9062c6;--tw-ink2:#cc96f1}
+[data-timawa-theme="maki_saan"] .theme-bg-base{background:linear-gradient(180deg,#f1f6fb 0%,#dfecf6 58%,#c5ddf1 100%)}
+[data-timawa-theme="maki_saan"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d151b 0%,#152330 58%,#1c3245 100%)}
+[data-timawa-theme="maki_saan"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#4191d6 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#9fd5f9 78%,#0f0c14)}
+[data-timawa-theme="maki_saan"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#5399d4;--tw-ink2:#9fd5f9}
+[data-timawa-theme="maki_dilaw"] .theme-bg-base{background:linear-gradient(180deg,#fcfaf0 0%,#f9f4dc 58%,#f7ecbf 100%)}
+[data-timawa-theme="maki_dilaw"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#201b09 0%,#372f0e 58%,#4f4311 100%)}
+[data-timawa-theme="maki_dilaw"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#d9b007 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f95043 78%,#0f0c14)}
+[data-timawa-theme="maki_dilaw"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f4ce34;--tw-ink2:#f95043}
+[data-timawa-theme="maki_kolor"] .theme-bg-base{background:linear-gradient(180deg,#fcf2f0 0%,#f9e0dc 58%,#f7c7bf 100%)}
+[data-timawa-theme="maki_kolor"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#200c09 0%,#37130e 58%,#4f1a11 100%)}
+[data-timawa-theme="maki_kolor"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#f82e0f 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#4380f9 78%,#0f0c14)}
+[data-timawa-theme="maki_kolor"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f44d34;--tw-ink2:#4380f9}
+[data-timawa-theme="lany_lany"] .theme-bg-base{background:linear-gradient(180deg,#f2f5fa 0%,#e1e9f4 58%,#c9d8ed 100%)}
+[data-timawa-theme="lany_lany"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e131b 0%,#17202e 58%,#1e2d43 100%)}
+[data-timawa-theme="lany_lany"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#315d9b 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#7ab7fb 78%,#0f0c14)}
+[data-timawa-theme="lany_lany"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#779cd0;--tw-ink2:#7ab7fb}
+[data-timawa-theme="lany_malibu"] .theme-bg-base{background:linear-gradient(180deg,#f1f6fb 0%,#dfe9f7 58%,#c5d9f2 100%)}
+[data-timawa-theme="lany_malibu"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d141c 0%,#152130 58%,#1c2e45 100%)}
+[data-timawa-theme="lany_malibu"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#245fa8 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f197b1 78%,#0f0c14)}
+[data-timawa-theme="lany_malibu"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#6298d9;--tw-ink2:#f197b1}
+[data-timawa-theme="lany_mamasboy"] .theme-bg-base{background:linear-gradient(180deg,#fcf8f0 0%,#f9f0dc 58%,#f7e6bf 100%)}
+[data-timawa-theme="lany_mamasboy"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1f180a 0%,#362a0f 58%,#4e3c13 100%)}
+[data-timawa-theme="lany_mamasboy"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#eeaf1c 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcdd94 78%,#0f0c14)}
+[data-timawa-theme="lany_mamasboy"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ebb63d;--tw-ink2:#fcdd94}
+[data-timawa-theme="lany_ggbbxx"] .theme-bg-base{background:linear-gradient(180deg,#fcf0f5 0%,#f9dce9 58%,#f7bfd8 100%)}
+[data-timawa-theme="lany_ggbbxx"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e0b13 0%,#341120 58%,#4b152d 100%)}
+[data-timawa-theme="lany_ggbbxx"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e83683 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#b38ef2 78%,#0f0c14)}
+[data-timawa-theme="lany_ggbbxx"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e44489;--tw-ink2:#b38ef2}
+[data-timawa-theme="lany_blur"] .theme-bg-base{background:linear-gradient(180deg,#f1f5fb 0%,#dfe8f6 58%,#c5d7f1 100%)}
+[data-timawa-theme="lany_blur"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d131b 0%,#152030 58%,#1c2c45 100%)}
+[data-timawa-theme="lany_blur"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#4780d7 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f1a7c2 78%,#0f0c14)}
+[data-timawa-theme="lany_blur"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#5387d4;--tw-ink2:#f1a7c2}
+[data-timawa-theme="lany_soft"] .theme-bg-base{background:linear-gradient(180deg,#fbf1f5 0%,#f8dde7 58%,#f5c2d4 100%)}
+[data-timawa-theme="lany_soft"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1d0c12 0%,#32131e 58%,#48192a 100%)}
+[data-timawa-theme="lany_soft"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#df3f78 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f2d4a6 78%,#0f0c14)}
+[data-timawa-theme="lany_soft"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#dc4c7f;--tw-ink2:#f2d4a6}
+
+/* ============================ ARTIST WORLD CARD ========================== */
+/* The picker is a two-level collection: an artist world, then its eras.
+   This card introduces the world above the album grid. It is built from the
+   live palette so it follows light / dark mode without a second render. */
+.theme-grid .tw-world {
+    grid-column: 1 / -1;
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px 16px;
+    padding: 15px 16px 14px;
+    border-radius: 18px;
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 26%, var(--theme-border-input));
+    background:
+        linear-gradient(140deg,
+            color-mix(in srgb, var(--theme-primary) 12%, var(--theme-card)) 0%,
+            var(--theme-card) 58%),
+        var(--theme-card);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28);
+}
+[data-timawa-mode="dark"] .theme-grid .tw-world {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.theme-grid .tw-world-glow {
+    position: absolute;
+    right: -8%;
+    top: -60%;
+    width: min(46vw, 340px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(circle,
+        color-mix(in srgb, var(--theme-accent) 26%, transparent) 0%,
+        transparent 68%);
+    opacity: .8;
+}
+[data-timawa-mode="dark"] .theme-grid .tw-world-glow { opacity: .55; }
+.theme-grid .tw-world-copy { position: relative; z-index: 1; min-width: 0; }
+.theme-grid .tw-world-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--theme-primary);
+}
+.theme-grid .tw-world-eyebrow b { opacity: .45; }
+.theme-grid .tw-world-title {
+    margin: 5px 0 0;
+    font-size: clamp(17px, 2.4vw, 21px);
+    line-height: 1.15;
+    letter-spacing: -.01em;
+    color: var(--theme-text);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 9px;
+}
+.theme-grid .tw-world-title em {
+    font-style: normal;
+    font-size: .58em;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--theme-text-dim);
+}
+.theme-grid .tw-world-blurb {
+    margin: 7px 0 0;
+    max-width: 48ch;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--theme-text-muted);
+}
+.theme-grid .tw-world-moods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+}
+.theme-grid .tw-world-moods li {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: lowercase;
+    padding: 3px 7px;
+    border-radius: 99px;
+    color: var(--theme-text-dim);
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 22%, var(--theme-border-input));
+    background: color-mix(in srgb, var(--theme-primary) 7%, transparent);
+}
+.theme-grid .tw-world-spines {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 46px;
+    padding-bottom: 2px;
+}
+.theme-grid .tw-world-spines i {
+    display: block;
+    width: 6px;
+    height: 28px;
+    border-radius: 2px 2px 3px 3px;
+    background: var(--tw-spine);
+    transform: rotate(calc(var(--tw-r, 0) * 1deg));
+    transform-origin: 50% 100%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .14);
+    opacity: .92;
+}
+.theme-grid .tw-world-spines i:nth-child(3n) { height: 36px; }
+.theme-grid .tw-world-spines i:nth-child(4n) { height: 22px; opacity: .75; }
+.theme-grid .tw-world-spines i:nth-child(5n) { height: 42px; }
+
+/* era number inside an album swatch */
+.theme-preset .preview .tw-era {
+    position: absolute;
+    left: 7px;
+    bottom: 6px;
+    padding: 2px 6px;
+    border-radius: 99px;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    color: rgba(255, 255, 255, .94);
+    background: rgba(20, 12, 28, .32);
+    line-height: 1.3;
+}
+
+@media (max-width: 560px) {
+    .theme-grid .tw-world {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 13px 13px 12px;
+    }
+    .theme-grid .tw-world-spines { display: none; }
+    .theme-grid .tw-world-blurb { font-size: 11px; }
+}
+
+/* ============================ ALBUM AIR ================================= */
+/* Album scenes are deliberately quiet behind the page, but they should still
+   be felt: a tinted fog from the era's own two colours, strongest at opposite
+   corners, plus a little more presence for the ambient props. Only album
+   themes get this — the original themes keep their existing atmosphere. */
+html[data-timawa-theme]:is(
+    [data-timawa-theme^="taylor_"], [data-timawa-theme^="olivia_"],
+    [data-timawa-theme^="ariana_"], [data-timawa-theme^="conan_"],
+    [data-timawa-theme^="maki_"], [data-timawa-theme^="lany_"]
+) .theme-bg-overlay {
+    background:
+        radial-gradient(ellipse 82% 62% at 14% 6%,
+            color-mix(in srgb, var(--theme-primary) 15%, transparent) 0%,
+            transparent 62%),
+        radial-gradient(ellipse 76% 64% at 88% 90%,
+            color-mix(in srgb, var(--theme-accent) 14%, transparent) 0%,
+            transparent 66%);
+}
+html[data-timawa-theme]:is(
+    [data-timawa-theme^="taylor_"], [data-timawa-theme^="olivia_"],
+    [data-timawa-theme^="ariana_"], [data-timawa-theme^="conan_"],
+    [data-timawa-theme^="maki_"], [data-timawa-theme^="lany_"]
+)[data-timawa-mode="light"] .theme-bg-shapes { --tw-lift: 1.8; }
+html[data-timawa-theme]:is(
+    [data-timawa-theme^="taylor_"], [data-timawa-theme^="olivia_"],
+    [data-timawa-theme^="ariana_"], [data-timawa-theme^="conan_"],
+    [data-timawa-theme^="maki_"], [data-timawa-theme^="lany_"]
+)[data-timawa-mode="dark"] .theme-bg-shapes { --tw-lift: 1.15; }
