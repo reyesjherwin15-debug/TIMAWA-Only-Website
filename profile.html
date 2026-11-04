@@ -2226,6 +2226,31 @@
                     </p>
                 </div>
 
+                <div class="appearance-section" id="appUpdateSection">
+                    <div class="appearance-header">
+                        <div class="icon-wrap"><i class="fas fa-arrows-rotate"></i></div>
+                        <div class="title-block">
+                            <h3>App update</h3>
+                            <p>Pull in a new icon, launch screen or anything else that changed.</p>
+                        </div>
+                    </div>
+
+                    <div class="pwa-notif-body">
+                        <div class="pwa-notif-state">
+                            <span class="pwa-dot" id="appUpdateDot" data-tone="off"></span>
+                            <span id="appUpdateStatus">Checking…</span>
+                        </div>
+                        <button type="button" class="theme-change-btn" id="appUpdateBtn">
+                            <i class="fas fa-arrows-rotate"></i> <span id="appUpdateLabel">Update app</span>
+                        </button>
+                    </div>
+
+                    <p class="appearance-hint" id="appUpdateHint">
+                        <i class="fas fa-circle-info"></i>
+                        Re-reads the icon, the launch screen and the app shell. Needs a connection once; offline play keeps working.
+                    </p>
+                </div>
+
                 <div class="form-actions">
                     <button type="submit" class="btn-primary" id="saveBtn">
                         <i class="fas fa-save"></i> Save Profile
@@ -4068,6 +4093,69 @@
     <script src="push-config.js"></script>
     <script src="avatar-crop.js?v=1.1.0" defer></script>
     <script src="presence.js?v=1.0.0" defer></script>
-    <script src="pwa.js?v=1.5.13" defer></script>
+    <script src="pwa.js?v=1.5.14" defer></script>
+
+    <script>
+        /* ═══ App update card ═══════════════════════════════════════════════
+           The button does the whole job: read the live build, hand over to a new
+           service worker and re-pull the manifest, launch screen and every icon
+           with the HTTP cache bypassed — then reload so the new icon and code are
+           actually in use. Offline it says so and changes nothing; the cached app
+           keeps working exactly as it is. */
+        document.addEventListener('DOMContentLoaded', function () {
+            const btn = document.getElementById('appUpdateBtn');
+            if (!btn) return;
+            const label = document.getElementById('appUpdateLabel');
+            const status = document.getElementById('appUpdateStatus');
+            const dot = document.getElementById('appUpdateDot');
+            const hint = document.getElementById('appUpdateHint');
+            const VERSION_KEY = 'timawa.app.version';
+
+            function say(text, tone, labelText) {
+                if (status) status.textContent = text;
+                if (dot) dot.setAttribute('data-tone', tone);
+                if (labelText && label) label.textContent = labelText;
+            }
+
+            let installed = '';
+            try { installed = localStorage.getItem(VERSION_KEY) || ''; } catch (e) { /* storage blocked */ }
+            say(installed ? 'Installed build ' + installed : 'Not checked on this device yet', installed ? 'on' : 'off');
+
+            // iPhone only re-reads the home-screen icon when the app is added again,
+            // so that card is honest about it instead of promising a new icon.
+            try {
+                const pwa = window.TIMAWA_PWA;
+                if (hint && pwa && pwa.isIOS && !pwa.isStandalone) {
+                    hint.innerHTML = '<i class="fas fa-circle-info"></i> On iPhone the home-screen icon only changes after you remove TIMAWA and add it again. Everything inside the app updates normally.';
+                }
+            } catch (e) { /* ignore */ }
+
+            btn.addEventListener('click', async function () {
+                if (btn.disabled) return;
+                btn.disabled = true;
+                say('Checking the live build…', 'off', 'Updating…');
+
+                let result = { ok: false, reason: 'unsupported' };
+                try {
+                    if (window.TIMAWA_PWA && typeof window.TIMAWA_PWA.updateApp === 'function') {
+                        result = await window.TIMAWA_PWA.updateApp();
+                    }
+                } catch (e) { result = { ok: false, reason: 'failed' }; }
+
+                if (!result || !result.ok) {
+                    const offline = result && result.reason === 'offline';
+                    say(offline ? 'You are offline — connect to update' : 'Open TIMAWA over the web to update', 'off', 'Update app');
+                    btn.disabled = false;
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(offline ? 'Connect to the internet to update' : 'Could not check for an update', 'error');
+                    }
+                    return;
+                }
+
+                say('Updated to ' + (result.version || 'the latest build') + ' — reloading…', 'on', 'Updating…');
+                setTimeout(function () { try { location.reload(); } catch (e) { /* ignore */ } }, 480);
+            });
+        });
+    </script>
 </body>
 </html>

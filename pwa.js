@@ -416,6 +416,74 @@
         return true;
     }
 
+    /* Manual "Update app" (profile page).
+       Same work as the update card, without the modal: read the live build,
+       let a waiting worker take over, and re-pull the install assets — the
+       manifest, the launch screen and every icon — with the HTTP cache
+       bypassed, then remember the build so the automatic prompt stays quiet.
+       Returns { ok, version } or { ok:false, reason:'offline'|'unsupported' }.
+       The caller owns the reload so it can show what happened first. */
+    async function updateApp() {
+        if (!/^https?:$/.test(location.protocol)) return { ok: false, reason: 'unsupported' };
+        if (navigator.onLine === false) return { ok: false, reason: 'offline' };
+
+        // app-version.json is fetched by the worker's fetch handler (its path is
+        // skipped), so a throw here really does mean the network is gone.
+        let version = storedAppVersion();
+        try {
+            const res = await fetch(APP_VERSION_URL + '?t=' + Date.now(), { cache: 'no-store' });
+            if (!res || !res.ok) return { ok: false, reason: 'offline' };
+            const data = await res.json();
+            if (data && data.version) version = String(data.version).trim();
+        } catch (_) {
+            return { ok: false, reason: 'offline' };
+        }
+
+        try {
+            const reg = registration || (navigator.serviceWorker && await navigator.serviceWorker.getRegistration());
+            if (reg) {
+                try { await reg.update(); } catch (_) { /* offline is fine */ }
+
+                // A freshly fetched worker can still be installing; give it a
+                // moment instead of reloading over the top of it.
+                const installing = reg.installing;
+                if (installing) {
+                    await new Promise((resolve) => {
+                        const done = () => {
+                            installing.removeEventListener('statechange', onState);
+                            resolve();
+                        };
+                        const onState = () => {
+                            if (installing.state === 'installed' || installing.state === 'activated' || installing.state === 'redundant') done();
+                        };
+                        installing.addEventListener('statechange', onState);
+                        onState();
+                        setTimeout(resolve, 4000); // never leave the button hanging
+                    });
+                }
+
+                try { if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) { /* ignore */ }
+                if (reg.waiting) {
+                    await new Promise((resolve) => {
+                        let settled = false;
+                        const done = () => {
+                            if (settled) return;
+                            settled = true;
+                            navigator.serviceWorker.removeEventListener('controllerchange', done);
+                            resolve();
+                        };
+                        navigator.serviceWorker.addEventListener('controllerchange', done);
+                        setTimeout(done, 2500);
+                    });
+                }
+            }
+            await refreshInstallAssets();
+        } catch (_) { /* install assets are best-effort */ }
+
+        if (version) recordAppVersion(version);
+        return { ok: true, version: version };
+    }
+
     const PUSH_NUDGE_KEY = 'timawa.push.nudge-dismissed-at';
 
     /* The one prompt a member sees when they open the app.
@@ -1403,6 +1471,7 @@
         openOfflineWheel,
         checkAppUpdate,
         applyAppUpdate,
+        updateApp,
         refreshInstallAssets,
         probeNetwork,
         isOffline,

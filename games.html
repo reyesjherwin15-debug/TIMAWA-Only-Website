@@ -509,6 +509,20 @@
         .secret-card .word { font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 900; letter-spacing: -.01em; }
         .secret-card .word.spy { color: #ef4444; }
         .secret-card .word small { display: block; font-size: .74rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--theme-text-dim, #888); margin-top: 6px; }
+        /* The clue an impostor is allowed to see. Kept inside the same card so
+           it can never be read over someone's shoulder by accident. */
+        .secret-card .word .hintline {
+            display: block; margin-top: 14px; padding-top: 12px; font-size: .68rem; font-weight: 800;
+            letter-spacing: .11em; text-transform: uppercase; color: var(--theme-text-dim, #888);
+            border-top: 1px solid color-mix(in srgb, #ef4444 26%, transparent);
+        }
+        .secret-card .word .hintline b {
+            display: block; margin-top: 5px; font-size: .95rem; font-weight: 800;
+            letter-spacing: 0; text-transform: none; color: var(--theme-text, #1a1a2e);
+        }
+        .hint-modes { margin-top: 10px; }
+        .hint-modes .seg { width: 100%; display: flex; }
+        .hint-modes .seg button { flex: 1 1 0; }
         .progress-dots { display: flex; gap: 6px; justify-content: center; margin: 16px 0 2px; }
         .progress-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--theme-border-input, #e0e7ff); }
         .progress-dots i.done { background: var(--theme-primary, #1089d3); }
@@ -708,6 +722,21 @@
                         <b>Word pack</b>
                         <div class="ctl"><span id="packName" style="font-size:.8rem;font-weight:800">Squad</span></div>
                     </div>
+                </div>
+
+                <div class="toggle-row" style="margin-top:12px">
+                    <div>
+                        <b>Impostor hint</b>
+                        <small>A clue on the impostor's card</small>
+                    </div>
+                    <label class="sw"><input type="checkbox" id="spyHintToggle" /><i></i></label>
+                </div>
+                <div class="hint-modes" id="spyHintModes" hidden>
+                    <div class="seg" id="spyHintSeg" role="group" aria-label="When the hint appears">
+                        <button type="button" class="on" data-mode="first">First player only</button>
+                        <button type="button" data-mode="always">Any impostor</button>
+                    </div>
+                    <p class="hint" id="spyHintExplain" style="margin:8px 0 0"></p>
                 </div>
 
                 <div class="word-packs" id="packs"></div>
@@ -1283,6 +1312,11 @@
         let players = Array.isArray(spyState.players) ? spyState.players.filter((p) => typeof p === 'string' && p.trim()) : [];
         let impostorCount = Math.max(1, Math.min(3, parseInt(spyState.impostors, 10) || 1));
         let packKey = PACKS[spyState.pack] ? spyState.pack : 'squad';
+        // The hint is a clue about the secret word, shown on an impostor's own
+        // reveal card. 'first' shows it only when the first player of the round
+        // is an impostor; 'always' shows it to every impostor wherever they sit.
+        let hintOn = spyState.hintOn === true;
+        let hintMode = spyState.hintMode === 'always' ? 'always' : 'first';
 
         let round = null;      // { word, impostors:[name], order:[name], index, revealed:bool[] }
         let revealIndex = 0;
@@ -1292,7 +1326,27 @@
             spyState.players = players;
             spyState.impostors = impostorCount;
             spyState.pack = packKey;
+            spyState.hintOn = hintOn;
+            spyState.hintMode = hintMode;
             LS.set('timawa.games.spy', spyState);
+        }
+
+        /* Word-free clue: the hint works for the built-in packs and for words the
+           squad typed in themselves, so it never needs a network lookup. */
+        function hintFor(word) {
+            const letters = String(word).replace(/[^a-z]/gi, '');
+            return 'Starts with “' + letters.charAt(0).toUpperCase() + '” · ' + letters.length + ' letters';
+        }
+
+        function renderSpyHint() {
+            $('spyHintToggle').checked = hintOn;
+            $('spyHintModes').hidden = !hintOn;
+            Array.prototype.forEach.call($('spyHintSeg').children, function (b) {
+                b.classList.toggle('on', b.dataset.mode === hintMode);
+            });
+            $('spyHintExplain').textContent = hintMode === 'always'
+                ? 'Every impostor gets the hint, wherever they sit in the round.'
+                : 'The hint only appears when the first player in the round is the impostor.';
         }
 
         function renderPlayers() {
@@ -1435,6 +1489,11 @@
             wordShown = false;
             card.dataset.spy = isSpy ? '1' : '0';
             card.dataset.word = isSpy ? '' : round.word;
+            // Mode 'first' ties the hint to the opening card, so an impostor who
+            // is not the first to look gets none.
+            const hintAllowed = hintOn && (hintMode === 'always' || revealIndex === 0);
+            card.dataset.hint = isSpy && hintAllowed ? '1' : '0';
+            card.dataset.hintText = hintFor(round.word);
 
             const dots = $('spyDots');
             dots.innerHTML = '';
@@ -1452,9 +1511,27 @@
                 return;
             }
             const isSpy = card.dataset.spy === '1';
-            card.innerHTML = isSpy
-                ? '<div class="word spy">YOU ARE THE IMPOSTOR<small>Bluff. Nobody knows your word.</small></div>'
-                : '<div class="word">' + card.dataset.word + '<small>Remember it. Don\'t say it.</small></div>';
+            if (isSpy) {
+                card.innerHTML = '<div class="word spy">YOU ARE THE IMPOSTOR<small>Bluff. Nobody knows your word.</small></div>';
+                if (card.dataset.hint === '1') {
+                    const line = document.createElement('span');
+                    line.className = 'hintline';
+                    line.textContent = 'Hint';
+                    const clue = document.createElement('b');
+                    clue.textContent = card.dataset.hintText;
+                    line.appendChild(clue);
+                    card.firstElementChild.appendChild(line);
+                }
+            } else {
+                const word = document.createElement('div');
+                word.className = 'word';
+                word.textContent = card.dataset.word;
+                const note = document.createElement('small');
+                note.textContent = "Remember it. Don't say it.";
+                word.appendChild(note);
+                card.innerHTML = '';
+                card.appendChild(word);
+            }
             wordShown = true;
         }
 
@@ -1519,9 +1596,23 @@
             if (e.key === 'Enter') { e.preventDefault(); addCustomWord(); }
         });
 
+        $('spyHintToggle').addEventListener('change', function () {
+            hintOn = this.checked;
+            saveSpy();
+            renderSpyHint();
+        });
+        $('spyHintSeg').addEventListener('click', function (e) {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            hintMode = btn.dataset.mode === 'always' ? 'always' : 'first';
+            saveSpy();
+            renderSpyHint();
+        });
+
         renderPlayers();
         renderPacks();
         renderCustomWords();
+        renderSpyHint();
 
         /* ═══════════════════════════ sign out ═══════════════════════════
            Same contract as every other page: confirm, then sign out and go home.
