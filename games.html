@@ -472,23 +472,32 @@
         }
         .chip button { appearance: none; border: 0; background: transparent; cursor: pointer; font-size: .95rem; line-height: 1; color: inherit; opacity: .7; padding: 0 2px; }
         .chip button:hover { opacity: 1; }
-        /* Reordering the playing order: each chip carries its position and two
-           arrow buttons, so the sequence can be fixed before the round starts. */
-        .chip { padding: 5px 8px 5px 11px; gap: 6px; }
+        /* Reordering the playing order: the name itself is the handle. Drag a
+           chip to put a player where they speak; the grip is the touch-safe way
+           in, and arrow keys move it for anyone using a keyboard. */
+        .chip { padding: 5px 8px 5px 9px; gap: 6px; touch-action: pan-y; }
         .chip .pos {
             display: inline-grid; place-items: center; min-width: 18px; height: 18px;
             border-radius: 7px; font-size: .66rem; font-weight: 900;
             background: color-mix(in srgb, currentColor 16%, transparent);
         }
-        .chip .chip-name { line-height: 1.15; }
-        .chip .ord {
-            width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center;
-            font-size: .62rem; opacity: .7; padding: 0;
-            transition: opacity .15s ease, background .15s ease;
+        .chip .chip-name { line-height: 1.15; cursor: grab; }
+        .chip .grip {
+            width: 18px; height: 24px; padding: 0; display: inline-grid; place-items: center;
+            font-size: .86rem; line-height: 1; opacity: .55; cursor: grab;
+            touch-action: none;
+            transition: opacity .15s ease;
         }
-        .chip .ord:not([disabled]):hover { opacity: 1; background: color-mix(in srgb, currentColor 18%, transparent); }
-        .chip .ord[disabled] { opacity: .2; cursor: default; }
+        .chip .grip:hover, .chip .grip:focus-visible { opacity: 1; }
+        .chip .grip:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 6px; }
         .chip .rm { font-size: 1rem; margin-left: 1px; }
+        .chip.dragging {
+            z-index: 5; transform: scale(1.05); opacity: .95;
+            box-shadow: 0 14px 26px -14px var(--theme-shadow, rgba(0,0,0,.5));
+            cursor: grabbing;
+        }
+        .chip.dragging .chip-name { cursor: grabbing; }
+        html.tw-reordering, html.tw-reordering .chip { user-select: none; }
         .order-note { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: .72rem; color: var(--theme-text-dim, #888); }
 
         .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
@@ -726,7 +735,7 @@
                     <button class="btn" id="addPlayer" type="button">Add</button>
                 </div>
                 <div class="chips" id="playerChips"></div>
-                <p class="order-note">▲ ▼ set the speaking order — it stays the same every round.</p>
+                <p class="order-note">Drag a name (or its ⠿ handle) to set the speaking order — it stays the same every round.</p>
 
                 <div class="setup-grid">
                     <div class="stepper">
@@ -1465,6 +1474,7 @@
             players.forEach((name, i) => {
                 const chip = document.createElement('span');
                 chip.className = 'chip';
+                chip.dataset.name = name;
 
                 const pos = document.createElement('span');
                 pos.className = 'pos';
@@ -1475,23 +1485,21 @@
                 label.className = 'chip-name';
                 label.textContent = name;
 
-                // Arrows rewrite the array itself, so the new order is what the
-                // round will follow and what the device remembers next visit.
-                const up = document.createElement('button');
-                up.type = 'button';
-                up.className = 'ord';
-                up.textContent = '▲';
-                up.setAttribute('aria-label', 'Move ' + name + ' earlier');
-                if (i === 0) up.disabled = true;
-                up.addEventListener('click', () => movePlayer(i, -1));
-
-                const down = document.createElement('button');
-                down.type = 'button';
-                down.className = 'ord';
-                down.textContent = '▼';
-                down.setAttribute('aria-label', 'Move ' + name + ' later');
-                if (i === players.length - 1) down.disabled = true;
-                down.addEventListener('click', () => movePlayer(i, 1));
+                // The grip is a real button so the order can be changed without a
+                // pointer: hold focus on it and press the arrow keys.
+                const grip = document.createElement('button');
+                grip.type = 'button';
+                grip.className = 'grip';
+                grip.textContent = '⠿';
+                grip.setAttribute('aria-label', 'Reorder ' + name + ' (position ' + (i + 1) + ' of ' + players.length + ')');
+                grip.title = 'Drag to reorder — or use the arrow keys';
+                grip.addEventListener('keydown', (e) => {
+                    const step = (e.key === 'ArrowUp' || e.key === 'ArrowLeft') ? -1
+                        : (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : 0;
+                    if (!step) return;
+                    e.preventDefault();
+                    if (movePlayer(players.indexOf(name), step)) focusGrip(name);
+                });
 
                 const rm = document.createElement('button');
                 rm.type = 'button';
@@ -1506,11 +1514,15 @@
 
                 chip.appendChild(pos);
                 chip.appendChild(label);
-                chip.appendChild(up);
-                chip.appendChild(down);
+                chip.appendChild(grip);
                 chip.appendChild(rm);
+                chip.addEventListener('pointerdown', (e) => {
+                    if (e.target.closest('button.rm')) return;
+                    beginDrag(e, name);
+                });
                 box.appendChild(chip);
             });
+            paintDrag();
             $('spyCount').textContent = players.length + (players.length === 1 ? ' player' : ' players');
             const max = Math.max(1, Math.min(3, Math.floor(players.length / 3)));
             if (impostorCount > max) impostorCount = max;
@@ -1523,11 +1535,75 @@
 
         function movePlayer(index, step) {
             const to = index + step;
-            if (to < 0 || to >= players.length) return;
+            if (index < 0 || to < 0 || to >= players.length) return false;
             const name = players.splice(index, 1)[0];
             players.splice(to, 0, name);
             saveSpy();
             renderPlayers();
+            return true;
+        }
+
+        /* ---- drag to rearrange the speaking order --------------------------
+           Pointer events rather than HTML5 drag-and-drop: the same code works
+           for a mouse and a finger, and the chip can be re-drawn mid-drag
+           without losing the gesture. */
+        let dragState = null;
+
+        function chips() {
+            return Array.prototype.slice.call(document.querySelectorAll('#playerChips .chip'));
+        }
+
+        function paintDrag() {
+            chips().forEach((c) => {
+                c.classList.toggle('dragging', !!dragState && c.dataset.name === dragState.name);
+            });
+        }
+
+        function focusGrip(name) {
+            const chip = chips().filter((c) => c.dataset.name === name)[0];
+            const grip = chip && chip.querySelector('.grip');
+            if (grip) grip.focus();
+        }
+
+        function beginDrag(e, name) {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (e.target.closest('button.rm')) return;
+            // The grip opts out of scrolling, so a finger drag on it is a drag
+            // rather than the page moving underneath.
+            e.preventDefault();
+            if (e.target.closest('.grip')) e.target.focus();
+            dragState = { id: e.pointerId, name: name, x: e.clientX, y: e.clientY, moved: false };
+            document.documentElement.classList.add('tw-reordering');
+            paintDrag();
+            window.addEventListener('pointermove', onDragMove);
+            window.addEventListener('pointerup', endDrag);
+            window.addEventListener('pointercancel', endDrag);
+        }
+
+        function onDragMove(e) {
+            if (!dragState || e.pointerId !== dragState.id) return;
+            if (!dragState.moved && Math.abs(e.clientX - dragState.x) + Math.abs(e.clientY - dragState.y) < 6) return;
+            dragState.moved = true;
+            e.preventDefault();
+            const under = document.elementFromPoint(e.clientX, e.clientY);
+            const target = under && under.closest ? under.closest('#playerChips .chip') : null;
+            if (!target || target.dataset.name === dragState.name) return;
+            // Dropping onto a chip takes that chip's place and pushes the rest
+            // along, so the order always reads the way the finger moved it.
+            if (movePlayer(players.indexOf(dragState.name), players.indexOf(target.dataset.name))) {
+                paintDrag();
+                try { if (navigator.vibrate) navigator.vibrate(4); } catch (err) { /* ignore */ }
+            }
+        }
+
+        function endDrag() {
+            if (!dragState) return;
+            dragState = null;
+            document.documentElement.classList.remove('tw-reordering');
+            paintDrag();
+            window.removeEventListener('pointermove', onDragMove);
+            window.removeEventListener('pointerup', endDrag);
+            window.removeEventListener('pointercancel', endDrag);
         }
 
         function addPlayer() {

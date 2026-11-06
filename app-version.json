@@ -1,8 +1,8 @@
 {
   "_readme": "The build that is live. pwa.js compares this with the build a device last applied; they differ only when a release needs the member to update, so nothing is shown otherwise. Bump 'version' with every release that changes the icon, the launch screen or the app shell. requiresReinstall:true means the installed icon/manifest changed (phones only re-read it on an app update). announceOnFirstRun:true also prompts devices that have never stored a version — use it when members who installed before this feature existed still need the change.",
-  "version": "1.10.16",
+  "version": "1.10.17",
   "requiresReinstall": false,
   "announceOnFirstRun": true,
-  "title": "Sharper clues",
-  "message": "Who's the Impostor now gives the impostor a single clue word instead of the starting letter and letter count, there are 100 words to play with, and the playing order can be rearranged from the player chips before a round starts. Tap Update now to load it."
+  "title": "Drag the speaking order",
+  "message": "Who's the Impostor now gives the impostor a single clue word instead of the starting letter and letter count, there are 100 words to play with, and the speaking order is set by dragging the player chips into place. Tap Update now to load it."
 }
