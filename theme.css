@@ -1547,11 +1547,14 @@ html[data-timawa-theme] body { background-color: transparent; }
 [data-timawa-mode="light"] .theme-bg-shapes .tw-shaft { opacity: .42; }
 [data-timawa-mode="light"] .theme-bg-shapes .tw-floor { opacity: .42; }
 .theme-bg-shapes .tw-grain {
-    background-image: radial-gradient(rgba(255, 255, 255, .5) .6px, transparent .6px);
+    background-image: radial-gradient(rgba(48, 28, 42, .6) .6px, transparent .6px);
     background-size: 3px 3px;
-    opacity: .12;
+    opacity: .05;
 }
-[data-timawa-mode="dark"] .theme-bg-shapes .tw-grain { opacity: .08; }
+[data-timawa-mode="dark"] .theme-bg-shapes .tw-grain {
+    background-image: radial-gradient(rgba(255, 255, 255, .45) .6px, transparent .6px);
+    opacity: .04;
+}
 /* stage light and floor: the shared "room" every album sits in */
 .theme-bg-shapes .tw-shaft {
     background: linear-gradient(180deg, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, .10) 62%, transparent 88%);
@@ -1649,160 +1652,251 @@ html[data-tw-lite] .tw-world-veil { display: none; }
 
 
 /* ============================================================================
+   COZY ROOMS — the album scenes
+   ----------------------------------------------------------------------------
+   Every album is a room: a wall, a floor, a window with weather and one or two
+   objects that belong to the record. The scene is plain gradients + inline SVG
+   (see _rooms.py); this block supplies the few moving parts: curtains, rain on
+   the glass, string lights, neon and the ambient air. Only opacity / rotate /
+   translate animate, and everything stops for reduced motion or lite mode.
+   ========================================================================== */
+.theme-bg-shapes .tw-win-wrap { position: absolute; overflow: visible; }
+.theme-bg-shapes .tw-curtain {
+    position: absolute; pointer-events: none;
+    transform-origin: 50% 0;
+    animation: twRoomSway 15s ease-in-out infinite alternate;
+}
+.theme-bg-shapes .tw-curtain:nth-of-type(2n) { animation-delay: -6s; }
+.theme-bg-shapes .tw-win { position: absolute; }
+.theme-bg-shapes .tw-rain {
+    position: absolute; inset: -30%;
+    background: repeating-linear-gradient(104deg,
+        transparent 0 6px, rgba(255,255,255,.42) 6px 7px, transparent 7px 15px);
+    animation: twRoomRain .85s linear infinite;
+}
+.theme-bg-shapes .tw-lights { animation: twRoomGlow 4.4s ease-in-out infinite alternate; }
+.theme-bg-shapes .tw-neon { animation: twRoomNeon 7s ease-in-out infinite; }
+.theme-bg-shapes .tw-lampglow { animation: twRoomGlow 6s ease-in-out infinite alternate; }
+.theme-bg-shapes .tw-orb { animation: twRoomGlow 9s ease-in-out infinite alternate; }
+.theme-bg-shapes .tw-stage { animation: twRoomGlow 5.5s ease-in-out infinite alternate; }
+.theme-bg-shapes .tw-bunting { animation: twRoomSway 18s ease-in-out infinite alternate; transform-origin: 50% 0; }
+.theme-bg-shapes .tw-air { pointer-events: none; }
+.theme-bg-shapes .tw-prop {
+    filter: drop-shadow(0 10px 12px color-mix(in srgb, var(--tw-wood2) 32%, transparent));
+}
+.theme-bg-shapes .tw-marquee {
+    animation: twMarqueeGlow 6.5s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+.theme-bg-shapes .tw-halo { animation: twSpill 9s ease-in-out infinite alternate; }
+.theme-bg-shapes .tw-rig { animation: twRoomGlow 5s ease-in-out infinite alternate; }
+
+@keyframes twRoomSway {
+    from { rotate: -.7deg; }
+    to   { rotate: .7deg; }
+}
+@keyframes twRoomRain {
+    from { translate: 0 -18%; }
+    to   { translate: -6% 18%; }
+}
+@keyframes twRoomGlow {
+    from { opacity: .55; }
+    to   { opacity: .95; }
+}
+@keyframes twMarqueeGlow {
+    from { opacity: .82; }
+    to   { opacity: 1; }
+}
+@keyframes twSpill {
+    from { opacity: .26; }
+    to   { opacity: .44; }
+}
+@keyframes twRoomNeon {
+    0%, 100% { opacity: 1; }
+    42% { opacity: .72; }
+    46% { opacity: .95; }
+    70% { opacity: .8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .theme-bg-shapes .tw-curtain,
+    .theme-bg-shapes .tw-rain,
+    .theme-bg-shapes .tw-lights,
+    .theme-bg-shapes .tw-neon,
+    .theme-bg-shapes .tw-lampglow,
+    .theme-bg-shapes .tw-orb,
+    .theme-bg-shapes .tw-stage,
+    .theme-bg-shapes .tw-spill,
+    .theme-bg-shapes .tw-marquee,
+    .theme-bg-shapes .tw-rig,
+    .theme-bg-shapes .tw-bunting { animation: none; }
+}
+
+/* the soft shadow under the furniture is the only filter in the scene: drop it
+   on lite devices and in eco mode, where every millisecond shows */
+html[data-tw-lite] .theme-bg-shapes .tw-prop,
+html[data-tw-perf="eco"] .theme-bg-shapes .tw-prop { filter: none; }
+
+/* a little less furniture on phones, but the room stays */
+@media (max-width: 640px) {
+    .theme-bg-shapes .opt { display: none; }
+}
+
+
+/* ================================================================================
    ARTIST THEMES — one theme per album
    Each artist is a world in the picker; every album keeps its own palette,
-   backdrop, ambient props and transition gesture. The scenes are generated
-   from the album's own two colours (no artwork, no silhouettes) so the whole
-   discography can ship offline and stay light.
+   backdrop and room. Scenes are generated from the album's own two colours,
+   so the whole discography ships offline and stays light.
    ========================================================================== */
-[data-timawa-theme="taylor_debut"] .theme-bg-base{background:linear-gradient(180deg,#f2faf7 0%,#e1f4ed 58%,#c9ede1 100%)}
-[data-timawa-theme="taylor_debut"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e1b16 0%,#172e26 58%,#1e4336 100%)}
-[data-timawa-theme="taylor_debut"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#57c79f 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f5d889 78%,#0f0c14)}
-[data-timawa-theme="taylor_debut"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#62c6a2;--tw-ink2:#f5d889}
-[data-timawa-theme="taylor_fearless"] .theme-bg-base{background:linear-gradient(180deg,#fcf8f0 0%,#f9f0dc 58%,#f7e6bf 100%)}
-[data-timawa-theme="taylor_fearless"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e180a 0%,#352a10 58%,#4d3c14 100%)}
-[data-timawa-theme="taylor_fearless"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#ecaf27 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcdd8e 78%,#0f0c14)}
-[data-timawa-theme="taylor_fearless"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e8b43f;--tw-ink2:#fcdd8e}
-[data-timawa-theme="taylor_speaknow"] .theme-bg-base{background:linear-gradient(180deg,#f6f2fa 0%,#ebe1f4 58%,#ddc9ed 100%)}
-[data-timawa-theme="taylor_speaknow"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#150e1b 0%,#23172e 58%,#321e43 100%)}
-[data-timawa-theme="taylor_speaknow"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#7f45b0 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#d8a1f7 78%,#0f0c14)}
-[data-timawa-theme="taylor_speaknow"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9868c0;--tw-ink2:#d8a1f7}
-[data-timawa-theme="taylor_red"] .theme-bg-base{background:linear-gradient(180deg,#fcf0f1 0%,#f9dcdd 58%,#f7bfc2 100%)}
-[data-timawa-theme="taylor_red"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e0b0c 0%,#351012 58%,#4d1417 100%)}
-[data-timawa-theme="taylor_red"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#c8141d 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fb9677 78%,#0f0c14)}
-[data-timawa-theme="taylor_red"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e7414a;--tw-ink2:#fb9677}
-[data-timawa-theme="taylor_1989"] .theme-bg-base{background:linear-gradient(180deg,#f2f7fb 0%,#dfedf6 58%,#c6dff0 100%)}
-[data-timawa-theme="taylor_1989"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e161b 0%,#16252f 58%,#1d3444 100%)}
-[data-timawa-theme="taylor_1989"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#499cd5 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#98d0ee 78%,#0f0c14)}
-[data-timawa-theme="taylor_1989"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#55a0d2;--tw-ink2:#98d0ee}
-[data-timawa-theme="taylor_reputation"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f7f7f8 58%,#f1f1f3 100%)}
-[data-timawa-theme="taylor_reputation"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#111113 0%,#1d1d20 58%,#28282e 100%)}
-[data-timawa-theme="taylor_reputation"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#3a3a40 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#a8a8b0 78%,#0f0c14)}
-[data-timawa-theme="taylor_reputation"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#aaaab2;--tw-ink2:#a8a8b0}
-[data-timawa-theme="taylor_lover"] .theme-bg-base{background:linear-gradient(180deg,#fcf0f6 0%,#f9dcea 58%,#f7bfda 100%)}
-[data-timawa-theme="taylor_lover"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1f0a14 0%,#360f22 58%,#4f122f 100%)}
-[data-timawa-theme="taylor_lover"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#f22c8a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#af86f4 78%,#0f0c14)}
-[data-timawa-theme="taylor_lover"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ed3b90;--tw-ink2:#af86f4}
-[data-timawa-theme="taylor_folklore"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f7f8f8 58%,#f1f3f3 100%)}
-[data-timawa-theme="taylor_folklore"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#111213 0%,#1d1f20 58%,#282d2e 100%)}
-[data-timawa-theme="taylor_folklore"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#767b7d 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#c9c7c0 78%,#0f0c14)}
-[data-timawa-theme="taylor_folklore"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#919597;--tw-ink2:#c9c7c0}
-[data-timawa-theme="taylor_evermore"] .theme-bg-base{background:linear-gradient(180deg,#faf6f2 0%,#f4ece1 58%,#edddc9 100%)}
-[data-timawa-theme="taylor_evermore"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1b150e 0%,#2e2417 58%,#43321e 100%)}
-[data-timawa-theme="taylor_evermore"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#b67d36 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#eac88e 78%,#0f0c14)}
-[data-timawa-theme="taylor_evermore"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ca9a5e;--tw-ink2:#eac88e}
-[data-timawa-theme="taylor_midnights"] .theme-bg-base{background:linear-gradient(180deg,#f1f3fb 0%,#dee3f7 58%,#c4cef3 100%)}
-[data-timawa-theme="taylor_midnights"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d101c 0%,#141a31 58%,#1b2446 100%)}
-[data-timawa-theme="taylor_midnights"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#213eab 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#8ca9f9 78%,#0f0c14)}
-[data-timawa-theme="taylor_midnights"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#506dd8;--tw-ink2:#8ca9f9}
-[data-timawa-theme="taylor_ttpd"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f8f7f7 58%,#f3f2f1 100%)}
-[data-timawa-theme="taylor_ttpd"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#131211 0%,#201f1d 58%,#2e2c28 100%)}
-[data-timawa-theme="taylor_ttpd"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#8c8478 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#ead8ae 78%,#0f0c14)}
-[data-timawa-theme="taylor_ttpd"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9c968b;--tw-ink2:#ead8ae}
-[data-timawa-theme="taylor_showgirl"] .theme-bg-base{background:linear-gradient(180deg,#fcf4f0 0%,#f9e6dc 58%,#f7d2bf 100%)}
-[data-timawa-theme="taylor_showgirl"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#201109 0%,#371c0e 58%,#4f2611 100%)}
-[data-timawa-theme="taylor_showgirl"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#f8641a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f95443 78%,#0f0c14)}
-[data-timawa-theme="taylor_showgirl"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f47434;--tw-ink2:#f95443}
-[data-timawa-theme="olivia_sour"] .theme-bg-base{background:linear-gradient(180deg,#f5f0fc 0%,#e7dcf9 58%,#d4c1f6 100%)}
-[data-timawa-theme="olivia_sour"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#120c1d 0%,#1e1232 58%,#2a1849 100%)}
-[data-timawa-theme="olivia_sour"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#571cbc 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#cc8dfb 78%,#0f0c14)}
-[data-timawa-theme="olivia_sour"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#8149de;--tw-ink2:#cc8dfb}
-[data-timawa-theme="olivia_guts"] .theme-bg-base{background:linear-gradient(180deg,#fcf1f0 0%,#f9dfdc 58%,#f7c5bf 100%)}
-[data-timawa-theme="olivia_guts"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#200b09 0%,#37120e 58%,#4f1711 100%)}
-[data-timawa-theme="olivia_guts"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#db1a07 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fba18d 78%,#0f0c14)}
-[data-timawa-theme="olivia_guts"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f44634;--tw-ink2:#fba18d}
-[data-timawa-theme="olivia_spilled"] .theme-bg-base{background:linear-gradient(180deg,#f9f1fc 0%,#f1ddf9 58%,#e7c1f5 100%)}
-[data-timawa-theme="olivia_spilled"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#180c1d 0%,#2a1332 58%,#3c1849 100%)}
-[data-timawa-theme="olivia_spilled"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#9b1fc8 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f997ca 78%,#0f0c14)}
-[data-timawa-theme="olivia_spilled"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#b64add;--tw-ink2:#f997ca}
-[data-timawa-theme="olivia_sadlove"] .theme-bg-base{background:linear-gradient(180deg,#f2f7fa 0%,#e1edf4 58%,#c9e0ed 100%)}
-[data-timawa-theme="olivia_sadlove"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e161b 0%,#17262e 58%,#1e3643 100%)}
-[data-timawa-theme="olivia_sadlove"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#659ab9 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcb49c 78%,#0f0c14)}
-[data-timawa-theme="olivia_sadlove"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#6f9eb9;--tw-ink2:#fcb49c}
-[data-timawa-theme="ariana_yours"] .theme-bg-base{background:linear-gradient(180deg,#f7f2fa 0%,#ece0f5 58%,#dec7ef 100%)}
-[data-timawa-theme="ariana_yours"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#150e1b 0%,#24162e 58%,#331e43 100%)}
-[data-timawa-theme="ariana_yours"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#984cd2 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f1d2a7 78%,#0f0c14)}
-[data-timawa-theme="ariana_yours"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9c58d0;--tw-ink2:#f1d2a7}
-[data-timawa-theme="ariana_myeverything"] .theme-bg-base{background:linear-gradient(180deg,#fcf0f5 0%,#f9dce8 58%,#f7bfd6 100%)}
-[data-timawa-theme="ariana_myeverything"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e0b13 0%,#34111f 58%,#4c152b 100%)}
-[data-timawa-theme="ariana_myeverything"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e8357d 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fb9dc2 78%,#0f0c14)}
-[data-timawa-theme="ariana_myeverything"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e54384;--tw-ink2:#fb9dc2}
-[data-timawa-theme="ariana_dangerous"] .theme-bg-base{background:linear-gradient(180deg,#f5f2fa 0%,#e9e1f4 58%,#d8c9ed 100%)}
-[data-timawa-theme="ariana_dangerous"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#130e1b 0%,#20172e 58%,#2d1e43 100%)}
-[data-timawa-theme="ariana_dangerous"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#60428a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#b58eea 78%,#0f0c14)}
-[data-timawa-theme="ariana_dangerous"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#997fbe;--tw-ink2:#b58eea}
-[data-timawa-theme="ariana_sweetener"] .theme-bg-base{background:linear-gradient(180deg,#fcf5f0 0%,#f9e7dc 58%,#f7d5bf 100%)}
-[data-timawa-theme="ariana_sweetener"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#201209 0%,#371e0e 58%,#4f2a11 100%)}
-[data-timawa-theme="ariana_sweetener"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#f87826 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcce9c 78%,#0f0c14)}
-[data-timawa-theme="ariana_sweetener"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f37f35;--tw-ink2:#fcce9c}
-[data-timawa-theme="ariana_tun"] .theme-bg-base{background:linear-gradient(180deg,#faf2f7 0%,#f5e0ec 58%,#efc7de 100%)}
-[data-timawa-theme="ariana_tun"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1b0e15 0%,#2e1624 58%,#431e33 100%)}
-[data-timawa-theme="ariana_tun"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#d24c98 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#eeaadd 78%,#0f0c14)}
-[data-timawa-theme="ariana_tun"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#d0589c;--tw-ink2:#eeaadd}
-[data-timawa-theme="ariana_positions"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f7f7f8 58%,#f2f1f3 100%)}
-[data-timawa-theme="ariana_positions"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#111113 0%,#1e1d20 58%,#2a282e 100%)}
-[data-timawa-theme="ariana_positions"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#8f8aa0 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#c8b9df 78%,#0f0c14)}
-[data-timawa-theme="ariana_positions"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#8e899f;--tw-ink2:#c8b9df}
-[data-timawa-theme="ariana_eternal"] .theme-bg-base{background:linear-gradient(180deg,#fcf8f0 0%,#f9efdc 58%,#f6e3c1 100%)}
-[data-timawa-theme="ariana_eternal"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1d170c 0%,#332712 58%,#493818 100%)}
-[data-timawa-theme="ariana_eternal"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e2a83b 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f2dba6 78%,#0f0c14)}
-[data-timawa-theme="ariana_eternal"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#dfab49;--tw-ink2:#f2dba6}
-[data-timawa-theme="conan_kidkrow"] .theme-bg-base{background:linear-gradient(180deg,#f1f7fb 0%,#deecf7 58%,#c4dff3 100%)}
-[data-timawa-theme="conan_kidkrow"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d151c 0%,#142430 58%,#1b3346 100%)}
-[data-timawa-theme="conan_kidkrow"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#226faa 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#79bbee 78%,#0f0c14)}
-[data-timawa-theme="conan_kidkrow"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#5ca4da;--tw-ink2:#79bbee}
-[data-timawa-theme="conan_superache"] .theme-bg-base{background:linear-gradient(180deg,#fcf1f0 0%,#f9dfdc 58%,#f7c6bf 100%)}
-[data-timawa-theme="conan_superache"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e0d0a 0%,#351410 58%,#4d1a14 100%)}
-[data-timawa-theme="conan_superache"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e72e15 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcb19c 78%,#0f0c14)}
-[data-timawa-theme="conan_superache"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e85340;--tw-ink2:#fcb19c}
-[data-timawa-theme="conan_foundheaven"] .theme-bg-base{background:linear-gradient(180deg,#f0fbfc 0%,#dcf6f9 58%,#bff0f7 100%)}
-[data-timawa-theme="conan_foundheaven"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0b1b1d 0%,#112f33 58%,#16444b 100%)}
-[data-timawa-theme="conan_foundheaven"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#17a2b5 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#97f1d7 78%,#0f0c14)}
-[data-timawa-theme="conan_foundheaven"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#46cfe2;--tw-ink2:#97f1d7}
-[data-timawa-theme="conan_wishbone"] .theme-bg-base{background:linear-gradient(180deg,#f0f6fc 0%,#dcebf9 58%,#bfdcf7 100%)}
-[data-timawa-theme="conan_wishbone"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0a151f 0%,#0f2336 58%,#12314f 100%)}
-[data-timawa-theme="conan_wishbone"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#2c91f2 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f95443 78%,#0f0c14)}
-[data-timawa-theme="conan_wishbone"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#3b96ed;--tw-ink2:#f95443}
-[data-timawa-theme="maki_tanong"] .theme-bg-base{background:linear-gradient(180deg,#f6f2fa 0%,#eae1f4 58%,#dac9ed 100%)}
-[data-timawa-theme="maki_tanong"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#140e1b 0%,#21172e 58%,#2f1e43 100%)}
-[data-timawa-theme="maki_tanong"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#6836a3 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#cc96f1 78%,#0f0c14)}
-[data-timawa-theme="maki_tanong"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9062c6;--tw-ink2:#cc96f1}
-[data-timawa-theme="maki_saan"] .theme-bg-base{background:linear-gradient(180deg,#f1f6fb 0%,#dfecf6 58%,#c5ddf1 100%)}
-[data-timawa-theme="maki_saan"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d151b 0%,#152330 58%,#1c3245 100%)}
-[data-timawa-theme="maki_saan"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#4191d6 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#9fd5f9 78%,#0f0c14)}
-[data-timawa-theme="maki_saan"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#5399d4;--tw-ink2:#9fd5f9}
-[data-timawa-theme="maki_dilaw"] .theme-bg-base{background:linear-gradient(180deg,#fcfaf0 0%,#f9f4dc 58%,#f7ecbf 100%)}
-[data-timawa-theme="maki_dilaw"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#201b09 0%,#372f0e 58%,#4f4311 100%)}
-[data-timawa-theme="maki_dilaw"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#d9b007 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f95043 78%,#0f0c14)}
-[data-timawa-theme="maki_dilaw"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f4ce34;--tw-ink2:#f95043}
-[data-timawa-theme="maki_kolor"] .theme-bg-base{background:linear-gradient(180deg,#fcf2f0 0%,#f9e0dc 58%,#f7c7bf 100%)}
-[data-timawa-theme="maki_kolor"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#200c09 0%,#37130e 58%,#4f1a11 100%)}
-[data-timawa-theme="maki_kolor"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#f82e0f 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#4380f9 78%,#0f0c14)}
-[data-timawa-theme="maki_kolor"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#f44d34;--tw-ink2:#4380f9}
-[data-timawa-theme="lany_lany"] .theme-bg-base{background:linear-gradient(180deg,#f2f5fa 0%,#e1e9f4 58%,#c9d8ed 100%)}
-[data-timawa-theme="lany_lany"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e131b 0%,#17202e 58%,#1e2d43 100%)}
-[data-timawa-theme="lany_lany"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#315d9b 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#7ab7fb 78%,#0f0c14)}
-[data-timawa-theme="lany_lany"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#779cd0;--tw-ink2:#7ab7fb}
-[data-timawa-theme="lany_malibu"] .theme-bg-base{background:linear-gradient(180deg,#f1f6fb 0%,#dfe9f7 58%,#c5d9f2 100%)}
-[data-timawa-theme="lany_malibu"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d141c 0%,#152130 58%,#1c2e45 100%)}
-[data-timawa-theme="lany_malibu"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#245fa8 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f197b1 78%,#0f0c14)}
-[data-timawa-theme="lany_malibu"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#6298d9;--tw-ink2:#f197b1}
-[data-timawa-theme="lany_mamasboy"] .theme-bg-base{background:linear-gradient(180deg,#fcf8f0 0%,#f9f0dc 58%,#f7e6bf 100%)}
-[data-timawa-theme="lany_mamasboy"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1f180a 0%,#362a0f 58%,#4e3c13 100%)}
-[data-timawa-theme="lany_mamasboy"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#eeaf1c 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#fcdd94 78%,#0f0c14)}
-[data-timawa-theme="lany_mamasboy"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ebb63d;--tw-ink2:#fcdd94}
-[data-timawa-theme="lany_ggbbxx"] .theme-bg-base{background:linear-gradient(180deg,#fcf0f5 0%,#f9dce9 58%,#f7bfd8 100%)}
-[data-timawa-theme="lany_ggbbxx"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1e0b13 0%,#341120 58%,#4b152d 100%)}
-[data-timawa-theme="lany_ggbbxx"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e83683 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#b38ef2 78%,#0f0c14)}
-[data-timawa-theme="lany_ggbbxx"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e44489;--tw-ink2:#b38ef2}
-[data-timawa-theme="lany_blur"] .theme-bg-base{background:linear-gradient(180deg,#f1f5fb 0%,#dfe8f6 58%,#c5d7f1 100%)}
-[data-timawa-theme="lany_blur"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d131b 0%,#152030 58%,#1c2c45 100%)}
-[data-timawa-theme="lany_blur"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#4780d7 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f1a7c2 78%,#0f0c14)}
-[data-timawa-theme="lany_blur"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#5387d4;--tw-ink2:#f1a7c2}
-[data-timawa-theme="lany_soft"] .theme-bg-base{background:linear-gradient(180deg,#fbf1f5 0%,#f8dde7 58%,#f5c2d4 100%)}
-[data-timawa-theme="lany_soft"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1d0c12 0%,#32131e 58%,#48192a 100%)}
-[data-timawa-theme="lany_soft"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#df3f78 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f2d4a6 78%,#0f0c14)}
-[data-timawa-theme="lany_soft"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#dc4c7f;--tw-ink2:#f2d4a6}
+[data-timawa-theme="taylor_debut"] .theme-bg-base{background:linear-gradient(180deg,#fbfdfc 0%,#f8fbfa 58%,#eff6f4 100%)}
+[data-timawa-theme="taylor_debut"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#15181c 0%,#1e2528 58%,#252f30 100%)}
+[data-timawa-theme="taylor_debut"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#8fbfae 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#e2cf9c 78%,#0f0c14);--tw-wall:#d2dbcc;--tw-wall2:#bbc4af;--tw-floor:#715f48;--tw-floor2:#4b3f30;--tw-wood:#746249;--tw-wood2:#564936;--tw-fabric:#a1c7b6;--tw-fabric2:#6d877f;--tw-metal:#46474f;--tw-leaf:#6d8e5e;--tw-paper:#fdf7ec;--tw-glow:rgba(180, 198, 166, 0.38);--tw-warm:#f6d49a;--tw-rug:#86a296;--tw-sky:#f5c46d;--tw-sky2:#ffe9c3;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#4a585a;--tw-stage2:#595350;--tw-stage3:#3b3735;--tw-ember:#e7d7ac;--tw-fh:16%}
+[data-timawa-theme="taylor_debut"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9ac5b6;--tw-ink2:#e4d3a4;--tw-wall:#343942;--tw-wall2:#262a31;--tw-floor:#5f4c38;--tw-floor2:#443728;--tw-wood:#45412f;--tw-wood2:#343123;--tw-fabric:#657a74;--tw-fabric2:#465553;--tw-metal:#a5a297;--tw-leaf:#567450;--tw-paper:#ded3c1;--tw-glow:rgba(180, 198, 166, 0.3);--tw-warm:#f6cf8f;--tw-rug:#566562;--tw-sky:#dcb062;--tw-sky2:#e6d2b0;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#628078;--tw-stage2:#6c6152;--tw-stage3:#4c4439;--tw-ember:#e9dbb4;--tw-fh:16%}
+[data-timawa-theme="taylor_fearless"] .theme-bg-base{background:linear-gradient(180deg,#fefdfa 0%,#fdfaf5 58%,#faf4e8 100%)}
+[data-timawa-theme="taylor_fearless"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1c1714 0%,#2b2419 58%,#352c1d 100%)}
+[data-timawa-theme="taylor_fearless"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#d9b45a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f0e3b8 78%,#0f0c14);--tw-wall:#ebd7af;--tw-wall2:#d9bf8e;--tw-floor:#947549;--tw-floor2:#624d30;--tw-wood:#875f34;--tw-wood2:#644626;--tw-fabric:#dfbe6f;--tw-fabric2:#9d8048;--tw-metal:#504643;--tw-leaf:#709364;--tw-paper:#fef9ee;--tw-glow:rgba(227, 201, 132, 0.38);--tw-warm:#fadaa2;--tw-rug:#b89b5e;--tw-sky:#f5c46d;--tw-sky2:#ffe9c3;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#695437;--tw-stage2:#65574c;--tw-stage3:#433932;--tw-ember:#f2e7c3;--tw-fh:25%}
+[data-timawa-theme="taylor_fearless"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ddbc6a;--tw-ink2:#f1e5be;--tw-wall:#433631;--tw-wall2:#322923;--tw-floor:#7e643f;--tw-floor2:#5b482d;--tw-wood:#543e1e;--tw-wood2:#3f2e16;--tw-fabric:#907343;--tw-fabric2:#635031;--tw-metal:#aea18d;--tw-leaf:#597856;--tw-paper:#e0d6c4;--tw-glow:rgba(227, 201, 132, 0.3);--tw-warm:#fad598;--tw-rug:#785f3a;--tw-sky:#dcb062;--tw-sky2:#e6d2b0;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#937941;--tw-stage2:#73695e;--tw-stage3:#504a42;--tw-ember:#f4eac9;--tw-fh:25%}
+[data-timawa-theme="taylor_speaknow"] .theme-bg-base{background:linear-gradient(180deg,#fdfcfe 0%,#fbf9fd 58%,#f5f1f9 100%)}
+[data-timawa-theme="taylor_speaknow"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#191520 0%,#251f2e 58%,#2e2738 100%)}
+[data-timawa-theme="taylor_speaknow"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#b79ad6 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#e7d6f5 78%,#0f0c14);--tw-wall:#dfced9;--tw-wall2:#cbb5bf;--tw-floor:#605768;--tw-floor2:#3f3945;--tw-wood:#7e5854;--tw-wood2:#5d413e;--tw-fabric:#c3a8d7;--tw-fabric2:#876e99;--tw-metal:#4c4254;--tw-leaf:#6e9073;--tw-paper:#fef8f1;--tw-glow:rgba(205, 181, 228, 0.38);--tw-warm:#f8d6b5;--tw-rug:#a18ab1;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#5b496b;--tw-stage2:#5f506a;--tw-stage3:#3f3546;--tw-ember:#ebddf7;--tw-fh:15%}
+[data-timawa-theme="taylor_speaknow"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#bea4da;--tw-ink2:#e9d9f6;--tw-wall:#3c314a;--tw-wall2:#2c2437;--tw-floor:#494756;--tw-floor2:#35333e;--tw-wood:#4d3937;--tw-wood2:#3a2b29;--tw-fabric:#7c648b;--tw-fabric2:#564663;--tw-metal:#aa9e9c;--tw-leaf:#577563;--tw-paper:#dfd4cc;--tw-glow:rgba(205, 181, 228, 0.3);--tw-warm:#f8d1aa;--tw-rug:#685374;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#7d6893;--tw-stage2:#6f6479;--tw-stage3:#4e4655;--tw-ember:#ede0f7;--tw-fh:15%}
+[data-timawa-theme="taylor_red"] .theme-bg-base{background:linear-gradient(180deg,#fdf9f8 0%,#fbf3f2 58%,#f6e3e1 100%)}
+[data-timawa-theme="taylor_red"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#190b0f 0%,#260f11 58%,#301113 100%)}
+[data-timawa-theme="taylor_red"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#c0392b 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#e8a0a0 78%,#0f0c14);--tw-wall:#e2ad9f;--tw-wall2:#cf8e7b;--tw-floor:#7b422b;--tw-floor2:#512c1c;--tw-wood:#803f27;--tw-wood2:#5f2f1d;--tw-fabric:#ca5647;--tw-fabric2:#8d2e29;--tw-metal:#4d353c;--tw-leaf:#6e835f;--tw-paper:#fef5ec;--tw-glow:rgba(210, 103, 96, 0.38);--tw-warm:#f8c69b;--tw-rug:#a7483e;--tw-sky:#f5c46d;--tw-sky2:#ffe9c3;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#5f2023;--tw-stage2:#603841;--tw-stage3:#3f252b;--tw-ember:#ecafaf;--tw-fh:15%}
+[data-timawa-theme="taylor_red"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#c64d40;--tw-ink2:#eaa8a8;--tw-wall:#3e1e28;--tw-wall2:#2e151c;--tw-floor:#663824;--tw-floor2:#49281a;--tw-wood:#4f2615;--tw-wood2:#3b1c10;--tw-fabric:#812c28;--tw-fabric2:#591f1e;--tw-metal:#ab9287;--tw-leaf:#586950;--tw-paper:#dfcec1;--tw-glow:rgba(210, 103, 96, 0.3);--tw-warm:#f8c191;--tw-rug:#6c2625;--tw-sky:#dcb062;--tw-sky2:#e6d2b0;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#822822;--tw-stage2:#6f4c53;--tw-stage3:#4e353a;--tw-ember:#eeb7b7;--tw-fh:15%}
+[data-timawa-theme="taylor_1989"] .theme-bg-base{background:linear-gradient(180deg,#fbfcfd 0%,#f7fafb 58%,#edf3f6 100%)}
+[data-timawa-theme="taylor_1989"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#13161e 0%,#1b222a 58%,#212a33 100%)}
+[data-timawa-theme="taylor_1989"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#7fa8bf 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#dfe9ee 78%,#0f0c14);--tw-wall:#ccd3d1;--tw-wall2:#b5bbb6;--tw-floor:#535a63;--tw-floor2:#373b41;--tw-wood:#6f5c4e;--tw-wood2:#52443a;--tw-fabric:#93b4c4;--tw-fabric2:#62788a;--tw-metal:#444451;--tw-leaf:#6c9571;--tw-paper:#fdf9f1;--tw-glow:rgba(170, 197, 212, 0.38);--tw-warm:#f5dcb2;--tw-rug:#7b93a2;--tw-sky:#a9d8ef;--tw-sky2:#eef8ff;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#434f62;--tw-stage2:#565666;--tw-stage3:#393943;--tw-ember:#e4edf1;--tw-fh:15%}
+[data-timawa-theme="taylor_1989"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#8cb1c5;--tw-ink2:#e2ebef;--tw-wall:#313445;--tw-wall2:#232734;--tw-floor:#414953;--tw-floor2:#2f353c;--tw-wood:#423c32;--tw-wood2:#322d26;--tw-fabric:#5b6c7e;--tw-fabric2:#3f4c5a;--tw-metal:#a39f99;--tw-leaf:#567962;--tw-paper:#ded7cb;--tw-glow:rgba(170, 197, 212, 0.3);--tw-warm:#f5d7a8;--tw-rug:#4e5a6a;--tw-sky:#98c2d7;--tw-sky2:#d6dfe6;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#587184;--tw-stage2:#6b6c76;--tw-stage3:#4b4c53;--tw-ember:#e7eef2;--tw-fh:15%}
+[data-timawa-theme="taylor_reputation"] .theme-bg-base{background:linear-gradient(180deg,#f8f8f8 0%,#f2f2f3 58%,#e1e1e2 100%)}
+[data-timawa-theme="taylor_reputation"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0b0a10 0%,#0d0c12 58%,#0f0e14 100%)}
+[data-timawa-theme="taylor_reputation"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#2b2b30 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#a8a8b0 78%,#0f0c14);--tw-wall:#b0a8a1;--tw-wall2:#93897d;--tw-floor:#32292e;--tw-floor2:#211b1e;--tw-wood:#5a3b29;--tw-wood2:#432c1e;--tw-fabric:#4d4b4c;--tw-fabric2:#2b252c;--tw-metal:#38333d;--tw-leaf:#5f8562;--tw-paper:#faf5ed;--tw-glow:rgba(99, 99, 106, 0.38);--tw-warm:#e5c8a0;--tw-rug:#433f42;--tw-sky:#0f1730;--tw-sky2:#31456e;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#201a26;--tw-stage2:#3f3845;--tw-stage3:#2a252e;--tw-ember:#b6b6bd;--tw-fh:25%}
+[data-timawa-theme="taylor_reputation"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#404045;--tw-ink2:#afafb6;--tw-wall:#201b29;--tw-wall2:#16131d;--tw-floor:#251f26;--tw-floor2:#1b161b;--tw-wood:#312316;--tw-wood2:#251a10;--tw-fabric:#2b242b;--tw-fabric2:#1e1a20;--tw-metal:#999088;--tw-leaf:#4a6b54;--tw-paper:#d8cfc3;--tw-glow:rgba(99, 99, 106, 0.3);--tw-warm:#e5c395;--tw-rug:#282027;--tw-sky:#0e152b;--tw-sky2:#2c3e63;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#201f25;--tw-stage2:#53505a;--tw-stage3:#3a383f;--tw-ember:#bdbdc3;--tw-fh:25%}
+[data-timawa-theme="taylor_lover"] .theme-bg-base{background:linear-gradient(180deg,#fefbfc 0%,#fdf8fa 58%,#fbeef4 100%)}
+[data-timawa-theme="taylor_lover"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1d131c 0%,#2c1c28 58%,#372330 100%)}
+[data-timawa-theme="taylor_lover"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e089b0 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#9ec9ea 78%,#0f0c14);--tw-wall:#edc8cc;--tw-wall2:#dcaeb0;--tw-floor:#835352;--tw-floor2:#563736;--tw-wood:#89544a;--tw-wood2:#653e37;--tw-fabric:#e599b7;--tw-fabric2:#a26380;--tw-metal:#51404f;--tw-leaf:#5d8d70;--tw-paper:#f9f7f1;--tw-glow:rgba(194, 166, 202, 0.38);--tw-warm:#e2d2b1;--tw-rug:#bc7e97;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#6c425b;--tw-stage2:#534b63;--tw-stage3:#373141;--tw-ember:#aed2ed;--tw-fh:15%}
+[data-timawa-theme="taylor_lover"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e395b8;--tw-ink2:#a6cdec;--tw-wall:#442e42;--tw-wall2:#332231;--tw-floor:#6b4441;--tw-floor2:#4d312f;--tw-wood:#56362f;--tw-wood2:#402823;--tw-fabric:#945a75;--tw-fabric2:#663f54;--tw-metal:#af9b97;--tw-leaf:#477261;--tw-paper:#d6d3ca;--tw-glow:rgba(194, 166, 202, 0.3);--tw-warm:#e2cda7;--tw-rug:#7c4b62;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#985d7a;--tw-stage2:#4e5e74;--tw-stage3:#374251;--tw-ember:#b5d6ef;--tw-fh:15%}
+[data-timawa-theme="taylor_folklore"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f7f8f8 58%,#edefee 100%)}
+[data-timawa-theme="taylor_folklore"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#131318 0%,#1b1d20 58%,#212326 100%)}
+[data-timawa-theme="taylor_folklore"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#7d8c82 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#cfc8b8 78%,#0f0c14);--tw-wall:#ccc9bd;--tw-wall2:#b4af9e;--tw-floor:#6d543e;--tw-floor2:#483729;--tw-wood:#6f543e;--tw-wood2:#523e2e;--tw-fabric:#929c91;--tw-fabric2:#616562;--tw-metal:#434048;--tw-leaf:#688d64;--tw-paper:#fcf7ee;--tw-glow:rgba(162, 167, 154, 0.38);--tw-warm:#f1d2a2;--tw-rug:#7a8079;--tw-sky:#899aa7;--tw-sky2:#d3dde3;--tw-sun:#dfe8ee;--tw-hill:#6c7f74;--tw-sea:#7c99a8;--tw-city:#4a5a64;--tw-stage:#424348;--tw-stage2:#524b51;--tw-stage3:#363135;--tw-ember:#d7d1c3;--tw-fh:14%}
+[data-timawa-theme="taylor_folklore"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#8a988e;--tw-ink2:#d3ccbe;--tw-wall:#302e39;--tw-wall2:#23222a;--tw-floor:#5c4531;--tw-floor2:#423223;--tw-wood:#423626;--tw-wood2:#32281c;--tw-fabric:#5a5c5b;--tw-fabric2:#3f4041;--tw-metal:#a39c92;--tw-leaf:#527256;--tw-paper:#dcd3c4;--tw-glow:rgba(162, 167, 154, 0.3);--tw-warm:#f1cd98;--tw-rug:#4d4d4e;--tw-sky:#7b8b96;--tw-sky2:#bec7cc;--tw-sun:#dfe8ee;--tw-hill:#6c7f74;--tw-sea:#7c99a8;--tw-city:#4a5a64;--tw-stage:#565f5b;--tw-stage2:#645e5e;--tw-stage3:#464242;--tw-ember:#dbd5c9;--tw-fh:14%}
+[data-timawa-theme="taylor_evermore"] .theme-bg-base{background:linear-gradient(180deg,#fcfbfa 0%,#faf8f5 58%,#f3eee9 100%)}
+[data-timawa-theme="taylor_evermore"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#171214 0%,#221b1a 58%,#2a221e 100%)}
+[data-timawa-theme="taylor_evermore"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#a8835f 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#d6c8b4 78%,#0f0c14);--tw-wall:#dac6b1;--tw-wall2:#c5ac90;--tw-floor:#8a6a4a;--tw-floor2:#5b4631;--tw-wood:#7a5235;--tw-wood2:#5a3d27;--tw-fabric:#b69473;--tw-fabric2:#7d5f4b;--tw-metal:#493f43;--tw-leaf:#6a8d63;--tw-paper:#fdf7ed;--tw-glow:rgba(189, 162, 133, 0.38);--tw-warm:#f3d2a1;--tw-rug:#977a61;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#543f39;--tw-stage2:#594a4c;--tw-stage3:#3b3132;--tw-ember:#ddd1c0;--tw-fh:14%}
+[data-timawa-theme="taylor_evermore"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#b18f6f;--tw-ink2:#d9ccba;--tw-wall:#392d32;--tw-wall2:#2a2124;--tw-floor:#765c40;--tw-floor2:#55422e;--tw-wood:#4a351f;--tw-wood2:#382817;--tw-fabric:#735746;--tw-fabric2:#503d33;--tw-metal:#a89b8e;--tw-leaf:#547255;--tw-paper:#ddd3c4;--tw-glow:rgba(189, 162, 133, 0.3);--tw-warm:#f3cd97;--tw-rug:#61493d;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#735944;--tw-stage2:#675e5c;--tw-stage3:#484240;--tw-ember:#e0d5c6;--tw-fh:14%}
+[data-timawa-theme="taylor_midnights"] .theme-bg-base{background:linear-gradient(180deg,#fafafc 0%,#f5f5f9 58%,#e8e8f0 100%)}
+[data-timawa-theme="taylor_midnights"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#100e1a 0%,#161423 58%,#1a192a 100%)}
+[data-timawa-theme="taylor_midnights"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#5d5b96 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#c2bfe6 78%,#0f0c14);--tw-wall:#c1b9c4;--tw-wall2:#a79ca6;--tw-floor:#3d3344;--tw-floor2:#28222d;--tw-wood:#674843;--tw-wood2:#4c3532;--tw-fabric:#7773a1;--tw-fabric2:#4c456f;--tw-metal:#3f394b;--tw-leaf:#658b6f;--tw-paper:#fbf6f0;--tw-glow:rgba(138, 136, 186, 0.38);--tw-warm:#edcfb0;--tw-rug:#645f86;--tw-sky:#0f1730;--tw-sky2:#31456e;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#352e50;--tw-stage2:#4b435e;--tw-stage3:#312c3e;--tw-ember:#ccc9ea;--tw-fh:15%}
+[data-timawa-theme="taylor_midnights"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#6d6ba0;--tw-ink2:#c7c4e8;--tw-wall:#2a253d;--tw-wall2:#1e1a2d;--tw-floor:#2d2735;--tw-floor2:#201c26;--tw-wood:#3b2d2a;--tw-wood2:#2c2220;--tw-fabric:#484066;--tw-fabric2:#322d49;--tw-metal:#9f9694;--tw-leaf:#4f7060;--tw-paper:#dbd1ca;--tw-glow:rgba(138, 136, 186, 0.3);--tw-warm:#edcaa6;--tw-rug:#3f3656;--tw-sky:#0e152b;--tw-sky2:#2c3e63;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#413e68;--tw-stage2:#5e5a72;--tw-stage3:#423f50;--tw-ember:#d1ceec;--tw-fh:15%}
+[data-timawa-theme="taylor_ttpd"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfb 0%,#f8f8f7 58%,#efeeed 100%)}
+[data-timawa-theme="taylor_ttpd"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#141317 0%,#1e1c1f 58%,#242225 100%)}
+[data-timawa-theme="taylor_ttpd"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#8d867e 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#d6cfc5 78%,#0f0c14);--tw-wall:#d1c7bb;--tw-wall2:#bbad9c;--tw-floor:#907a63;--tw-floor2:#5f5141;--tw-wood:#73533d;--tw-wood2:#553d2d;--tw-fabric:#9f978d;--tw-fabric2:#6b615f;--tw-metal:#463f48;--tw-leaf:#6a8e68;--tw-paper:#fdf7ee;--tw-glow:rgba(174, 167, 158, 0.38);--tw-warm:#f3d4a6;--tw-rug:#847c76;--tw-sky:#899aa7;--tw-sky2:#d3dde3;--tw-sun:#dfe8ee;--tw-hill:#6c7f74;--tw-sea:#7c99a8;--tw-city:#4a5a64;--tw-stage:#494046;--tw-stage2:#564c54;--tw-stage3:#393237;--tw-ember:#ddd7ce;--tw-fh:15%}
+[data-timawa-theme="taylor_ttpd"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#98928b;--tw-ink2:#d9d3ca;--tw-wall:#332d38;--tw-wall2:#262129;--tw-floor:#806d58;--tw-floor2:#5c4e3f;--tw-wood:#453525;--tw-wood2:#34281c;--tw-fabric:#635958;--tw-fabric2:#453e40;--tw-metal:#a59b91;--tw-leaf:#547459;--tw-paper:#ddd3c6;--tw-glow:rgba(174, 167, 158, 0.3);--tw-warm:#f3cf9c;--tw-rug:#544a4b;--tw-sky:#7b8b96;--tw-sky2:#bec7cc;--tw-sun:#dfe8ee;--tw-hill:#6c7f74;--tw-sea:#7c99a8;--tw-city:#4a5a64;--tw-stage:#615b59;--tw-stage2:#676164;--tw-stage3:#484446;--tw-ember:#e0dbd3;--tw-fh:15%}
+[data-timawa-theme="taylor_showgirl"] .theme-bg-base{background:linear-gradient(180deg,#fefaf8 0%,#fdf6f3 58%,#fbeae2 100%)}
+[data-timawa-theme="taylor_showgirl"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1d1010 0%,#2c1712 58%,#371c14 100%)}
+[data-timawa-theme="taylor_showgirl"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#e06c32 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#4fb39a 78%,#0f0c14);--tw-wall:#edbea2;--tw-wall2:#dca37e;--tw-floor:#824d2d;--tw-floor2:#56331e;--tw-wood:#894c29;--tw-wood2:#65381e;--tw-fabric:#e5814d;--tw-fabric2:#a2502d;--tw-metal:#513c3d;--tw-leaf:#4a885d;--tw-paper:#f4f6ec;--tw-glow:rgba(159, 140, 97, 0.38);--tw-warm:#cacb99;--tw-rug:#bc6a42;--tw-sky:#1a1030;--tw-sky2:#4a1a4e;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#6c3526;--tw-stage2:#414240;--tw-stage3:#2b2c2a;--tw-ember:#6bbfaa;--tw-fh:15%}
+[data-timawa-theme="taylor_showgirl"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#e37b46;--tw-ink2:#5db9a2;--tw-wall:#442829;--tw-wall2:#331d1d;--tw-floor:#6b4025;--tw-floor2:#4d2e1b;--tw-wood:#563016;--tw-wood2:#402410;--tw-fabric:#944a2c;--tw-fabric2:#663421;--tw-metal:#af9888;--tw-leaf:#366e4f;--tw-paper:#cdd0c1;--tw-glow:rgba(159, 140, 97, 0.3);--tw-warm:#cac78f;--tw-rug:#7c3e28;--tw-sky:#170e2b;--tw-sky2:#431746;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#984a26;--tw-stage2:#2c5451;--tw-stage3:#1f3b39;--tw-ember:#79c5b2;--tw-fh:15%}
+[data-timawa-theme="olivia_sour"] .theme-bg-base{background:linear-gradient(180deg,#fcfbfd 0%,#f9f7fb 58%,#f1ecf6 100%)}
+[data-timawa-theme="olivia_sour"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#16111e 0%,#20192b 58%,#281e34 100%)}
+[data-timawa-theme="olivia_sour"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#9b74c0 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#d9c4ec 78%,#0f0c14);--tw-wall:#d6c1d2;--tw-wall2:#c0a6b6;--tw-floor:#744f55;--tw-floor2:#4d3438;--tw-wood:#774e4e;--tw-wood2:#583a3a;--tw-fabric:#ab88c5;--tw-fabric2:#75558b;--tw-metal:#483d51;--tw-leaf:#6b8c71;--tw-paper:#fdf7f1;--tw-glow:rgba(183, 152, 212, 0.38);--tw-warm:#f4d1b2;--tw-rug:#8e70a2;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#4f3962;--tw-stage2:#584765;--tw-stage3:#3a2f43;--tw-ember:#dfcdef;--tw-fh:25%}
+[data-timawa-theme="olivia_sour"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#a582c6;--tw-ink2:#dcc9ee;--tw-wall:#362a46;--tw-wall2:#281e34;--tw-floor:#614144;--tw-floor2:#462f31;--tw-wood:#483232;--tw-wood2:#362626;--tw-fabric:#6c4e7e;--tw-fabric2:#4b375a;--tw-metal:#a69999;--tw-leaf:#547161;--tw-paper:#ddd2cb;--tw-glow:rgba(183, 152, 212, 0.3);--tw-warm:#f4cca7;--tw-rug:#5c426a;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#6a4f84;--tw-stage2:#685c75;--tw-stage3:#494052;--tw-ember:#e2d2f1;--tw-fh:25%}
+[data-timawa-theme="olivia_guts"] .theme-bg-base{background:linear-gradient(180deg,#fdf8f9 0%,#faf2f3 58%,#f4e2e3 100%)}
+[data-timawa-theme="olivia_guts"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#180a11 0%,#240d14 58%,#2d0f16 100%)}
+[data-timawa-theme="olivia_guts"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#b32e3a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f0b0b8 78%,#0f0c14);--tw-wall:#dea9a4;--tw-wall2:#ca8a81;--tw-floor:#502930;--tw-floor2:#351b20;--tw-wood:#7d3c2b;--tw-wood2:#5c2c20;--tw-fabric:#bf4d54;--tw-fabric2:#842733;--tw-metal:#4b333e;--tw-leaf:#708764;--tw-paper:#fef6ee;--tw-glow:rgba(206, 104, 115, 0.38);--tw-warm:#facba2;--tw-rug:#9e4148;--tw-sky:#1a1030;--tw-sky2:#4a1a4e;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#591b2a;--tw-stage2:#613a48;--tw-stage3:#402630;--tw-ember:#f2bdc3;--tw-fh:15%}
+[data-timawa-theme="olivia_guts"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#bb434e;--tw-ink2:#f1b6be;--tw-wall:#3b1c2b;--tw-wall2:#2c131e;--tw-floor:#3a2027;--tw-floor2:#2a171c;--tw-wood:#4d2418;--tw-wood2:#3a1b12;--tw-fabric:#792631;--tw-fabric2:#541b24;--tw-metal:#a99189;--tw-leaf:#596d56;--tw-paper:#e0d0c4;--tw-glow:rgba(206, 104, 115, 0.3);--tw-warm:#fac698;--tw-rug:#66222c;--tw-sky:#170e2b;--tw-sky2:#431746;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#7a212c;--tw-stage2:#73535e;--tw-stage3:#503a42;--tw-ember:#f4c3c9;--tw-fh:15%}
+[data-timawa-theme="olivia_spilled"] .theme-bg-base{background:linear-gradient(180deg,#fbfafd 0%,#f8f5fb 58%,#eee8f5 100%)}
+[data-timawa-theme="olivia_spilled"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#140e1d 0%,#1c1429 58%,#231832 100%)}
+[data-timawa-theme="olivia_spilled"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#8558b8 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#e2d2f5 78%,#0f0c14);--tw-wall:#ceb8cf;--tw-wall2:#b79bb3;--tw-floor:#46334c;--tw-floor2:#2e2232;--tw-wood:#71474c;--tw-wood2:#543538;--tw-fabric:#9970be;--tw-fabric2:#664386;--tw-metal:#443950;--tw-leaf:#6d8f73;--tw-paper:#fdf8f1;--tw-glow:rgba(175, 143, 211, 0.38);--tw-warm:#f6d5b5;--tw-rug:#805d9d;--tw-sky:#1a1030;--tw-sky2:#4a1a4e;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#462d5f;--tw-stage2:#574766;--tw-stage3:#392f43;--tw-ember:#e7d9f7;--tw-fh:15%}
+[data-timawa-theme="olivia_spilled"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#9169bf;--tw-ink2:#e4d6f6;--tw-wall:#322444;--tw-wall2:#241a32;--tw-floor:#32263a;--tw-floor2:#241b2a;--tw-wood:#432c31;--tw-wood2:#322125;--tw-fabric:#5f3e7a;--tw-fabric2:#422c57;--tw-metal:#a49698;--tw-leaf:#567463;--tw-paper:#ded4cc;--tw-glow:rgba(175, 143, 211, 0.3);--tw-warm:#f6d0aa;--tw-rug:#513566;--tw-sky:#170e2b;--tw-sky2:#431746;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#5c3c7f;--tw-stage2:#6c6279;--tw-stage3:#4c4555;--tw-ember:#e9ddf7;--tw-fh:15%}
+[data-timawa-theme="olivia_sadlove"] .theme-bg-base{background:linear-gradient(180deg,#fbfcfc 0%,#f8f9fa 58%,#eef1f3 100%)}
+[data-timawa-theme="olivia_sadlove"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#13151c 0%,#1c1f27 58%,#22272e 100%)}
+[data-timawa-theme="olivia_sadlove"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#849ba8 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f9baa5 78%,#0f0c14);--tw-wall:#cececa;--tw-wall2:#b7b5ad;--tw-floor:#6f5750;--tw-floor2:#493935;--tw-wood:#715848;--tw-wood2:#544135;--tw-fabric:#98a9b0;--tw-fabric2:#656f7b;--tw-metal:#44424e;--tw-leaf:#728960;--tw-paper:#fff6ec;--tw-glow:rgba(185, 169, 167, 0.38);--tw-warm:#fdce9d;--tw-rug:#7f8a92;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#454958;--tw-stage2:#5d4a52;--tw-stage3:#3d3136;--tw-ember:#fac5b3;--tw-fh:18%}
+[data-timawa-theme="olivia_sadlove"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#90a5b1;--tw-ink2:#f9c0ac;--tw-wall:#323141;--tw-wall2:#242530;--tw-floor:#5d4741;--tw-floor2:#43332f;--tw-wood:#43392e;--tw-wood2:#322b22;--tw-fabric:#5e6571;--tw-fabric2:#414650;--tw-metal:#a49e96;--tw-leaf:#5b6f52;--tw-paper:#e1d1c2;--tw-glow:rgba(185, 169, 167, 0.3);--tw-warm:#fdc992;--tw-rug:#50545f;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#5b6974;--tw-stage2:#775755;--tw-stage3:#533d3b;--tw-ember:#facbbb;--tw-fh:18%}
+[data-timawa-theme="ariana_yours"] .theme-bg-base{background:linear-gradient(180deg,#fdfbfc 0%,#fbf8fa 58%,#f7eff3 100%)}
+[data-timawa-theme="ariana_yours"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1a131b 0%,#271d26 58%,#31232e 100%)}
+[data-timawa-theme="ariana_yours"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#c48ba6 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f0dde7 78%,#0f0c14);--tw-wall:#e4c9c9;--tw-wall2:#d1afac;--tw-floor:#7d544f;--tw-floor2:#523734;--tw-wood:#815447;--tw-wood2:#5f3e35;--tw-fabric:#cd9baf;--tw-fabric2:#90657a;--tw-metal:#4d404d;--tw-leaf:#709270;--tw-paper:#fef8f0;--tw-glow:rgba(216, 176, 195, 0.38);--tw-warm:#fad8b0;--tw-rug:#a97f91;--tw-sky:#ded7ef;--tw-sky2:#fdf7f2;--tw-sun:#fff0e0;--tw-hill:#b7b1c6;--tw-sea:#c6c3da;--tw-city:#7c7890;--tw-stage:#604257;--tw-stage2:#635061;--tw-stage3:#413540;--tw-ember:#f2e2eb;--tw-fh:15%}
+[data-timawa-theme="ariana_yours"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ca97af;--tw-ink2:#f1e0e9;--tw-wall:#3e2e40;--tw-wall2:#2e2230;--tw-floor:#674540;--tw-floor2:#4a322e;--tw-wood:#50362d;--tw-wood2:#3c2822;--tw-fabric:#835c6f;--tw-fabric2:#5b4050;--tw-metal:#ab9c96;--tw-leaf:#597760;--tw-paper:#e0d5ca;--tw-glow:rgba(216, 176, 195, 0.3);--tw-warm:#fad3a6;--tw-rug:#6e4d5e;--tw-sky:#c8c2d7;--tw-sky2:#e4deda;--tw-sun:#fff0e0;--tw-hill:#b7b1c6;--tw-sea:#c6c3da;--tw-city:#7c7890;--tw-stage:#855e73;--tw-stage2:#736773;--tw-stage3:#504850;--tw-ember:#f4e5ed;--tw-fh:15%}
+[data-timawa-theme="ariana_myeverything"] .theme-bg-base{background:linear-gradient(180deg,#fdfbfc 0%,#fcf7f9 58%,#f8edf1 100%)}
+[data-timawa-theme="ariana_myeverything"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1b121b 0%,#291b25 58%,#33212c 100%)}
+[data-timawa-theme="ariana_myeverything"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#cf7f9e 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f5d6e2 78%,#0f0c14);--tw-wall:#e7c5c6;--tw-wall2:#d5aaa9;--tw-floor:#65515c;--tw-floor2:#43353d;--tw-wood:#845145;--tw-wood2:#623c33;--tw-fabric:#d791a8;--tw-fabric2:#975d75;--tw-metal:#4f3e4c;--tw-leaf:#72906e;--tw-paper:#fef8f0;--tw-glow:rgba(224, 166, 189, 0.38);--tw-warm:#fcd6af;--tw-rug:#b1778b;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#653d54;--tw-stage2:#654d5e;--tw-stage3:#43333e;--tw-ember:#f7dde7;--tw-fh:20%}
+[data-timawa-theme="ariana_myeverything"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#d48ca8;--tw-ink2:#f6d9e4;--tw-wall:#412c3f;--tw-wall2:#30202e;--tw-floor:#4d434e;--tw-floor2:#373038;--tw-wood:#52342c;--tw-wood2:#3e2721;--tw-fabric:#8a556b;--tw-fabric2:#5f3b4c;--tw-metal:#ad9a95;--tw-leaf:#5b755f;--tw-paper:#e1d4c9;--tw-glow:rgba(224, 166, 189, 0.3);--tw-warm:#fcd1a4;--tw-rug:#74475a;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#8c566e;--tw-stage2:#756470;--tw-stage3:#52464e;--tw-ember:#f7e0e9;--tw-fh:20%}
+[data-timawa-theme="ariana_dangerous"] .theme-bg-base{background:linear-gradient(180deg,#f9f9f9 0%,#f4f4f5 58%,#e6e5e7 100%)}
+[data-timawa-theme="ariana_dangerous"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0e0c13 0%,#121118 58%,#16141b 100%)}
+[data-timawa-theme="ariana_dangerous"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#4a4652 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#b3adc0 78%,#0f0c14);--tw-wall:#bab2ac;--tw-wall2:#a0938a;--tw-floor:#392f35;--tw-floor2:#261f23;--tw-wood:#624231;--tw-wood2:#493124;--tw-fabric:#676168;--tw-fabric2:#3f3742;--tw-metal:#3c3742;--tw-leaf:#628666;--tw-paper:#faf5ee;--tw-glow:rgba(121, 116, 132, 0.38);--tw-warm:#e8caa5;--tw-rug:#585158;--tw-sky:#1a1030;--tw-sky2:#4a1a4e;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#2d2634;--tw-stage2:#453c4d;--tw-stage3:#2e2833;--tw-ember:#bfbaca;--tw-fh:15%}
+[data-timawa-theme="ariana_dangerous"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#5c5863;--tw-ink2:#b9b4c5;--tw-wall:#262030;--tw-wall2:#1b1722;--tw-floor:#2a232b;--tw-floor2:#1e191f;--tw-wood:#38281c;--tw-wood2:#2a1e15;--tw-fabric:#3d343f;--tw-fabric2:#2a242e;--tw-metal:#9d938c;--tw-leaf:#4c6c57;--tw-paper:#d9cfc5;--tw-glow:rgba(121, 116, 132, 0.3);--tw-warm:#e8c59a;--tw-rug:#362d37;--tw-sky:#170e2b;--tw-sky2:#431746;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#35313c;--tw-stage2:#585261;--tw-stage3:#3e3944;--tw-ember:#c5c1cf;--tw-fh:15%}
+[data-timawa-theme="ariana_sweetener"] .theme-bg-base{background:linear-gradient(180deg,#fefcfb 0%,#fdf9f7 58%,#faf2ec 100%)}
+[data-timawa-theme="ariana_sweetener"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1c1617 0%,#2b211e 58%,#362824 100%)}
+[data-timawa-theme="ariana_sweetener"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#dba277 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f5d9ad 78%,#0f0c14);--tw-wall:#ecd1b9;--tw-wall2:#dab899;--tw-floor:#95714f;--tw-floor2:#624b34;--tw-wood:#875a3b;--tw-wood2:#64432c;--tw-fabric:#e1ae87;--tw-fabric2:#9f745b;--tw-metal:#514347;--tw-leaf:#729162;--tw-paper:#fef8ed;--tw-glow:rgba(231, 187, 143, 0.38);--tw-warm:#fcd79f;--tw-rug:#b98e71;--tw-sky:#a9d8ef;--tw-sky2:#eef8ff;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#6a4c43;--tw-stage2:#67524d;--tw-stage3:#443633;--tw-ember:#f7dfba;--tw-fh:15%}
+[data-timawa-theme="ariana_sweetener"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#dfab85;--tw-ink2:#f6dcb4;--tw-wall:#433337;--tw-wall2:#322628;--tw-floor:#7e6144;--tw-floor2:#5b4631;--tw-wood:#553b24;--tw-wood2:#402c1b;--tw-fabric:#916954;--tw-fabric2:#64493d;--tw-metal:#ae9e91;--tw-leaf:#5b7653;--tw-paper:#e1d5c3;--tw-glow:rgba(231, 187, 143, 0.3);--tw-warm:#fcd294;--tw-rug:#795748;--tw-sky:#98c2d7;--tw-sky2:#d6dfe6;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#946d54;--tw-stage2:#756559;--tw-stage3:#52473e;--tw-ember:#f7e2c1;--tw-fh:15%}
+[data-timawa-theme="ariana_tun"] .theme-bg-base{background:linear-gradient(180deg,#fdfafc 0%,#fbf6f9 58%,#f6ebf1 100%)}
+[data-timawa-theme="ariana_tun"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#19111a 0%,#261824 58%,#2f1d2b 100%)}
+[data-timawa-theme="ariana_tun"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#bf7098 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f0d6e2 78%,#0f0c14);--tw-wall:#e2c0c4;--tw-wall2:#cfa4a6;--tw-floor:#7c4e4c;--tw-floor2:#523332;--tw-wood:#804d44;--tw-wood2:#5f3932;--tw-fabric:#c984a3;--tw-fabric2:#8c5371;--tw-metal:#4d3c4b;--tw-leaf:#70906e;--tw-paper:#fef8f0;--tw-glow:rgba(213, 158, 185, 0.38);--tw-warm:#fad6af;--tw-rug:#a66d87;--tw-sky:#a9d8ef;--tw-sky2:#eef8ff;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#5e3751;--tw-stage2:#624b5e;--tw-stage3:#41313e;--tw-ember:#f2dde7;--tw-fh:15%}
+[data-timawa-theme="ariana_tun"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#c57ea2;--tw-ink2:#f1d9e4;--tw-wall:#3d293e;--tw-wall2:#2e1e2d;--tw-floor:#66413e;--tw-floor2:#492f2d;--tw-wood:#4f312a;--tw-wood2:#3b2520;--tw-fabric:#804c67;--tw-fabric2:#59354a;--tw-metal:#ab9894;--tw-leaf:#59755f;--tw-paper:#e0d4c9;--tw-glow:rgba(213, 158, 185, 0.3);--tw-warm:#fad1a4;--tw-rug:#6c4057;--tw-sky:#98c2d7;--tw-sky2:#d6dfe6;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#824c6a;--tw-stage2:#736470;--tw-stage3:#50464e;--tw-ember:#f4e0e9;--tw-fh:15%}
+[data-timawa-theme="ariana_positions"] .theme-bg-base{background:linear-gradient(180deg,#fcfcfd 0%,#faf9fb 58%,#f3f1f6 100%)}
+[data-timawa-theme="ariana_positions"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#17151e 0%,#231f2b 58%,#2b2734 100%)}
+[data-timawa-theme="ariana_positions"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#ac9bc0 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#e6deef 78%,#0f0c14);--tw-wall:#dcced2;--tw-wall2:#c7b5b6;--tw-floor:#5d5763;--tw-floor2:#3d3941;--tw-wood:#7b584e;--tw-wood2:#5b413a;--tw-fabric:#b9a9c5;--tw-fabric2:#806f8b;--tw-metal:#4a4251;--tw-leaf:#6e9272;--tw-paper:#fef8f1;--tw-glow:rgba(198, 185, 213, 0.38);--tw-warm:#f8d8b3;--tw-rug:#998aa2;--tw-sky:#0f1730;--tw-sky2:#31456e;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#564962;--tw-stage2:#5e5366;--tw-stage3:#3e3743;--tw-ember:#eae3f2;--tw-fh:20%}
+[data-timawa-theme="ariana_positions"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#b4a5c6;--tw-ink2:#e8e1f0;--tw-wall:#3a3146;--tw-wall2:#2b2534;--tw-floor:#484753;--tw-floor2:#34333c;--tw-wood:#4b3932;--tw-wood2:#382b26;--tw-fabric:#75657e;--tw-fabric2:#51465a;--tw-metal:#a89e99;--tw-leaf:#577762;--tw-paper:#dfd5cb;--tw-glow:rgba(198, 185, 213, 0.3);--tw-warm:#f8d3a8;--tw-rug:#63546a;--tw-sky:#0e152b;--tw-sky2:#2c3e63;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#756984;--tw-stage2:#6e6776;--tw-stage3:#4d4853;--tw-ember:#ece6f3;--tw-fh:20%}
+[data-timawa-theme="ariana_eternal"] .theme-bg-base{background:linear-gradient(180deg,#fefcfa 0%,#fdfaf5 58%,#faf3e8 100%)}
+[data-timawa-theme="ariana_eternal"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1c1614 0%,#2b221a 58%,#352a1e 100%)}
+[data-timawa-theme="ariana_eternal"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#d9a95c 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f5e0b8 78%,#0f0c14);--tw-wall:#ebd3b0;--tw-wall2:#d9bb8e;--tw-floor:#a1815c;--tw-floor2:#6a553d;--tw-wood:#875c34;--tw-wood2:#644426;--tw-fabric:#dfb471;--tw-fabric2:#9d7849;--tw-metal:#504443;--tw-leaf:#729264;--tw-paper:#fef8ee;--tw-glow:rgba(230, 194, 133, 0.38);--tw-warm:#fcd9a2;--tw-rug:#b8935f;--tw-sky:#a9d8ef;--tw-sky2:#eef8ff;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#694f38;--tw-stage2:#67554c;--tw-stage3:#443832;--tw-ember:#f7e5c3;--tw-fh:15%}
+[data-timawa-theme="ariana_eternal"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ddb26c;--tw-ink2:#f6e2be;--tw-wall:#433432;--tw-wall2:#322724;--tw-floor:#8b7253;--tw-floor2:#64523c;--tw-wood:#543c1e;--tw-wood2:#3f2d16;--tw-fabric:#906d44;--tw-fabric2:#634c32;--tw-metal:#ae9f8d;--tw-leaf:#5b7756;--tw-paper:#e1d5c4;--tw-glow:rgba(230, 194, 133, 0.3);--tw-warm:#fcd498;--tw-rug:#785a3b;--tw-sky:#98c2d7;--tw-sky2:#d6dfe6;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#937242;--tw-stage2:#75685e;--tw-stage3:#524942;--tw-ember:#f7e7c9;--tw-fh:15%}
+[data-timawa-theme="conan_kidkrow"] .theme-bg-base{background:linear-gradient(180deg,#f9fafb 0%,#f4f5f7 58%,#e5e9ec 100%)}
+[data-timawa-theme="conan_kidkrow"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0d0f17 0%,#11151f 58%,#141a24 100%)}
+[data-timawa-theme="conan_kidkrow"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#43607a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#b9ccd9 78%,#0f0c14);--tw-wall:#b8baba;--tw-wall2:#9d9e9a;--tw-floor:#464a54;--tw-floor2:#2e3137;--tw-wood:#60493c;--tw-wood2:#47362c;--tw-fabric:#61778a;--tw-fabric2:#3a485d;--tw-metal:#3b3a47;--tw-leaf:#638e6c;--tw-paper:#fbf7f0;--tw-glow:rgba(120, 145, 165, 0.38);--tw-warm:#ead3ac;--tw-rug:#536273;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#2a3045;--tw-stage2:#464758;--tw-stage3:#2e2f3a;--tw-ember:#c4d4df;--tw-fh:20%}
+[data-timawa-theme="conan_kidkrow"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#567087;--tw-ink2:#bfd0dc;--tw-wall:#252638;--tw-wall2:#1a1b29;--tw-floor:#383e48;--tw-floor2:#282d34;--tw-wood:#362e24;--tw-wood2:#28221b;--tw-fabric:#394356;--tw-fabric2:#272f3e;--tw-metal:#9c9791;--tw-leaf:#4d735d;--tw-paper:#dad3c8;--tw-glow:rgba(120, 145, 165, 0.3);--tw-warm:#eacea2;--tw-rug:#33394a;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#304256;--tw-stage2:#5a5f6c;--tw-stage3:#3f424c;--tw-ember:#cad8e2;--tw-fh:20%}
+[data-timawa-theme="conan_superache"] .theme-bg-base{background:linear-gradient(180deg,#fcf9f9 0%,#faf3f4 58%,#f4e4e5 100%)}
+[data-timawa-theme="conan_superache"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#180c12 0%,#241016 58%,#2c1319 100%)}
+[data-timawa-theme="conan_superache"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#b03f47 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#eec0c2 78%,#0f0c14);--tw-wall:#ddafa9;--tw-wall2:#c99186;--tw-floor:#68433b;--tw-floor2:#452c27;--tw-wood:#7c402f;--tw-wood2:#5c2f23;--tw-fabric:#bd5b5f;--tw-fabric2:#82323b;--tw-metal:#4b3640;--tw-leaf:#708b67;--tw-paper:#fef7ee;--tw-glow:rgba(204, 121, 126, 0.38);--tw-warm:#facfa5;--tw-rug:#9c4c51;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#58232f;--tw-stage2:#60404c;--tw-stage3:#3f2a32;--tw-ember:#f1cacc;--tw-fh:14%}
+[data-timawa-theme="conan_superache"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#b85259;--tw-ink2:#efc5c7;--tw-wall:#3a1f2d;--tw-wall2:#2b1620;--tw-floor:#533932;--tw-floor2:#3c2924;--tw-wood:#4c271a;--tw-wood2:#391d14;--tw-fabric:#782f38;--tw-fabric2:#53222a;--tw-metal:#a9938b;--tw-leaf:#597058;--tw-paper:#e0d2c6;--tw-glow:rgba(204, 121, 126, 0.3);--tw-warm:#faca9b;--tw-rug:#652932;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#782c34;--tw-stage2:#725a62;--tw-stage3:#503f45;--tw-ember:#f2cfd1;--tw-fh:14%}
+[data-timawa-theme="conan_foundheaven"] .theme-bg-base{background:linear-gradient(180deg,#fafbfd 0%,#f6f8fb 58%,#ebeff7 100%)}
+[data-timawa-theme="conan_foundheaven"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#11141e 0%,#181d2b 58%,#1d2434 100%)}
+[data-timawa-theme="conan_foundheaven"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#6d8ec4 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#e8d3b8 78%,#0f0c14);--tw-wall:#c6cad3;--tw-wall2:#aeb0b8;--tw-floor:#4f5464;--tw-floor2:#343742;--tw-wood:#6b554f;--tw-wood2:#4f3f3a;--tw-fabric:#849ec8;--tw-fabric2:#56678e;--tw-metal:#414152;--tw-leaf:#6e8f64;--tw-paper:#fef8ee;--tw-glow:rgba(164, 173, 191, 0.38);--tw-warm:#f8d5a2;--tw-rug:#6f82a5;--tw-sky:#1a1030;--tw-sky2:#4a1a4e;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#3c4464;--tw-stage2:#564e59;--tw-stage3:#39333b;--tw-ember:#ecdac3;--tw-fh:25%}
+[data-timawa-theme="conan_foundheaven"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#7c99ca;--tw-ink2:#ead7be;--tw-wall:#2d2f46;--tw-wall2:#212234;--tw-floor:#3f4554;--tw-floor2:#2d323c;--tw-wood:#3f3733;--tw-wood2:#2f2926;--tw-fabric:#515d81;--tw-fabric2:#38415c;--tw-metal:#a19c9a;--tw-leaf:#587556;--tw-paper:#dfd4c4;--tw-glow:rgba(164, 173, 191, 0.3);--tw-warm:#f8d098;--tw-rug:#464e6c;--tw-sky:#170e2b;--tw-sky2:#431746;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#4c6087;--tw-stage2:#6f625e;--tw-stage3:#4e4542;--tw-ember:#eedec9;--tw-fh:25%}
+[data-timawa-theme="conan_wishbone"] .theme-bg-base{background:linear-gradient(180deg,#fafcfe 0%,#f5f9fc 58%,#e9f1f9 100%)}
+[data-timawa-theme="conan_wishbone"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#101520 0%,#161f2e 58%,#1a2738 100%)}
+[data-timawa-theme="conan_wishbone"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#5f9bd4 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#c0392b 78%,#0f0c14);--tw-wall:#c1ced9;--tw-wall2:#a8b5be;--tw-floor:#4c5768;--tw-floor2:#323945;--tw-wood:#675853;--tw-wood2:#4c413d;--tw-fabric:#79a9d5;--tw-fabric2:#4d6f98;--tw-metal:#3f4254;--tw-leaf:#656a43;--tw-paper:#fbeee5;--tw-glow:rgba(139, 111, 136, 0.38);--tw-warm:#eca778;--tw-rug:#668aaf;--tw-sky:#a98ac0;--tw-sky2:#f7b58e;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#36496a;--tw-stage2:#4b2c3a;--tw-stage3:#311d26;--tw-ember:#ca594d;--tw-fh:20%}
+[data-timawa-theme="conan_wishbone"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#6fa5d8;--tw-ink2:#c5493c;--tw-wall:#2a314a;--tw-wall2:#1e2537;--tw-floor:#3d4756;--tw-floor2:#2c333e;--tw-wood:#3c3936;--tw-wood2:#2d2b28;--tw-fabric:#49658a;--tw-fabric2:#334662;--tw-metal:#9f9e9c;--tw-leaf:#4f5337;--tw-paper:#dac1b3;--tw-glow:rgba(139, 111, 136, 0.3);--tw-warm:#eca26e;--tw-rug:#405473;--tw-sky:#987cad;--tw-sky2:#dea380;--tw-sun:#ffb27a;--tw-hill:#7b6b7e;--tw-sea:#c98a8a;--tw-city:#5f4a63;--tw-stage:#426991;--tw-stage2:#5d1f20;--tw-stage3:#411616;--tw-ember:#cf695e;--tw-fh:20%}
+[data-timawa-theme="maki_tanong"] .theme-bg-base{background:linear-gradient(180deg,#fafafc 0%,#f5f5f9 58%,#e9e9f1 100%)}
+[data-timawa-theme="maki_tanong"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#100f1a 0%,#161524 58%,#1a1a2b 100%)}
+[data-timawa-theme="maki_tanong"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#5f6099 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#d6d4ee 78%,#0f0c14);--tw-wall:#c1bac5;--tw-wall2:#a89ea7;--tw-floor:#4c4a5b;--tw-floor2:#32313c;--tw-wood:#674944;--tw-wood2:#4c3632;--tw-fabric:#7977a4;--tw-fabric2:#4d4871;--tw-metal:#3f3a4c;--tw-leaf:#6a9071;--tw-paper:#fdf8f1;--tw-glow:rgba(149, 148, 191, 0.38);--tw-warm:#f3d5b2;--tw-rug:#666288;--tw-sky:#899aa7;--tw-sky2:#d3dde3;--tw-sun:#dfe8ee;--tw-hill:#6c7f74;--tw-sea:#7c99a8;--tw-city:#4a5a64;--tw-stage:#363052;--tw-stage2:#504861;--tw-stage3:#353040;--tw-ember:#dddbf1;--tw-fh:15%}
+[data-timawa-theme="maki_tanong"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#6f70a3;--tw-ink2:#d9d7ef;--tw-wall:#2a263e;--tw-wall2:#1e1b2d;--tw-floor:#3d3e4d;--tw-floor2:#2c2d37;--tw-wood:#3c2e2b;--tw-wood2:#2d2220;--tw-fabric:#494368;--tw-fabric2:#332f4a;--tw-metal:#9f9795;--tw-leaf:#547562;--tw-paper:#ddd4cb;--tw-glow:rgba(149, 148, 191, 0.3);--tw-warm:#f3d0a8;--tw-rug:#403958;--tw-sky:#7b8b96;--tw-sky2:#bec7cc;--tw-sun:#dfe8ee;--tw-hill:#6c7f74;--tw-sea:#7c99a8;--tw-city:#4a5a64;--tw-stage:#42426a;--tw-stage2:#676376;--tw-stage3:#484553;--tw-ember:#e0def2;--tw-fh:15%}
+[data-timawa-theme="maki_saan"] .theme-bg-base{background:linear-gradient(180deg,#fafcfd 0%,#f6f9fb 58%,#ebf0f5 100%)}
+[data-timawa-theme="maki_saan"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#11141d 0%,#191e29 58%,#1e2531 100%)}
+[data-timawa-theme="maki_saan"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#6f93b5 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#d6e6f2 78%,#0f0c14);--tw-wall:#c7ccce;--tw-wall2:#afb2b2;--tw-floor:#505561;--tw-floor2:#353840;--tw-wood:#6b564b;--tw-wood2:#4f4038;--tw-fabric:#86a2bb;--tw-fabric2:#586a84;--tw-metal:#414150;--tw-leaf:#6a9472;--tw-paper:#fdf9f1;--tw-glow:rgba(157, 184, 208, 0.38);--tw-warm:#f3dbb4;--tw-rug:#70859a;--tw-sky:#0f1730;--tw-sky2:#31456e;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#3d465d;--tw-stage2:#525365;--tw-stage3:#363743;--tw-ember:#ddeaf4;--tw-fh:20%}
+[data-timawa-theme="maki_saan"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#7d9ebc;--tw-ink2:#d9e8f3;--tw-wall:#2d3043;--tw-wall2:#212332;--tw-floor:#3f4651;--tw-floor2:#2d323a;--tw-wood:#3f3830;--tw-wood2:#2f2a24;--tw-fabric:#526078;--tw-fabric2:#394356;--tw-metal:#a19d98;--tw-leaf:#547962;--tw-paper:#ddd6cb;--tw-glow:rgba(157, 184, 208, 0.3);--tw-warm:#f3d6a9;--tw-rug:#475065;--tw-sky:#0e152b;--tw-sky2:#2c3e63;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#4d637d;--tw-stage2:#676b77;--tw-stage3:#484b53;--tw-ember:#e0ecf5;--tw-fh:20%}
+[data-timawa-theme="maki_dilaw"] .theme-bg-base{background:linear-gradient(180deg,#fefcf8 0%,#fdf9f1 58%,#faf2df 100%)}
+[data-timawa-theme="maki_dilaw"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1c160e 0%,#2b210f 58%,#35280f 100%)}
+[data-timawa-theme="maki_dilaw"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#d9a21b 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f2dd8a 78%,#0f0c14);--tw-wall:#ebd19a;--tw-wall2:#d9b874;--tw-floor:#94713b;--tw-floor2:#624b27;--tw-wood:#875a23;--tw-wood2:#64431a;--tw-fabric:#dfae3a;--tw-fabric2:#9d741e;--tw-metal:#50433a;--tw-leaf:#719259;--tw-paper:#fef8eb;--tw-glow:rgba(228, 189, 77, 0.38);--tw-warm:#fbd894;--tw-rug:#b88e33;--tw-sky:#f5c46d;--tw-sky2:#ffe9c3;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#694c1d;--tw-stage2:#665339;--tw-stage3:#433726;--tw-ember:#f4e29d;--tw-fh:16%}
+[data-timawa-theme="maki_dilaw"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#ddab32;--tw-ink2:#f3e093;--tw-wall:#433325;--tw-wall2:#322619;--tw-floor:#7e6136;--tw-floor2:#5b4627;--tw-wood:#543b11;--tw-wood2:#3f2c0d;--tw-fabric:#90691f;--tw-fabric2:#634918;--tw-metal:#ae9e85;--tw-leaf:#5a774c;--tw-paper:#e0d5bf;--tw-glow:rgba(228, 189, 77, 0.3);--tw-warm:#fbd38a;--tw-rug:#78571e;--tw-sky:#dcb062;--tw-sky2:#e6d2b0;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#936d17;--tw-stage2:#73674a;--tw-stage3:#504834;--tw-ember:#f5e5a6;--tw-fh:16%}
+[data-timawa-theme="maki_kolor"] .theme-bg-base{background:linear-gradient(180deg,#fefafa 0%,#fcf5f6 58%,#f9e8ea 100%)}
+[data-timawa-theme="maki_kolor"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1b0e15 0%,#29141c 58%,#331821 100%)}
+[data-timawa-theme="maki_kolor"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#d1586a 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f2c3ca 78%,#0f0c14);--tw-wall:#e8b8b5;--tw-wall2:#d69b94;--tw-floor:#93614c;--tw-floor2:#614032;--tw-wood:#854738;--tw-wood2:#623529;--tw-fabric:#d8707c;--tw-fabric2:#984352;--tw-metal:#4f3945;--tw-leaf:#718c69;--tw-paper:#fef7ef;--tw-glow:rgba(224, 136, 149, 0.38);--tw-warm:#fbd0a8;--tw-rug:#b25d68;--tw-sky:#a9d8ef;--tw-sky2:#eef8ff;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#662d3e;--tw-stage2:#654452;--tw-stage3:#432d36;--tw-ember:#f4cdd2;--tw-fh:18%}
+[data-timawa-theme="maki_kolor"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#d66979;--tw-ink2:#f3c8ce;--tw-wall:#412434;--tw-wall2:#311a26;--tw-floor:#7c5642;--tw-floor2:#593e30;--tw-wood:#532c21;--tw-wood2:#3e2119;--tw-fabric:#8b3e4d;--tw-fabric2:#602c38;--tw-metal:#ad968f;--tw-leaf:#5a715a;--tw-paper:#e0d2c6;--tw-glow:rgba(224, 136, 149, 0.3);--tw-warm:#fbcb9d;--tw-rug:#743542;--tw-sky:#98c2d7;--tw-sky2:#d6dfe6;--tw-sun:#fff7d0;--tw-hill:#9dbb92;--tw-sea:#7fb6cf;--tw-city:#6b7f9a;--tw-stage:#8e3c4b;--tw-stage2:#735b66;--tw-stage3:#504047;--tw-ember:#f5d1d7;--tw-fh:18%}
+[data-timawa-theme="lany_lany"] .theme-bg-base{background:linear-gradient(180deg,#f8f9fa 0%,#f2f3f5 58%,#e1e3e8 100%)}
+[data-timawa-theme="lany_lany"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0a0b14 0%,#0c0f1a 58%,#0e111e 100%)}
+[data-timawa-theme="lany_lany"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#27395e 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#8fa9d9 78%,#0f0c14);--tw-wall:#aeadb0;--tw-wall2:#928e8f;--tw-floor:#312c38;--tw-floor2:#201d25;--tw-wood:#593f35;--tw-wood2:#422f27;--tw-fabric:#4a5672;--tw-fabric2:#282e4a;--tw-metal:#373543;--tw-leaf:#59856c;--tw-paper:#f8f5f0;--tw-glow:rgba(86, 107, 149, 0.38);--tw-warm:#ddc8ac;--tw-rug:#404860;--tw-sky:#0f1730;--tw-sky2:#31456e;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#1e2039;--tw-stage2:#383a54;--tw-stage3:#252637;--tw-ember:#a1b7df;--tw-fh:15%}
+[data-timawa-theme="lany_lany"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#3d4d6e;--tw-ink2:#98b0dc;--tw-wall:#1f1e32;--tw-wall2:#151524;--tw-floor:#25212d;--tw-floor2:#1b1820;--tw-wood:#31261f;--tw-wood2:#251c17;--tw-fabric:#282c46;--tw-fabric2:#1c1f33;--tw-metal:#99928e;--tw-leaf:#446b5d;--tw-paper:#d5cfc8;--tw-glow:rgba(86, 107, 149, 0.3);--tw-warm:#ddc4a2;--tw-rug:#25263d;--tw-sky:#0e152b;--tw-sky2:#2c3e63;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#1d2843;--tw-stage2:#48506c;--tw-stage3:#32384c;--tw-ember:#aabee2;--tw-fh:15%}
+[data-timawa-theme="lany_malibu"] .theme-bg-base{background:linear-gradient(180deg,#f8f9fa 0%,#f2f4f6 58%,#e0e5eb 100%)}
+[data-timawa-theme="lany_malibu"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#0a0c16 0%,#0c111d 58%,#0e1422 100%)}
+[data-timawa-theme="lany_malibu"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#25456e 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#9ab8d9 78%,#0f0c14);--tw-wall:#aeb1b6;--tw-wall2:#919396;--tw-floor:#404451;--tw-floor2:#2a2d35;--tw-wood:#584239;--tw-wood2:#41312a;--tw-fabric:#486080;--tw-fabric2:#273655;--tw-metal:#373646;--tw-leaf:#5c896c;--tw-paper:#f9f6f0;--tw-glow:rgba(90, 121, 158, 0.38);--tw-warm:#e1cdac;--tw-rug:#3f506b;--tw-sky:#0f1730;--tw-sky2:#31456e;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#1d2540;--tw-stage2:#3b3f57;--tw-stage3:#272a39;--tw-ember:#aac3df;--tw-fh:20%}
+[data-timawa-theme="lany_malibu"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#3b587c;--tw-ink2:#a2bedc;--tw-wall:#1f2035;--tw-wall2:#151727;--tw-floor:#343a47;--tw-floor2:#252a33;--tw-wood:#302822;--tw-wood2:#241e1a;--tw-fabric:#27334f;--tw-fabric2:#1b2439;--tw-metal:#98938f;--tw-leaf:#476f5d;--tw-paper:#d6d1c8;--tw-glow:rgba(90, 121, 158, 0.3);--tw-warm:#e1c8a2;--tw-rug:#242c44;--tw-sky:#0e152b;--tw-sky2:#2c3e63;--tw-sun:#eaf1ff;--tw-hill:#1e2c3c;--tw-sea:#1b3350;--tw-city:#0b1120;--tw-stage:#1c304e;--tw-stage2:#4d576c;--tw-stage3:#363d4c;--tw-ember:#b2c9e2;--tw-fh:20%}
+[data-timawa-theme="lany_mamasboy"] .theme-bg-base{background:linear-gradient(180deg,#fdfcf9 0%,#fbf9f3 58%,#f6f1e3 100%)}
+[data-timawa-theme="lany_mamasboy"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#191510 0%,#261f13 58%,#2f2615 100%)}
+[data-timawa-theme="lany_mamasboy"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#bf9834 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#eedf9e 78%,#0f0c14);--tw-wall:#e2cda2;--tw-wall2:#cfb47e;--tw-floor:#7b562d;--tw-floor2:#51391e;--tw-wood:#80582a;--tw-wood2:#5f411f;--tw-fabric:#c9a64f;--tw-fabric2:#8c6d2f;--tw-metal:#4d423d;--tw-leaf:#70925e;--tw-paper:#fef8ec;--tw-glow:rgba(212, 184, 100, 0.38);--tw-warm:#fad99a;--tw-rug:#a68844;--tw-sky:#f5c46d;--tw-sky2:#ffe9c3;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#5e4827;--tw-stage2:#625241;--tw-stage3:#41362b;--tw-ember:#f1e4ae;--tw-fh:16%}
+[data-timawa-theme="lany_mamasboy"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#c5a248;--tw-ink2:#efe2a6;--tw-wall:#3d312a;--tw-wall2:#2e241d;--tw-floor:#664725;--tw-floor2:#49331b;--tw-wood:#4f3916;--tw-wood2:#3b2b10;--tw-fabric:#80632d;--tw-fabric2:#594522;--tw-metal:#ab9d88;--tw-leaf:#597750;--tw-paper:#e0d5c1;--tw-glow:rgba(212, 184, 100, 0.3);--tw-warm:#fad490;--tw-rug:#6c5229;--tw-sky:#dcb062;--tw-sky2:#e6d2b0;--tw-sun:#ffd486;--tw-hill:#a8ab7a;--tw-sea:#e8bf86;--tw-city:#8a6a5a;--tw-stage:#826728;--tw-stage2:#726852;--tw-stage3:#504939;--tw-ember:#f2e7b5;--tw-fh:16%}
+[data-timawa-theme="lany_ggbbxx"] .theme-bg-base{background:linear-gradient(180deg,#fdfafc 0%,#fcf6f9 58%,#f8ebf1 100%)}
+[data-timawa-theme="lany_ggbbxx"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1b101b 0%,#291825 58%,#331d2c 100%)}
+[data-timawa-theme="lany_ggbbxx"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#cf6f9e 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#93b5e8 78%,#0f0c14);--tw-wall:#e7c0c6;--tw-wall2:#d5a4a9;--tw-floor:#7f4d4e;--tw-floor2:#543333;--tw-wood:#844d45;--tw-wood2:#623933;--tw-fabric:#d784a8;--tw-fabric2:#975275;--tw-metal:#4f3c4c;--tw-leaf:#5a8870;--tw-paper:#f9f6f0;--tw-glow:rgba(180, 142, 191, 0.38);--tw-warm:#dfccb1;--tw-rug:#b16d8b;--tw-sky:#1a1030;--tw-sky2:#4a1a4e;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#653754;--tw-stage2:#4e4360;--tw-stage3:#332c3f;--tw-ember:#a4c1ec;--tw-fh:25%}
+[data-timawa-theme="lany_ggbbxx"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#d47da8;--tw-ink2:#9cbbea;--tw-wall:#41293f;--tw-wall2:#301e2e;--tw-floor:#69413f;--tw-floor2:#4c2f2d;--tw-wood:#52312c;--tw-wood2:#3e2521;--tw-fabric:#8a4b6b;--tw-fabric2:#5f354c;--tw-metal:#ad9895;--tw-leaf:#456e60;--tw-paper:#d5d0ca;--tw-glow:rgba(180, 142, 191, 0.3);--tw-warm:#dfc7a6;--tw-rug:#743f5a;--tw-sky:#170e2b;--tw-sky2:#431746;--tw-sun:#ffd0e8;--tw-hill:#2a1a38;--tw-sea:#2a1a44;--tw-city:#0d0818;--tw-stage:#8c4c6e;--tw-stage2:#4a5573;--tw-stage3:#343b50;--tw-ember:#adc7ee;--tw-fh:25%}
+[data-timawa-theme="lany_blur"] .theme-bg-base{background:linear-gradient(180deg,#fbfbfd 0%,#f7f8fb 58%,#edeff7 100%)}
+[data-timawa-theme="lany_blur"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#13141e 0%,#1b1d2b 58%,#212434 100%)}
+[data-timawa-theme="lany_blur"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#7d8fc4 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#c6d2f0 78%,#0f0c14);--tw-wall:#cccad3;--tw-wall2:#b4b1b8;--tw-floor:#535464;--tw-floor2:#373742;--tw-wood:#6f554f;--tw-wood2:#523f3a;--tw-fabric:#929fc8;--tw-fabric2:#61678e;--tw-metal:#434152;--tw-leaf:#668f72;--tw-paper:#fcf8f1;--tw-glow:rgba(158, 173, 216, 0.38);--tw-warm:#eed5b3;--tw-rug:#7a82a5;--tw-sky:#899aa7;--tw-sky2:#d3dde3;--tw-sun:#dfe8ee;--tw-hill:#6c7f74;--tw-sea:#7c99a8;--tw-city:#4a5a64;--tw-stage:#424464;--tw-stage2:#504e67;--tw-stage3:#353344;--tw-ember:#cfd9f2;--tw-fh:20%}
+[data-timawa-theme="lany_blur"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#8a9aca;--tw-ink2:#cbd6f1;--tw-wall:#302f46;--tw-wall2:#232334;--tw-floor:#414554;--tw-floor2:#2f323c;--tw-wood:#423733;--tw-wood2:#322926;--tw-fabric:#5a5e81;--tw-fabric2:#3f425c;--tw-metal:#a39c9a;--tw-leaf:#507462;--tw-paper:#dbd4cb;--tw-glow:rgba(158, 173, 216, 0.3);--tw-warm:#eed0a9;--tw-rug:#4d4e6c;--tw-sky:#7b8b96;--tw-sky2:#bec7cc;--tw-sun:#dfe8ee;--tw-hill:#6c7f74;--tw-sea:#7c99a8;--tw-city:#4a5a64;--tw-stage:#566187;--tw-stage2:#606276;--tw-stage3:#434553;--tw-ember:#d4ddf4;--tw-fh:20%}
+[data-timawa-theme="lany_soft"] .theme-bg-base{background:linear-gradient(180deg,#fefcfc 0%,#fdfaf9 58%,#faf3f1 100%)}
+[data-timawa-theme="lany_soft"][data-timawa-mode="dark"] .theme-bg-base{background:linear-gradient(180deg,#1c161b 0%,#2b2225 58%,#362a2c 100%)}
+[data-timawa-theme="lany_soft"] .theme-bg-shapes{--tw-ink:color-mix(in srgb,#dba99e 84%,#0f0c14);--tw-ink2:color-mix(in srgb,#f5e6de 78%,#0f0c14);--tw-wall:#ecd3c6;--tw-wall2:#dabba9;--tw-floor:#a1816b;--tw-floor2:#6a5547;--tw-wood:#875c45;--tw-wood2:#644433;--tw-fabric:#e1b4a8;--tw-fabric2:#9f7875;--tw-metal:#51444c;--tw-leaf:#72946e;--tw-paper:#fef9f0;--tw-glow:rgba(231, 196, 187, 0.38);--tw-warm:#fcdbae;--tw-rug:#b9938b;--tw-sky:#ded7ef;--tw-sky2:#fdf7f2;--tw-sun:#fff0e0;--tw-hill:#b7b1c6;--tw-sea:#c6c3da;--tw-city:#7c7890;--tw-stage:#6a4f54;--tw-stage2:#67565e;--tw-stage3:#44393e;--tw-ember:#f7eae3;--tw-fh:15%}
+[data-timawa-theme="lany_soft"][data-timawa-mode="dark"] .theme-bg-shapes{--tw-ink:#dfb2a8;--tw-ink2:#f6e8e1;--tw-wall:#43343f;--tw-wall2:#32272e;--tw-floor:#8b725c;--tw-floor2:#645242;--tw-wood:#553c2c;--tw-wood2:#402d21;--tw-fabric:#916d6b;--tw-fabric2:#644c4c;--tw-metal:#ae9f95;--tw-leaf:#5b795e;--tw-paper:#e1d6c9;--tw-glow:rgba(231, 196, 187, 0.3);--tw-warm:#fcd6a3;--tw-rug:#795a5a;--tw-sky:#c8c2d7;--tw-sky2:#e4deda;--tw-sun:#fff0e0;--tw-hill:#b7b1c6;--tw-sea:#c6c3da;--tw-city:#7c7890;--tw-stage:#94726e;--tw-stage2:#756b6f;--tw-stage3:#524b4e;--tw-ember:#f7ece6;--tw-fh:15%}
 
 /* ============================ ARTIST WORLD CARD ========================== */
 /* The picker is a two-level collection: an artist world, then its eras.

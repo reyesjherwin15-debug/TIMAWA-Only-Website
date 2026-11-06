@@ -61,8 +61,8 @@
         html:not(.t-themed) .loading-overlay.t-splash.active { opacity: 0 !important; pointer-events: none !important; }
         html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
     </style>
-    <link rel="stylesheet" href="theme.css?v=1.17.5" />
-    <script src="theme.js?v=1.41.11"></script>
+    <link rel="stylesheet" href="theme.css?v=1.17.19" />
+    <script src="theme.js?v=1.41.36"></script>
 
     <!-- Firebase is used for exactly one thing on this page: Sign out. The games
          never touch it, so a device that opens this page with no signal still
@@ -472,6 +472,24 @@
         }
         .chip button { appearance: none; border: 0; background: transparent; cursor: pointer; font-size: .95rem; line-height: 1; color: inherit; opacity: .7; padding: 0 2px; }
         .chip button:hover { opacity: 1; }
+        /* Reordering the playing order: each chip carries its position and two
+           arrow buttons, so the sequence can be fixed before the round starts. */
+        .chip { padding: 5px 8px 5px 11px; gap: 6px; }
+        .chip .pos {
+            display: inline-grid; place-items: center; min-width: 18px; height: 18px;
+            border-radius: 7px; font-size: .66rem; font-weight: 900;
+            background: color-mix(in srgb, currentColor 16%, transparent);
+        }
+        .chip .chip-name { line-height: 1.15; }
+        .chip .ord {
+            width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center;
+            font-size: .62rem; opacity: .7; padding: 0;
+            transition: opacity .15s ease, background .15s ease;
+        }
+        .chip .ord:not([disabled]):hover { opacity: 1; background: color-mix(in srgb, currentColor 18%, transparent); }
+        .chip .ord[disabled] { opacity: .2; cursor: default; }
+        .chip .rm { font-size: 1rem; margin-left: 1px; }
+        .order-note { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: .72rem; color: var(--theme-text-dim, #888); }
 
         .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
         @media (max-width: 620px) { .setup-grid { grid-template-columns: 1fr; } }
@@ -517,8 +535,8 @@
             border-top: 1px solid color-mix(in srgb, #ef4444 26%, transparent);
         }
         .secret-card .word .hintline b {
-            display: block; margin-top: 5px; font-size: .95rem; font-weight: 800;
-            letter-spacing: 0; text-transform: none; color: var(--theme-text, #1a1a2e);
+            display: block; margin-top: 6px; font-size: 1.15rem; font-weight: 800;
+            letter-spacing: -.01em; text-transform: none; color: var(--theme-primary, #1089d3);
         }
         .hint-modes { margin-top: 10px; }
         .hint-modes .seg { width: 100%; display: flex; }
@@ -708,6 +726,7 @@
                     <button class="btn" id="addPlayer" type="button">Add</button>
                 </div>
                 <div class="chips" id="playerChips"></div>
+                <p class="order-note">▲ ▼ set the speaking order — it stays the same every round.</p>
 
                 <div class="setup-grid">
                     <div class="stepper">
@@ -727,7 +746,7 @@
                 <div class="toggle-row" style="margin-top:12px">
                     <div>
                         <b>Impostor hint</b>
-                        <small>A clue on the impostor's card</small>
+                        <small>One clue word that points at the answer</small>
                     </div>
                     <label class="sw"><input type="checkbox" id="spyHintToggle" /><i></i></label>
                 </div>
@@ -751,7 +770,7 @@
                             <button class="btn" id="spyWordAdd" type="button">Add</button>
                         </div>
                         <div class="chips" id="spyWordChips"></div>
-                        <p class="hint">They become their own <b>Mine</b> pack, saved on this device.</p>
+                        <p class="hint">They become their own <b>Mine</b> pack, saved on this device. Your own words have no clue, so the hint stays off for them.</p>
                     </div>
                 </div>
 
@@ -1267,27 +1286,123 @@
         const PACKS = {
             squad: {
                 label: 'Squad',
-                words: ['Night out', 'Group chat', 'Karaoke', 'Road trip', 'Beach trip', 'Samgyeopsal', 'Coffee shop',
-                    'Birthday party', 'Movie night', 'Study session', 'Basketball', 'Videoke', 'Camping', 'Wedding',
-                    'Reunion', 'Sleepover', 'Food trip', 'Gym', 'Concert', 'Church']
+                words: [
+                    { w: 'Night out', c: 'midnight' },
+                    { w: 'Group chat', c: 'notifications' },
+                    { w: 'Karaoke', c: 'microphone' },
+                    { w: 'Road trip', c: 'highway' },
+                    { w: 'Beach trip', c: 'sunscreen' },
+                    { w: 'Samgyeopsal', c: 'grill' },
+                    { w: 'Coffee shop', c: 'barista' },
+                    { w: 'Birthday party', c: 'cake' },
+                    { w: 'Movie night', c: 'popcorn' },
+                    { w: 'Study session', c: 'exam' },
+                    { w: 'Basketball', c: 'hoop' },
+                    { w: 'Videoke', c: 'songbook' },
+                    { w: 'Camping', c: 'tent' },
+                    { w: 'Wedding', c: 'vows' },
+                    { w: 'Reunion', c: 'classmates' },
+                    { w: 'Sleepover', c: 'pajamas' },
+                    { w: 'Food trip', c: 'stalls' },
+                    { w: 'Gym', c: 'dumbbells' },
+                    { w: 'Concert', c: 'tickets' },
+                    { w: 'Church', c: 'prayer' },
+                    { w: 'Graduation', c: 'diploma' },
+                    { w: 'Fiesta', c: 'parade' },
+                    { w: 'Blind date', c: 'stranger' },
+                    { w: 'Roadside carwash', c: 'hose' },
+                    { w: 'Overnight shift', c: 'caffeine' }
+                ]
             },
             food: {
                 label: 'Food',
-                words: ['Adobo', 'Sinigang', 'Lechon', 'Pancit', 'Halo-halo', 'Sisig', 'Lumpia', 'Bulalo',
-                    'Kare-kare', 'Tapsilog', 'Bibingka', 'Puto', 'Balut', 'Isaw', 'Fishball', 'Mango float',
-                    'Champorado', 'Embutido', 'Menudo', 'Tinola']
+                words: [
+                    { w: 'Adobo', c: 'garlic' },
+                    { w: 'Sinigang', c: 'sour' },
+                    { w: 'Lechon', c: 'roast' },
+                    { w: 'Pancit', c: 'noodles' },
+                    { w: 'Halo-halo', c: 'ube' },
+                    { w: 'Sisig', c: 'sizzling' },
+                    { w: 'Lumpia', c: 'roll' },
+                    { w: 'Bulalo', c: 'broth' },
+                    { w: 'Kare-kare', c: 'peanut' },
+                    { w: 'Tapsilog', c: 'breakfast' },
+                    { w: 'Bibingka', c: 'christmas' },
+                    { w: 'Puto', c: 'cheese' },
+                    { w: 'Balut', c: 'duck' },
+                    { w: 'Isaw', c: 'skewer' },
+                    { w: 'Fishball', c: 'cart' },
+                    { w: 'Mango float', c: 'graham' },
+                    { w: 'Champorado', c: 'chocolate' },
+                    { w: 'Embutido', c: 'raisins' },
+                    { w: 'Menudo', c: 'tomato' },
+                    { w: 'Tinola', c: 'ginger' },
+                    { w: 'Longganisa', c: 'sausage' },
+                    { w: 'Pandesal', c: 'bakery' },
+                    { w: 'Kwek-kwek', c: 'orange' },
+                    { w: 'Leche flan', c: 'caramel' },
+                    { w: 'Buko pie', c: 'coconut' }
+                ]
             },
             places: {
                 label: 'Places',
-                words: ['Boracay', 'Baguio', 'Siargao', 'Palawan', 'Cebu', 'Vigan', 'Tagaytay', 'Batac',
-                    'Batanes', 'Iloilo', 'Dumaguete', 'Sagada', 'Bohol', 'Camiguin', 'Zambales',
-                    'Subic', 'Manila', 'Quezon City', 'Makati', 'Pangasinan']
+                words: [
+                    { w: 'Boracay', c: 'sand' },
+                    { w: 'Baguio', c: 'pines' },
+                    { w: 'Siargao', c: 'surfing' },
+                    { w: 'Palawan', c: 'river' },
+                    { w: 'Cebu', c: 'guitar' },
+                    { w: 'Vigan', c: 'cobblestone' },
+                    { w: 'Tagaytay', c: 'volcano' },
+                    { w: 'Batac', c: 'empanada' },
+                    { w: 'Batanes', c: 'cliffs' },
+                    { w: 'Iloilo', c: 'churches' },
+                    { w: 'Dumaguete', c: 'university' },
+                    { w: 'Sagada', c: 'coffins' },
+                    { w: 'Bohol', c: 'tarsier' },
+                    { w: 'Camiguin', c: 'hotspring' },
+                    { w: 'Zambales', c: 'coves' },
+                    { w: 'Subic', c: 'bay' },
+                    { w: 'Manila', c: 'capital' },
+                    { w: 'Quezon City', c: 'circle' },
+                    { w: 'Makati', c: 'skyline' },
+                    { w: 'Pangasinan', c: 'bangus' },
+                    { w: 'El Nido', c: 'lagoons' },
+                    { w: 'Banaue', c: 'terraces' },
+                    { w: 'Coron', c: 'shipwreck' },
+                    { w: 'Siquijor', c: 'waterfalls' },
+                    { w: 'Bicol', c: 'mayon' }
+                ]
             },
             random: {
                 label: 'Anything',
-                words: ['Traffic', 'Monday', 'Wi-Fi', 'Password', 'K-drama', 'Meme', 'Gym bro', 'Ghosting',
-                    'Payday', 'Alarm clock', 'Group project', 'Receipt', 'Umbrella', 'Sunscreen', 'Ate',
-                    'Kuya', 'Coach', 'Barangay', 'Tita', 'Wedding video']
+                words: [
+                    { w: 'Traffic', c: 'jam' },
+                    { w: 'Monday', c: 'blues' },
+                    { w: 'Wi-Fi', c: 'router' },
+                    { w: 'Password', c: 'login' },
+                    { w: 'K-drama', c: 'subtitles' },
+                    { w: 'Meme', c: 'template' },
+                    { w: 'Gym bro', c: 'protein' },
+                    { w: 'Ghosting', c: 'silence' },
+                    { w: 'Payday', c: 'splurge' },
+                    { w: 'Alarm clock', c: 'snooze' },
+                    { w: 'Group project', c: 'teammates' },
+                    { w: 'Receipt', c: 'purchase' },
+                    { w: 'Umbrella', c: 'rain' },
+                    { w: 'Sunscreen', c: 'beach' },
+                    { w: 'Ate', c: 'sister' },
+                    { w: 'Kuya', c: 'brother' },
+                    { w: 'Coach', c: 'training' },
+                    { w: 'Barangay', c: 'neighborhood' },
+                    { w: 'Tita', c: 'aunt' },
+                    { w: 'Wedding video', c: 'ceremony' },
+                    { w: 'Deadline', c: 'panic' },
+                    { w: 'Pisonet', c: 'coins' },
+                    { w: 'Jeepney', c: 'fare' },
+                    { w: 'Sari-sari store', c: 'sachets' },
+                    { w: 'Bawal', c: 'forbidden' }
+                ]
             }
         };
 
@@ -1301,7 +1416,9 @@
             .filter((w) => typeof w === 'string' && w.trim())
             .map((w) => w.trim());
         function syncMinePack() {
-            if (customWords.length) PACKS.mine = { label: 'Mine', words: customWords };
+            // The squad's own words have no written clue, so their hint is the
+            // letter information only — never a made-up guess.
+            if (customWords.length) PACKS.mine = { label: 'Mine', words: customWords.map((w) => ({ w: w, c: '' })) };
             else delete PACKS.mine;
         }
         syncMinePack();
@@ -1331,13 +1448,6 @@
             LS.set('timawa.games.spy', spyState);
         }
 
-        /* Word-free clue: the hint works for the built-in packs and for words the
-           squad typed in themselves, so it never needs a network lookup. */
-        function hintFor(word) {
-            const letters = String(word).replace(/[^a-z]/gi, '');
-            return 'Starts with “' + letters.charAt(0).toUpperCase() + '” · ' + letters.length + ' letters';
-        }
-
         function renderSpyHint() {
             $('spyHintToggle').checked = hintOn;
             $('spyHintModes').hidden = !hintOn;
@@ -1346,7 +1456,7 @@
             });
             $('spyHintExplain').textContent = hintMode === 'always'
                 ? 'Every impostor gets the hint, wherever they sit in the round.'
-                : 'The hint only appears when the first player in the round is the impostor.';
+                : 'Only the opening player is offered the hint — an impostor later in the round gets none.';
         }
 
         function renderPlayers() {
@@ -1355,14 +1465,50 @@
             players.forEach((name, i) => {
                 const chip = document.createElement('span');
                 chip.className = 'chip';
-                chip.innerHTML = '<span></span><button type="button" aria-label="Remove"></button>';
-                chip.firstElementChild.textContent = name;
-                chip.lastElementChild.textContent = '×';
-                chip.lastElementChild.addEventListener('click', () => {
+
+                const pos = document.createElement('span');
+                pos.className = 'pos';
+                pos.textContent = i + 1;
+                pos.setAttribute('aria-hidden', 'true');
+
+                const label = document.createElement('span');
+                label.className = 'chip-name';
+                label.textContent = name;
+
+                // Arrows rewrite the array itself, so the new order is what the
+                // round will follow and what the device remembers next visit.
+                const up = document.createElement('button');
+                up.type = 'button';
+                up.className = 'ord';
+                up.textContent = '▲';
+                up.setAttribute('aria-label', 'Move ' + name + ' earlier');
+                if (i === 0) up.disabled = true;
+                up.addEventListener('click', () => movePlayer(i, -1));
+
+                const down = document.createElement('button');
+                down.type = 'button';
+                down.className = 'ord';
+                down.textContent = '▼';
+                down.setAttribute('aria-label', 'Move ' + name + ' later');
+                if (i === players.length - 1) down.disabled = true;
+                down.addEventListener('click', () => movePlayer(i, 1));
+
+                const rm = document.createElement('button');
+                rm.type = 'button';
+                rm.className = 'rm';
+                rm.setAttribute('aria-label', 'Remove ' + name);
+                rm.textContent = '×';
+                rm.addEventListener('click', () => {
                     players.splice(i, 1);
                     saveSpy();
                     renderPlayers();
                 });
+
+                chip.appendChild(pos);
+                chip.appendChild(label);
+                chip.appendChild(up);
+                chip.appendChild(down);
+                chip.appendChild(rm);
                 box.appendChild(chip);
             });
             $('spyCount').textContent = players.length + (players.length === 1 ? ' player' : ' players');
@@ -1373,6 +1519,15 @@
             $('spyHint').textContent = players.length < 3
                 ? 'Add at least 3 players to start.'
                 : impostorCount + ' impostor' + (impostorCount > 1 ? 's' : '') + ' among ' + players.length + ' players.';
+        }
+
+        function movePlayer(index, step) {
+            const to = index + step;
+            if (to < 0 || to >= players.length) return;
+            const name = players.splice(index, 1)[0];
+            players.splice(to, 0, name);
+            saveSpy();
+            renderPlayers();
         }
 
         function addPlayer() {
@@ -1462,13 +1617,14 @@
 
         function startRound() {
             if (players.length < 3) { toast('Add at least 3 players'); return; }
-            const word = pick(PACKS[packKey].words);
+            const entry = pick(PACKS[packKey].words);
+            const word = entry.w;
             // The pass-the-phone order is fixed: it always follows the player
-            // list exactly as it was entered, so every round runs in the same
+            // list exactly as it was arranged, so every round runs in the same
             // pattern. Only who is an impostor is random.
             const order = players.slice();
             const spies = shuffled(players).slice(0, Math.min(impostorCount, players.length - 1));
-            round = { word: word, impostors: spies, order: order };
+            round = { word: word, clue: entry.c || '', impostors: spies, order: order };
             revealIndex = 0;
             wordShown = false;
             $('spySetup').hidden = true;
@@ -1492,8 +1648,10 @@
             // Mode 'first' ties the hint to the opening card, so an impostor who
             // is not the first to look gets none.
             const hintAllowed = hintOn && (hintMode === 'always' || revealIndex === 0);
-            card.dataset.hint = isSpy && hintAllowed ? '1' : '0';
-            card.dataset.hintText = hintFor(round.word);
+            // The hint is a single clue word tied to the answer: nothing about
+            // its letters, nothing about its length.
+            card.dataset.hint = isSpy && hintAllowed && round.clue ? '1' : '0';
+            card.dataset.hintClue = round.clue || '';
 
             const dots = $('spyDots');
             dots.innerHTML = '';
@@ -1516,9 +1674,9 @@
                 if (card.dataset.hint === '1') {
                     const line = document.createElement('span');
                     line.className = 'hintline';
-                    line.textContent = 'Hint';
+                    line.textContent = 'Clue';
                     const clue = document.createElement('b');
-                    clue.textContent = card.dataset.hintText;
+                    clue.textContent = card.dataset.hintClue;
                     line.appendChild(clue);
                     card.firstElementChild.appendChild(line);
                 }
