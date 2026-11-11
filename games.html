@@ -61,8 +61,8 @@
         html:not(.t-themed) .loading-overlay.t-splash.active { opacity: 0 !important; pointer-events: none !important; }
         html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
     </style>
-    <link rel="stylesheet" href="theme.css?v=1.17.19" />
-    <script src="theme.js?v=1.41.36"></script>
+    <link rel="stylesheet" href="theme.css?v=1.17.21" />
+    <script src="theme.js?v=1.41.38"></script>
 
     <!-- Firebase is used for exactly one thing on this page: Sign out. The games
          never touch it, so a device that opens this page with no signal still
@@ -1320,7 +1320,21 @@
                     { w: 'Fiesta', c: 'parade' },
                     { w: 'Blind date', c: 'stranger' },
                     { w: 'Roadside carwash', c: 'hose' },
-                    { w: 'Overnight shift', c: 'caffeine' }
+                    { w: 'Overnight shift', c: 'caffeine' },
+                    { w: 'Palengke', c: 'haggling' },
+                    { w: 'Boodle fight', c: 'banana' },
+                    { w: 'Simbang gabi', c: 'dawn' },
+                    { w: 'Balikbayan', c: 'luggage' },
+                    { w: 'Team building', c: 'icebreaker' },
+                    { w: 'First day at work', c: 'lanyard' },
+                    { w: 'Moving out', c: 'boxes' },
+                    { w: 'Bike ride', c: 'helmet' },
+                    { w: 'Picnic', c: 'blanket' },
+                    { w: 'Hiking', c: 'summit' },
+                    { w: 'Badminton', c: 'shuttlecock' },
+                    { w: 'Fun run', c: 'bib' },
+                    { w: 'Job interview', c: 'resume' },
+                    { w: 'Burol', c: 'vigil' }
                 ]
             },
             food: {
@@ -1350,7 +1364,25 @@
                     { w: 'Pandesal', c: 'bakery' },
                     { w: 'Kwek-kwek', c: 'orange' },
                     { w: 'Leche flan', c: 'caramel' },
-                    { w: 'Buko pie', c: 'coconut' }
+                    { w: 'Buko pie', c: 'coconut' },
+                    { w: 'Bicol express', c: 'spicy' },
+                    { w: 'Laing', c: 'taro' },
+                    { w: 'Pinakbet', c: 'squash' },
+                    { w: 'Bangus', c: 'dagupan' },
+                    { w: 'Arroz caldo', c: 'sickday' },
+                    { w: 'Pancit malabon', c: 'shrimp' },
+                    { w: 'Sorbetes', c: 'dirty' },
+                    { w: 'Taho', c: 'arnibal' },
+                    { w: 'Ensaymada', c: 'butter' },
+                    { w: 'Turon', c: 'saba' },
+                    { w: 'Bistek', c: 'calamansi' },
+                    { w: 'Kinilaw', c: 'vinegar' },
+                    { w: 'Puto bumbong', c: 'bamboo' },
+                    { w: 'Batchoy', c: 'chicharon' },
+                    { w: 'Inasal', c: 'bacolod' },
+                    { w: 'Caldereta', c: 'liver' },
+                    { w: 'Afritada', c: 'pineapple' },
+                    { w: 'Crispy pata', c: 'crackling' }
                 ]
             },
             places: {
@@ -1359,7 +1391,7 @@
                     { w: 'Boracay', c: 'sand' },
                     { w: 'Baguio', c: 'pines' },
                     { w: 'Siargao', c: 'surfing' },
-                    { w: 'Palawan', c: 'river' },
+                    { w: 'Palawan', c: 'underground' },
                     { w: 'Cebu', c: 'guitar' },
                     { w: 'Vigan', c: 'cobblestone' },
                     { w: 'Tagaytay', c: 'volcano' },
@@ -1380,7 +1412,27 @@
                     { w: 'Banaue', c: 'terraces' },
                     { w: 'Coron', c: 'shipwreck' },
                     { w: 'Siquijor', c: 'waterfalls' },
-                    { w: 'Bicol', c: 'mayon' }
+                    { w: 'Bicol', c: 'mayon' },
+                    { w: 'Intramuros', c: 'walls' },
+                    { w: 'Luneta', c: 'monument' },
+                    { w: 'Binondo', c: 'dumplings' },
+                    { w: 'Divisoria', c: 'bargains' },
+                    { w: 'Greenhills', c: 'pearls' },
+                    { w: 'Antipolo', c: 'pilgrimage' },
+                    { w: 'Taal', c: 'crater' },
+                    { w: 'Hundred Islands', c: 'islets' },
+                    { w: 'Laoag', c: 'dunes' },
+                    { w: 'Guimaras', c: 'mango' },
+                    { w: 'Bacolod', c: 'masskara' },
+                    { w: 'Cagayan de Oro', c: 'rafting' },
+                    { w: 'Davao', c: 'durian' },
+                    { w: 'GenSan', c: 'tuna' },
+                    { w: 'Zamboanga', c: 'vinta' },
+                    { w: 'Lake Sebu', c: 'tilapia' },
+                    { w: 'Mount Pulag', c: 'frost' },
+                    { w: 'Mayon', c: 'cone' },
+                    { w: 'Chocolate Hills', c: 'mounds' },
+                    { w: 'Maria Cristina Falls', c: 'hydro' }
                 ]
             },
             random: {
@@ -1410,7 +1462,33 @@
                     { w: 'Pisonet', c: 'coins' },
                     { w: 'Jeepney', c: 'fare' },
                     { w: 'Sari-sari store', c: 'sachets' },
-                    { w: 'Bawal', c: 'forbidden' }
+                    { w: 'Bawal', c: 'signage' },
+                    { w: 'Balikbayan box', c: 'pasalubong' },
+                    { w: 'Extension cord', c: 'octopus' },
+                    { w: 'Brownout', c: 'candle' },
+                    { w: 'Flash flood', c: 'monsoon' },
+                    { w: 'QR code', c: 'scanner' },
+                    { w: 'GCash', c: 'transfer' },
+                    { w: 'Load', c: 'telco' },
+                    { w: 'Motorcycle', c: 'angkas' },
+                    { w: 'MRT', c: 'sardines' },
+                    { w: 'Traffic enforcer', c: 'whistle' },
+                    { w: 'Tupperware', c: 'leftovers' },
+                    { w: 'Stray cat', c: 'alley' },
+                    { w: 'Ice cream cart', c: 'bell' },
+                    { w: 'First day of school', c: 'uniform' },
+                    { w: 'Baon', c: 'lunchbox' },
+                    { w: 'Flag ceremony', c: 'anthem' },
+                    { w: 'Screenshot', c: 'evidence' },
+                    { w: 'Low battery', c: 'charger' },
+                    { w: 'Playlist', c: 'shuffle' },
+                    { w: 'Earphones', c: 'tangled' },
+                    { w: 'Kilig', c: 'butterflies' },
+                    { w: 'Tampo', c: 'silent' },
+                    { w: 'Tsamba', c: 'luck' },
+                    { w: 'Charot', c: 'joke' },
+                    { w: 'Marites', c: 'grapevine' },
+                    { w: 'Sana all', c: 'envy' }
                 ]
             }
         };
@@ -1425,8 +1503,8 @@
             .filter((w) => typeof w === 'string' && w.trim())
             .map((w) => w.trim());
         function syncMinePack() {
-            // The squad's own words have no written clue, so their hint is the
-            // letter information only — never a made-up guess.
+            // The squad's own words have no written clue, so the hint stays
+            // empty instead of inventing one.
             if (customWords.length) PACKS.mine = { label: 'Mine', words: customWords.map((w) => ({ w: w, c: '' })) };
             else delete PACKS.mine;
         }
@@ -1534,9 +1612,16 @@
         }
 
         function movePlayer(index, step) {
-            const to = index + step;
-            if (index < 0 || to < 0 || to >= players.length) return false;
-            const name = players.splice(index, 1)[0];
+            if (index < 0) return false;
+            return reorderPlayer(index, index + step);
+        }
+
+        // Moves whoever is at `from` into the slot held by `to`: the rest of the
+        // list closes up around them, so the dropped chip lands where it was let
+        // go and the order never changes by a silent off-by-one.
+        function reorderPlayer(from, to) {
+            if (from < 0 || to < 0 || from >= players.length || to >= players.length || from === to) return false;
+            const name = players.splice(from, 1)[0];
             players.splice(to, 0, name);
             saveSpy();
             renderPlayers();
@@ -1590,7 +1675,7 @@
             if (!target || target.dataset.name === dragState.name) return;
             // Dropping onto a chip takes that chip's place and pushes the rest
             // along, so the order always reads the way the finger moved it.
-            if (movePlayer(players.indexOf(dragState.name), players.indexOf(target.dataset.name))) {
+            if (reorderPlayer(players.indexOf(dragState.name), players.indexOf(target.dataset.name))) {
                 paintDrag();
                 try { if (navigator.vibrate) navigator.vibrate(4); } catch (err) { /* ignore */ }
             }

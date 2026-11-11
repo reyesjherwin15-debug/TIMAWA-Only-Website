@@ -1737,6 +1737,50 @@ html[data-tw-lite] .tw-world-veil { display: none; }
 html[data-tw-lite] .theme-bg-shapes .tw-prop,
 html[data-tw-perf="eco"] .theme-bg-shapes .tw-prop { filter: none; }
 
+/* the birthday room — the one holiday scene built from the album-room kit */
+[data-timawa-theme="hbirthday"] .theme-bg-shapes {
+    --tw-wall: #f7d9df; --tw-wall2: #efc3cd;
+    --tw-floor: #b08063; --tw-floor2: #815845;
+    --tw-wood: #8f5f45; --tw-wood2: #6b432e;
+    --tw-fabric: #ef95ad; --tw-fabric2: #c96483;
+    --tw-metal: #6d4c47; --tw-leaf: #6f9a6b; --tw-paper: #fff8f1;
+    --tw-glow: rgba(255, 206, 160, .45); --tw-warm: #ffd39a;
+    --tw-rug: #dd93a7;
+    --tw-sky: #1c2544; --tw-sky2: #3c4a75; --tw-sun: #ffe9b0;
+    --tw-hill: #2b3348; --tw-sea: #26324d; --tw-city: #131a2c;
+    --tw-stage: #7a3044; --tw-stage2: #4f2a3c; --tw-stage3: #2c1a26;
+    --tw-ember: #ffd08a; --tw-fh: 20%;
+}
+[data-timawa-theme="hbirthday"][data-timawa-mode="dark"] .theme-bg-shapes {
+    --tw-wall: #3e2330; --tw-wall2: #2d1822;
+    --tw-floor: #7a5541; --tw-floor2: #52392c;
+    --tw-wood: #5c3b2c; --tw-wood2: #412a1f;
+    --tw-fabric: #a35b72; --tw-fabric2: #6e3b4d;
+    --tw-metal: #b6a39b; --tw-leaf: #50745a; --tw-paper: #e8d8c9;
+    --tw-glow: rgba(255, 190, 140, .28); --tw-warm: #ffcf95;
+    --tw-rug: #7e4657;
+    --tw-sky: #141a30; --tw-sky2: #2b3558; --tw-sun: #ffe9b0;
+    --tw-hill: #232a3c; --tw-sea: #1f2a42; --tw-city: #0d1322;
+    --tw-stage: #8a4256; --tw-stage2: #5a3546; --tw-stage3: #332030;
+    --tw-ember: #ffcf95; --tw-fh: 20%;
+}
+
+/* the wide room is a stage seen from the back of the house; on a phone it is
+   just a crop, so a second, hand-composed room takes its place */
+.theme-bg-shapes .tw-room { position: absolute; inset: 0; pointer-events: none; }
+.theme-bg-shapes .tw-room-narrow { display: none; }
+
+@media (max-width: 720px), (max-height: 520px) and (max-width: 900px) {
+    .theme-bg-shapes .tw-room-wide { display: none; }
+    .theme-bg-shapes .tw-room-narrow { display: block; }
+    .theme-bg-shapes .tw-room-narrow .tw-marquee {
+        font-size: 8px;
+        letter-spacing: .1em;
+        padding: .3em .55em;
+    }
+    .theme-bg-shapes .tw-room-narrow .tw-curtain { animation: none; }
+}
+
 /* a little less furniture on phones, but the room stays */
 @media (max-width: 640px) {
     .theme-bg-shapes .opt { display: none; }
