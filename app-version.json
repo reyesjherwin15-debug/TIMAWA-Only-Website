@@ -1,8 +1,8 @@
 {
   "_readme": "The build that is live. pwa.js compares this with the build a device last applied; they differ only when a release needs the member to update, so nothing is shown otherwise. Bump 'version' with every release that changes the icon, the launch screen or the app shell. requiresReinstall:true means the installed icon/manifest changed (phones only re-read it on an app update). announceOnFirstRun:true also prompts devices that have never stored a version — use it when members who installed before this feature existed still need the change.",
-  "version": "1.10.23",
+  "version": "1.10.25",
   "requiresReinstall": false,
   "announceOnFirstRun": true,
-  "title": "The album places, actually visible",
-  "message": "The reading veil was hiding the scenery, so it is thinner now and every place is drawn stronger: 1989 shows the city skyline across the water, the beach and the pier; album places also show on phones instead of a room with a window. Tap Update now to load it."
+  "title": "37 albums, 37 places",
+  "message": "Every album theme now has its own place instead of sharing one: the open road for Fearless, an autumn orchard for Red, a ballroom for Speak Now, a daisy meadow for Lover, a lake for evermore, a drive-in for GUTS (spilled), a record shop for Yours Truly, a hotel pool for My Everything, a sunrise beach for eternal sunshine, a motel for Kid Krow, a chapel for Found Heaven, a rainy street for Tanong, a bus stop for Saan?, a sunflower field for Dilaw, a street fiesta for KOLORCOASTER, a club for LANY, a night beach for Malibu Nights, a backyard for mama's boy, a neon street for gg bb xx and a car at night for a beautiful blur. Tap Update now to load it."
 }
