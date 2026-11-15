@@ -2,7 +2,7 @@
    freedom-wall.js — the bulletin board on index.html.
 
    • anyone (visitor or member) can pin a note: 100 characters and an
-     optional photo, taken from the gallery or with the quick-snap camera
+     optional photo, from the gallery
    • every note carries expiresAt = now + 14 days; the page hides expired
      notes at once and tools/cloudinary_cleanup.py removes the document and
      its Cloudinary file on its next run
@@ -40,7 +40,6 @@
     var postBtn = document.getElementById('fwPost');
     var msgEl = document.getElementById('fwMsg');
     var fileInput = document.getElementById('fwFile');
-    var shotBtn = document.getElementById('fwShot');
     var pickBtn = document.getElementById('fwPick');
     var preview = document.getElementById('fwPreview');
     var previewImg = document.getElementById('fwPreviewImg');
@@ -49,13 +48,6 @@
     var viewBody = document.getElementById('fwViewBody');
     var viewImg = document.getElementById('fwViewImg');
     var viewMeta = document.getElementById('fwViewMeta');
-    var snap = document.getElementById('fwSnap');
-    var snapVideo = document.getElementById('fwSnapVideo');
-    var snapShutter = document.getElementById('fwShutter');
-    var snapClose = document.getElementById('fwSnapClose');
-    var snapFlip = document.getElementById('fwSnapFlip');
-    var snapMsg = document.getElementById('fwSnapMsg');
-    var snapStage = document.getElementById('fwSnapStage');
 
     var db = null;
     try { db = firebase.app().firestore(); } catch (e) { db = null; }
@@ -67,8 +59,6 @@
     var loadError = false;          // id of the note just posted (for the pin-drop animation)
     var pendingImage = null;     // File waiting to be uploaded
     var busy = false;
-    var snapStream = null;
-    var snapFacing = 'user';
     var lastFocus = null;
 
     /* ── helpers ─────────────────────────────────────────────────── */
@@ -135,7 +125,7 @@
 
     function closeSheet(el) {
         el.hidden = true;
-        if (modal.hidden && viewModal.hidden && snap.hidden) lockScroll(false);
+        if (modal.hidden && viewModal.hidden) lockScroll(false);
         if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) { /* ignore */ } }
     }
 
@@ -449,95 +439,13 @@
         });
     }
 
-    /* ── quick snap ──────────────────────────────────────────────── */
-
-    function snapSupported() {
-        return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-    }
-
-    function openSnap() {
-        if (!snapSupported()) {
-            toast('This browser cannot open the camera — use Gallery.');
-            return;
-        }
-        snap.hidden = false;
-        lockScroll(true);
-        snapMsg.textContent = '';
-        startCamera();
-    }
-
-    function startCamera() {
-        stopCamera();
-        var wanted = {
-            audio: false,
-            video: { facingMode: snapFacing, width: { ideal: 1280 }, height: { ideal: 960 } }
-        };
-        navigator.mediaDevices.getUserMedia(wanted).then(function (stream) {
-            snapStream = stream;
-            snapStage.dataset.facing = snapFacing;
-            snapVideo.srcObject = stream;
-            var p = snapVideo.play();
-            if (p && p.catch) p.catch(function () { /* autoplay guard */ });
-        }).catch(function (err) {
-            console.warn('[freedom wall] camera', err);
-            snapMsg.textContent = 'No camera access. You can still pick a photo from the gallery.';
-        });
-    }
-
-    function stopCamera() {
-        if (snapStream) {
-            snapStream.getTracks().forEach(function (t) { t.stop(); });
-            snapStream = null;
-        }
-        snapVideo.srcObject = null;
-    }
-
-    function closeSnap() {
-        stopCamera();
-        snap.hidden = true;
-        if (modal.hidden && viewModal.hidden) lockScroll(false);
-    }
-
-    function takeShot() {
-        if (!snapStream || !snapVideo.videoWidth) {
-            snapMsg.textContent = 'Hold on — the camera is still waking up.';
-            return;
-        }
-        var w = snapVideo.videoWidth;
-        var h = snapVideo.videoHeight;
-        var scale = Math.min(1, 1600 / Math.max(w, h));
-        var c = document.createElement('canvas');
-        c.width = Math.round(w * scale);
-        c.height = Math.round(h * scale);
-        var ctx = c.getContext('2d');
-        if (snapFacing === 'user') { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
-        ctx.drawImage(snapVideo, 0, 0, c.width, c.height);
-        c.toBlob(function (b) {
-            if (!b) { snapMsg.textContent = 'That snap did not save — try again.'; return; }
-            var file = new File([b], 'snap.jpg', { type: 'image/jpeg' });
-            closeSnap();
-            setImage(file);
-        }, 'image/jpeg', 0.86);
-    }
-
     /* ── wiring ──────────────────────────────────────────────────── */
 
     if (area) area.addEventListener('input', updateCounter);
     if (form) form.addEventListener('submit', submit);
     if (fileInput) fileInput.addEventListener('change', function () { setImage(fileInput.files && fileInput.files[0]); });
     if (pickBtn) pickBtn.addEventListener('click', function () { fileInput.click(); });
-    if (shotBtn) {
-        if (snapSupported()) shotBtn.addEventListener('click', openSnap);
-        else shotBtn.hidden = true;
-    }
     if (previewX) previewX.addEventListener('click', clearImage);
-    if (snapShutter) snapShutter.addEventListener('click', takeShot);
-    if (snapClose) snapClose.addEventListener('click', closeSnap);
-    if (snapFlip) snapFlip.addEventListener('click', function () {
-        snapFacing = snapFacing === 'user' ? 'environment' : 'user';
-        startCamera();
-    });
-    if (snap) snap.addEventListener('click', function (ev) { if (ev.target === snap) closeSnap(); });
 
     [modal, viewModal].forEach(function (m) {
         if (!m) return;
@@ -551,7 +459,6 @@
 
     document.addEventListener('keydown', function (ev) {
         if (ev.key !== 'Escape') return;
-        if (!snap.hidden) { closeSnap(); return; }
         if (!modal.hidden) { closeComposer(); return; }
         if (!viewModal.hidden) closeSheet(viewModal);
     });

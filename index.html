@@ -88,7 +88,7 @@
         html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
     </style>
     <link rel="stylesheet" href="theme.css?v=1.17.30" />
-    <link rel="stylesheet" href="freedom-wall.css?v=1.1.0" />
+    <link rel="stylesheet" href="freedom-wall.css?v=1.2.0" />
     <link rel="stylesheet" href="stories.css?v=1.13.0" />
     <script src="theme.js?v=1.41.54"></script>
 
@@ -2807,7 +2807,7 @@
 
     <!-- Freedom Wall: a cork board between the hero and the squad highlights.
          Visitors and members can pin a 100-character note, with an optional photo
-         (gallery or quick snap). Every note is kept for 14 days. -->
+         (from the gallery). Every note is kept for 14 days. -->
     <section class="fw-section" id="freedom-wall" aria-labelledby="fwTitle">
         <div class="section-header fw-head">
             <h2 id="fwTitle">📌 Freedom <span class="highlight">Wall</span>
@@ -9020,7 +9020,7 @@ function startHighlightReply(commentId, authorName) {
     <script src="push-config.js"></script>
     <script src="presence.js?v=1.0.0" defer></script>
     <script src="pwa.js?v=1.5.14" defer></script>
-    <!-- ═══ Freedom Wall: composer, note view, quick snap ═══ -->
+    <!-- ═══ Freedom Wall: composer, note view ═══ -->
     <div class="fw-modal" id="fwModal" hidden>
         <div class="fw-sheet fw-sheet-compose" role="dialog" aria-modal="true" aria-labelledby="fwComposeTitle">
             <button class="fw-x" type="button" data-fw-close aria-label="Close">✕</button>
@@ -9038,8 +9038,7 @@ function startHighlightReply(commentId, authorName) {
                     <div class="fw-counter" id="fwCounter"></div>
                 </div>
                 <div class="fw-tools">
-                    <button class="fw-tool" type="button" id="fwShot"><i class="fas fa-camera" aria-hidden="true"></i> Quick snap</button>
-                    <button class="fw-tool" type="button" id="fwPick"><i class="fas fa-image" aria-hidden="true"></i> Gallery</button>
+                    <button class="fw-tool" type="button" id="fwPick"><i class="fas fa-image" aria-hidden="true"></i> Add a photo</button>
                     <input type="file" id="fwFile" accept="image/*" hidden />
                 </div>
                 <div class="fw-preview" id="fwPreview">
@@ -9065,20 +9064,6 @@ function startHighlightReply(commentId, authorName) {
         </div>
     </div>
 
-    <div class="fw-modal" id="fwSnap" hidden>
-        <div class="fw-snap-sheet" role="dialog" aria-modal="true" aria-label="Quick snap">
-            <div class="fw-snap-stage" id="fwSnapStage" data-facing="user">
-                <video id="fwSnapVideo" playsinline muted autoplay></video>
-            </div>
-            <p class="fw-snap-msg" id="fwSnapMsg" role="status"></p>
-            <div class="fw-snap-bar">
-                <button class="fw-snap-btn" type="button" id="fwSnapFlip">Flip</button>
-                <button class="fw-shutter" type="button" id="fwShutter" aria-label="Take the photo"></button>
-                <button class="fw-snap-btn" type="button" id="fwSnapClose">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="freedom-wall.js?v=1.1.0"></script>
+    <script src="freedom-wall.js?v=1.2.0"></script>
 </body>
 </html>
