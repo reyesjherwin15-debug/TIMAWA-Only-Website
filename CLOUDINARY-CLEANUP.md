@@ -39,6 +39,7 @@ deleted highlight stayed in the account forever.
 | Admin replaces/clears a member's photo | `admin.html` | `source: 'profile'` |
 | Admin replaces their own photo | `admin_profile.html` | `source: 'profile'` |
 | Delete a member (admin) | `admin.html` | `source: 'profile'` |
+| Remove your own freedom-wall note | `freedom-wall.js` | `source: 'freedom'` |
 
 Each entry is one document in `mediaCleanupQueue`:
 
@@ -86,9 +87,13 @@ counted that file as still in use and kept it — so an expired story could hold
 its photo forever, invisible to everyone.
 
 Every run now starts by deleting documents whose `expiresAt` has passed in
-`stories`, `highlights` and `announcements` (plus a story's `reactions` and
-`views` subcollections), and then deleting the media those documents were
-holding. A file is still kept if anything else references it, so a story quoted
+`stories`, `highlights`, `announcements` and `freedomNotes` (plus a story's
+`reactions` and `views` subcollections), and then deleting the media those
+documents were holding.
+
+`freedomNotes` is the freedom wall on `index.html`: a note lives 14 days, the
+board stops showing it the moment `expiresAt` passes, and this step removes the
+document and its optional photo. Nothing has to stay open for that to happen. A file is still kept if anything else references it, so a story quoted
 in a chat never loses its media. Turn the step off with `--no-purge-expired`.
 
 ### Why the daily sweep matters
@@ -106,7 +111,7 @@ else stays in the account until something sweeps it:
 The sweep lists everything under `t-imawa/`, subtracts every id any document
 still references (`highlights`, `stories`, `notes`, `announcements`, `events`,
 `users`, `publicProfiles`, `coffeeShops`, `favoritePlaces`, `thingsToDo`,
-`chatMessages`), and deletes what is left **only if** it is older than
+`chatMessages`, `freedomNotes`), and deletes what is left **only if** it is older than
 `min_age_hours` (24 by default, so an in-flight upload is never touched). If any
 of those collections cannot be read it refuses to delete anything at all — an
 incomplete picture would look exactly like a pile of orphans.

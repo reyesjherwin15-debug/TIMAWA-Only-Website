@@ -1,0 +1,749 @@
+/* ================================================================
+   freedom-wall.css — the bulletin board between the hero and the
+   highlights on index.html.
+
+   Everything is drawn with gradients and box-shadows: no images.
+   Only transform / opacity are animated, the idle sway is paused when
+   the tab is hidden and switched off for reduced-motion.
+   ================================================================ */
+
+.fw-section {
+    position: relative;
+    z-index: 2;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 58px 20px 6px;
+}
+
+.fw-head { margin-bottom: 20px; }
+
+.fw-head h2 { margin-bottom: 6px; }
+
+.fw-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    vertical-align: middle;
+    color: var(--theme-primary);
+    background: color-mix(in srgb, var(--theme-primary) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--theme-primary) 26%, transparent);
+}
+
+/* ── the board ───────────────────────────────────────────────────── */
+
+.fw-board {
+    position: relative;
+    padding: 30px 26px 30px;
+    border-radius: 12px;
+    min-height: 320px;
+    margin-bottom: 26px;
+    background:
+        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .032) 0 1px, transparent 1.7px) 0 0 / 9px 9px,
+        radial-gradient(58% 46% at 20% 14%, rgba(255, 255, 255, .06), transparent 72%),
+        radial-gradient(50% 44% at 78% 76%, rgba(255, 255, 255, .045), transparent 74%),
+        radial-gradient(120% 95% at 50% -12%, rgba(104, 187, 140, .2), transparent 62%),
+        linear-gradient(158deg, #1e5a39, #10331f);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, .05),
+        inset 0 12px 26px rgba(0, 0, 0, .26),
+        inset 0 -30px 44px rgba(0, 0, 0, .2),
+        0 18px 40px rgba(18, 10, 4, .28);
+}
+
+/* the wooden frame */
+.fw-board::before {
+    content: "";
+    position: absolute;
+    inset: -15px;
+    z-index: -1;
+    border-radius: 21px;
+    background:
+        repeating-linear-gradient(96deg,
+            rgba(255, 226, 186, .06) 0 13px,
+            rgba(30, 14, 4, .1) 13px 27px),
+        linear-gradient(180deg, #7d4f2b, #54321a);
+    box-shadow: 0 18px 38px rgba(18, 10, 4, .3);
+}
+
+/* the wooden chalk ledge, with chalk and an eraser resting on it */
+.fw-tray {
+    position: absolute;
+    left: -18px;
+    right: -18px;
+    bottom: -17px;
+    height: 19px;
+    border-radius: 4px 4px 10px 10px;
+    background: linear-gradient(180deg, #7d4f2b, #4f2e16);
+    box-shadow:
+        0 10px 18px rgba(16, 9, 3, .32),
+        inset 0 -2px 0 rgba(0, 0, 0, .28);
+    pointer-events: none;
+}
+
+.fw-chalk {
+    position: absolute;
+    bottom: 100%;
+    height: 7px;
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .35);
+}
+
+.fw-chalk-1 { left: 26px; width: 36px; background: linear-gradient(180deg, #fbf8ee, #e4dcc7); }
+.fw-chalk-2 { left: 72px; width: 30px; background: linear-gradient(180deg, #f7b4ca, #e58ca7); }
+.fw-chalk-3 { left: 112px; width: 38px; background: linear-gradient(180deg, #b2d8f5, #8dbfe6); }
+
+.fw-eraser {
+    position: absolute;
+    right: 26px;
+    bottom: 100%;
+    width: 78px;
+    height: 16px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #8a5a33 0 55%, #39291c 55% 100%);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .35);
+}
+
+.fw-notes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+    gap: 20px 18px;
+    align-items: start;
+    min-height: 240px;
+}
+
+/* ── a sticky note ───────────────────────────────────────────────── */
+
+.fw-note {
+    --rot: -2deg;
+    --sway: 9s;
+    --delay: 0s;
+    --n1: #fdf3b0; --n2: #ffe1e8; --n3: #d8f2e2;
+    --n4: #dfe7ff; --n5: #f2e2ff; --n6: #ffe6cd;
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    padding: 22px 12px 10px;
+    text-align: left;
+    border: 0;
+    border-radius: 3px 3px 4px 2px;
+    cursor: pointer;
+    color: #3a2d26;
+    background: var(--n1);
+    transform: rotate(var(--rot));
+    box-shadow:
+        0 8px 16px rgba(52, 30, 8, .22),
+        inset 0 -14px 18px rgba(120, 90, 40, .07);
+    transform-origin: 50% -6px;
+    animation: fwSway var(--sway) ease-in-out var(--delay) infinite;
+    transition: transform .22s ease, box-shadow .22s ease;
+    overflow: hidden;
+}
+
+.fw-note[data-c="2"] { background: var(--n2); }
+.fw-note[data-c="3"] { background: var(--n3); }
+.fw-note[data-c="4"] { background: var(--n4); }
+.fw-note[data-c="5"] { background: var(--n5); }
+.fw-note[data-c="6"] { background: var(--n6); }
+
+/* a faint ruled line, like a torn sheet */
+.fw-note::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 26px;
+    height: 1px;
+    background: rgba(90, 70, 40, .12);
+}
+
+.fw-note:hover,
+.fw-note:focus-visible {
+    transform: rotate(0deg) translateY(-6px) scale(1.035);
+    box-shadow: 0 16px 26px rgba(52, 30, 8, .3);
+    animation-play-state: paused;
+    outline: none;
+    z-index: 3;
+}
+
+.fw-note:focus-visible { box-shadow: 0 0 0 3px var(--theme-primary), 0 16px 26px rgba(52, 30, 8, .3); }
+
+/* the pin */
+.fw-pin {
+    position: absolute;
+    left: 50%;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff8ea, #e0604f 46%, #94271d 100%);
+    box-shadow: 0 2px 4px rgba(40, 20, 6, .45), 0 0 0 3px rgba(255, 255, 255, .18);
+}
+
+.fw-note[data-c="3"] .fw-pin { background: radial-gradient(circle at 35% 30%, #fff8ea, #4f9adf 46%, #1d5594 100%); }
+.fw-note[data-c="4"] .fw-pin { background: radial-gradient(circle at 35% 30%, #fff8ea, #6fbf8a 46%, #2a7a4b 100%); }
+.fw-note[data-c="5"] .fw-pin { background: radial-gradient(circle at 35% 30%, #fff8ea, #b487dd 46%, #6a3f95 100%); }
+.fw-note[data-c="6"] .fw-pin { background: radial-gradient(circle at 35% 30%, #fff8ea, #e0a04f 46%, #94661d 100%); }
+
+.fw-who {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    margin-bottom: 7px;
+}
+
+.fw-ava {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(70, 50, 30, .16);
+    display: grid;
+    place-items: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: #5a4230;
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .7);
+}
+
+.fw-name {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: #6b4a2f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fw-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.34;
+    font-weight: 600;
+    color: #3a2d26;
+    overflow-wrap: anywhere;
+    max-height: 66px;
+}
+
+.fw-thumb {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 8px;
+    height: 30%;
+    border-radius: 3px;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 1px 4px rgba(40, 24, 8, .25);
+    border: 2px solid rgba(255, 255, 255, .8);
+}
+
+.fw-note.has-img .fw-text { max-height: 44px; -webkit-line-clamp: 3; }
+
+.fw-ago {
+    position: absolute;
+    right: 8px;
+    bottom: 2px;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: rgba(75, 55, 35, .55);
+}
+
+.fw-note.has-img .fw-ago { display: none; }
+
+/* ── the add tile ────────────────────────────────────────────────── */
+
+.fw-add {
+    position: relative;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 8px;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border: 2px dashed rgba(236, 248, 238, .42);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, .05);
+    color: #e9f7ec;
+    font-weight: 800;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.fw-add:hover,
+.fw-add:focus-visible {
+    background: rgba(255, 255, 255, .13);
+    border-color: rgba(255, 255, 255, .8);
+    transform: translateY(-3px);
+    outline: none;
+}
+
+.fw-add-plus {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    font-size: 22px;
+    line-height: 1;
+    color: #17492d;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .94), rgba(226, 243, 231, .78));
+    box-shadow: 0 2px 6px rgba(6, 20, 12, .3);
+}
+
+.fw-empty[hidden] { display: none; }
+
+/* only a lone add tile on a fresh wall: keep it in the middle */
+.fw-notes.is-solo {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 186px;
+}
+
+.fw-notes.is-solo .fw-add { width: 150px; }
+
+.fw-empty {
+    display: grid;
+    place-items: center;
+    gap: 6px;
+    padding: 16px 12px 6px;
+    text-align: center;
+    color: #dcefe1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.fw-foot {
+    margin: 26px 0 0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--theme-text-muted, #6c5c4c);
+}
+
+/* ── modal shell ─────────────────────────────────────────────────── */
+
+.fw-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9600;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(18, 12, 8, .55);
+    backdrop-filter: none;
+    animation: fwFade .18s ease both;
+}
+
+.fw-modal[hidden] { display: none; }
+
+.fw-sheet {
+    position: relative;
+    box-sizing: border-box;
+    width: min(440px, 100%);
+    max-height: min(86vh, 760px);
+    overflow: auto;
+    border-radius: 16px;
+    padding: 20px 18px 18px;
+    background: var(--theme-card, #fffdf9);
+    color: var(--theme-text, #2a2018);
+    box-shadow: 0 26px 60px rgba(10, 6, 2, .4);
+    animation: fwPeel .32s cubic-bezier(.2, .9, .3, 1.2) both;
+}
+
+.fw-sheet h3 {
+    margin: 0 0 2px;
+    font-size: 17px;
+}
+
+.fw-sheet .fw-hint {
+    margin: 0 0 14px;
+    font-size: 12px;
+    color: var(--theme-text-muted);
+}
+
+.fw-x {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--theme-text-muted);
+    background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+    font-size: 16px;
+    line-height: 1;
+}
+
+.fw-x:hover { color: var(--theme-text); background: color-mix(in srgb, var(--theme-text) 14%, transparent); }
+
+/* ── the composer note ───────────────────────────────────────────── */
+
+.fw-sheet-compose {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0)),
+        var(--n1, #fdf3b0);
+    color: #3a2d26;
+}
+
+.fw-sheet-compose .fw-hint { color: rgba(70, 50, 28, .7); }
+
+.fw-sheet-compose .fw-x { color: #6b4a2f; background: rgba(70, 50, 30, .1); }
+
+.fw-field { margin-bottom: 10px; }
+
+.fw-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #6b4a2f;
+}
+
+.fw-input,
+.fw-area {
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
+    border: 1px solid rgba(90, 64, 30, .28);
+    border-radius: 9px;
+    padding: 10px 11px;
+    font: inherit;
+    font-size: 14px;
+    color: #33261f;
+    background: rgba(255, 255, 255, .72);
+    outline: none;
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.fw-area {
+    min-height: 96px;
+    resize: vertical;
+    line-height: 1.4;
+}
+
+.fw-input:focus,
+.fw-area:focus {
+    border-color: rgba(90, 64, 30, .6);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .55);
+}
+
+.fw-counter {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(70, 50, 28, .62);
+}
+
+.fw-counter b { color: #4a3520; }
+
+.fw-counter.is-near b { color: #a33a2a; }
+
+.fw-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 12px;
+}
+
+.fw-tool {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(90, 64, 30, .26);
+    background: rgba(255, 255, 255, .55);
+    color: #4a3520;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background .16s ease, transform .16s ease;
+}
+
+.fw-tool:hover { background: rgba(255, 255, 255, .85); transform: translateY(-1px); }
+.fw-tool[disabled] { opacity: .5; cursor: default; transform: none; }
+
+.fw-preview {
+    position: relative;
+    display: none;
+    margin: 0 0 12px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(60, 40, 16, .1);
+}
+
+.fw-preview.is-on { display: block; }
+
+.fw-preview img {
+    display: block;
+    width: 100%;
+    max-height: 190px;
+    object-fit: cover;
+}
+
+.fw-preview-x {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #fff;
+    background: rgba(20, 12, 6, .6);
+    font-size: 14px;
+    line-height: 1;
+}
+
+.fw-actions {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.fw-btn {
+    border: 0;
+    border-radius: 10px;
+    padding: 11px 16px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform .14s ease, box-shadow .16s ease, opacity .16s ease;
+}
+
+.fw-btn:active { transform: translateY(1px); }
+.fw-btn[disabled] { opacity: .55; cursor: default; }
+
+.fw-btn-primary {
+    color: #fff;
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--theme-primary, #b4447a) 86%, #fff),
+        var(--theme-primary, #b4447a));
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-primary, #b4447a) 40%, transparent);
+}
+
+.fw-btn-primary[disabled] { opacity: .5; }
+
+.fw-btn-ghost {
+    color: #4a3520;
+    background: rgba(255, 255, 255, .55);
+    border: 1px solid rgba(90, 64, 30, .24);
+}
+
+.fw-note-msg {
+    margin: 8px 0 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: #a33a2a;
+    display: none;
+}
+
+.fw-note-msg.is-on { display: block; }
+
+/* ── the view sheet ──────────────────────────────────────────────── */
+
+.fw-view-body {
+    margin: 12px 0 0;
+    font-size: 15px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.fw-view-img {
+    display: block;
+    width: 100%;
+    margin: 12px 0 0;
+    border-radius: 12px;
+    max-height: 60vh;
+    object-fit: contain;
+    background: rgba(0, 0, 0, .18);
+}
+
+.fw-view-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--theme-border-soft, rgba(20,14,8,.12));
+    font-size: 12px;
+    color: var(--theme-text-muted);
+}
+
+.fw-view-meta .fw-ava { width: 26px; height: 26px; font-size: 11px; }
+
+.fw-view-meta b { color: var(--theme-text, #2a2018); font-size: 13px; }
+
+.fw-view-del {
+    margin-left: auto;
+    border: 1px solid color-mix(in srgb, var(--theme-danger, #b23a2a) 40%, transparent);
+    border-radius: 9px;
+    padding: 7px 11px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--theme-danger, #b23a2a);
+    background: color-mix(in srgb, var(--theme-danger, #b23a2a) 8%, transparent);
+    cursor: pointer;
+}
+
+/* ── quick snap ──────────────────────────────────────────────────── */
+
+.fw-snap-sheet {
+    width: min(520px, 100%);
+    padding: 16px;
+    background: #14100e;
+    color: #f6efe6;
+    border-radius: 18px;
+}
+
+.fw-snap-stage {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 4 / 3;
+}
+
+.fw-snap-stage video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+}
+
+.fw-snap-stage[data-facing="environment"] video { transform: none; }
+
+.fw-snap-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.fw-shutter {
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, .85);
+    background: radial-gradient(circle at 50% 50%, #fff 0 62%, rgba(255, 255, 255, .25) 63%);
+    cursor: pointer;
+    transition: transform .12s ease;
+}
+
+.fw-shutter:active { transform: scale(.94); }
+
+.fw-snap-btn {
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    color: #f6efe6;
+    background: rgba(255, 255, 255, .14);
+    cursor: pointer;
+}
+
+.fw-snap-msg {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: #f2c9b8;
+    text-align: center;
+}
+
+/* ── motion ──────────────────────────────────────────────────────── */
+
+@keyframes fwSway {
+    0%, 100% { transform: rotate(var(--rot)) translateY(0); }
+    50% { transform: rotate(calc(var(--rot) + 0.9deg)) translateY(-2px); }
+}
+
+@keyframes fwPin {
+    0% { transform: translateY(-26px) scale(1.22) rotate(calc(var(--rot) + 6deg)); opacity: 0; }
+    58% { transform: translateY(3px) scale(.98) rotate(calc(var(--rot) - 1.2deg)); opacity: 1; }
+    100% { transform: translateY(0) scale(1) rotate(var(--rot)); opacity: 1; }
+}
+
+@keyframes fwPeel {
+    0% { transform: translateY(26px) rotate(-1.4deg) scale(.94); opacity: 0; }
+    100% { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
+}
+
+@keyframes fwFade { from { opacity: 0; } to { opacity: 1; } }
+
+.fw-note.is-new { animation: fwPin .72s cubic-bezier(.22, .9, .3, 1.3) both; }
+
+/* the whole board is paused while the tab is hidden (set by the script) */
+body.fw-paused .fw-note { animation-play-state: paused; }
+
+@media (max-width: 640px) {
+    .fw-section { padding: 40px 14px 4px; }
+    .fw-board { padding: 18px 14px 16px; border-radius: 16px; }
+    .fw-board::before { inset: -9px; border-radius: 20px; }
+    .fw-notes { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 16px 12px; }
+    .fw-note { padding: 20px 9px 8px; }
+    .fw-text { font-size: 11.5px; -webkit-line-clamp: 3; max-height: 48px; }
+    .fw-sheet { padding: 18px 14px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fw-note { animation: none; }
+    .fw-note.is-new,
+    .fw-sheet,
+    .fw-modal { animation: none; }
+    .fw-note,
+    .fw-add,
+    .fw-tool,
+    .fw-btn { transition: none; }
+}
+
+/* dark mode: the cork and the notes settle down a little */
+html[data-timawa-mode="dark"] .fw-board {
+    background:
+        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .026) 0 1px, transparent 1.7px) 0 0 / 9px 9px,
+        radial-gradient(56% 44% at 22% 16%, rgba(255, 255, 255, .04), transparent 72%),
+        radial-gradient(120% 95% at 50% -12%, rgba(76, 150, 110, .15), transparent 62%),
+        linear-gradient(158deg, #1a4d31, #0d2718);
+}
+
+@media (max-width: 560px) {
+    .fw-board { padding: 26px 20px 26px; margin-bottom: 20px; }
+    .fw-tray { left: -13px; right: -13px; bottom: -14px; height: 16px; }
+    .fw-chalk { height: 6px; }
+    .fw-chalk-1 { left: 16px; width: 30px; }
+    .fw-chalk-2 { left: 54px; width: 26px; }
+    .fw-chalk-3 { left: 88px; width: 30px; }
+    .fw-eraser { right: 14px; width: 62px; height: 14px; }
+}
+
+html[data-timawa-mode="dark"] .fw-note {
+    --n1: #e8d98f; --n2: #eec9d2; --n3: #c4e2cf;
+    --n4: #cbd6f2; --n5: #ddc9ef; --n6: #efd2b3;
+}

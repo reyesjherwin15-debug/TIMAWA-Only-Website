@@ -8,7 +8,7 @@
    Bump CACHE_VERSION whenever the shell files change.
    ========================================================================== */
 
-const CACHE_VERSION = 'v1.5.78';
+const CACHE_VERSION = 'v1.5.81';
 const SHELL_CACHE = `timawa-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `timawa-runtime-${CACHE_VERSION}`;
 const MAX_RUNTIME_ENTRIES = 60;
@@ -36,6 +36,8 @@ const SHELL_ASSETS = [
     './theme.js',
     './mobile-nav.css',
     './mobile-nav.js',
+    './freedom-wall.css',
+    './freedom-wall.js',
     './icons/icon-192.png',
     './icons/icon-512.png',
     './icons/badge-72.png',
