@@ -5604,89 +5604,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* ── quick snap: sits above Tita Tima, never on top of it ── */
-        .snap-fab {
-            position: fixed;
-            right: 24px;
-            bottom: calc(24px + env(safe-area-inset-bottom, 0px) + 62px + 14px);
-            width: 54px;
-            height: 54px;
-            border-radius: 50%;
-            border: none;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #fff;
-            font-size: 20px;
-            z-index: 2500;
-            background:
-                linear-gradient(158deg, rgba(255, 255, 255, .3) 0%, rgba(255, 255, 255, 0) 46%),
-                var(--theme-gradient);
-            box-shadow:
-                inset 0 1px 0 rgba(255, 255, 255, .5),
-                0 10px 24px -8px color-mix(in srgb, var(--theme-primary) 62%, transparent);
-            -webkit-tap-highlight-color: transparent;
-            transition: transform .22s cubic-bezier(.34, 1.4, .64, 1), box-shadow .22s ease;
-        }
-        .snap-fab.visible { display: flex; }
-        .snap-fab:hover { transform: scale(1.08); }
-        body.modal-open .snap-fab,
-        body.mnav-open .snap-fab,
-        body.chat-fullscreen-active .snap-fab,
-        body.kb-open .snap-fab,
-        body.snap-open .snap-fab { display: none !important; }
-
-        @media (max-width: 640px) {
-            .snap-fab { right: 14px; bottom: calc(18px + env(safe-area-inset-bottom, 0px) + 54px + 12px); width: 48px; height: 48px; font-size: 18px; }
-        }
-        @media (max-width: 480px) {
-            .snap-fab { right: 12px; bottom: calc(16px + env(safe-area-inset-bottom, 0px) + 50px + 10px); width: 46px; height: 46px; font-size: 17px; }
-        }
-
-        .snap-sheet {
-            position: fixed;
-            inset: 0;
-            z-index: 9600;
-            display: grid;
-            place-items: center;
-            padding: 16px;
-            background: rgba(8, 6, 10, .82);
-            backdrop-filter: blur(6px);
-        }
-        .snap-sheet[hidden] { display: none; }
-        .snap-card {
-            width: min(460px, 100%);
-            padding: 14px;
-            border-radius: 18px;
-            background: #141018;
-            color: #f7f1e8;
-            box-shadow: 0 30px 70px rgba(0, 0, 0, .5);
-        }
-        .snap-stage {
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            background: #000;
-            aspect-ratio: 4 / 3;
-        }
-        .snap-stage video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        .snap-stage[data-facing="environment"] video { transform: none; }
-        .snap-msg { margin: 10px 2px 0; font-size: 12px; text-align: center; color: #f3c9b7; min-height: 15px; }
-        .snap-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
-        .snap-ghost {
-            border: 0; border-radius: 10px; padding: 10px 12px;
-            font: inherit; font-size: 12px; font-weight: 800;
-            color: #f7f1e8; background: rgba(255, 255, 255, .13); cursor: pointer;
-        }
-        .snap-shutter {
-            width: 62px; height: 62px; border-radius: 50%;
-            border: 4px solid rgba(255, 255, 255, .85);
-            background: radial-gradient(circle, #fff 0 62%, rgba(255, 255, 255, .25) 63%);
-            cursor: pointer; transition: transform .12s ease;
-        }
-        .snap-shutter:active { transform: scale(.94); }
-
         .tita-launcher.visible { display: flex; }
 
         .tita-launcher:hover {
@@ -7499,6 +7416,7 @@
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.3.0" />
+    <link rel="stylesheet" href="quick-snap.css?v=2.0.5" />
     <link rel="stylesheet" href="launch.css?v=1.9.7" />
     <style>
         /* Keyboard-aware full-bleed sheets.
@@ -8126,109 +8044,6 @@
             </div>
         </div>
     </div>
-
-    <!-- QUICK SNAP — sits above the Tita Tima launcher -->
-    <button id="snapFab" class="snap-fab" type="button" aria-label="Quick snap a photo for your story" onclick="openSnapSheet()">
-        <i class="fas fa-camera"></i>
-    </button>
-    <div id="snapSheet" class="snap-sheet" hidden>
-        <div class="snap-card" role="dialog" aria-modal="true" aria-label="Quick snap">
-            <div class="snap-stage" id="snapStage" data-facing="user">
-                <video id="snapVideo" playsinline muted autoplay></video>
-            </div>
-            <p class="snap-msg" id="snapMsg" role="status"></p>
-            <div class="snap-bar">
-                <button class="snap-ghost" type="button" onclick="closeSnapSheet()">Close</button>
-                <button class="snap-shutter" type="button" onclick="takeSnap()" aria-label="Take the photo"></button>
-                <button class="snap-ghost" type="button" onclick="flipSnapCamera()">Flip</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        /* Quick snap: camera -> photo -> story editor, like Instagram's shutter. */
-        (function () {
-            var stream = null, facing = 'user';
-            var sheet = document.getElementById('snapSheet');
-            var video = document.getElementById('snapVideo');
-            var stage = document.getElementById('snapStage');
-            var msg = document.getElementById('snapMsg');
-            var fab = document.getElementById('snapFab');
-            var launcher = document.getElementById('titaLauncher');
-
-            function supported() {
-                return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-            }
-            function start() {
-                stop();
-                navigator.mediaDevices.getUserMedia({
-                    audio: false,
-                    video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 960 } }
-                }).then(function (s) {
-                    stream = s;
-                    stage.dataset.facing = facing;
-                    video.srcObject = s;
-                    var p = video.play();
-                    if (p && p.catch) p.catch(function () {});
-                }).catch(function (err) {
-                    console.warn('[quick snap] camera', err);
-                    msg.textContent = 'No camera access. You can still add a photo from the stories row.';
-                });
-            }
-            function stop() {
-                if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
-                if (video) video.srcObject = null;
-            }
-            window.openSnapSheet = function () {
-                if (!supported()) { if (window.showToast) showToast('This browser cannot open the camera.', 'warn'); return; }
-                sheet.hidden = false;
-                document.body.classList.add('snap-open');
-                msg.textContent = '';
-                start();
-            };
-            window.closeSnapSheet = function () {
-                stop();
-                sheet.hidden = true;
-                document.body.classList.remove('snap-open');
-                if (typeof syncFab === 'function') syncFab();
-            };
-            window.flipSnapCamera = function () {
-                facing = facing === 'user' ? 'environment' : 'user';
-                start();
-            };
-            window.takeSnap = function () {
-                if (!stream || !video.videoWidth) { msg.textContent = 'Hold on — the camera is still waking up.'; return; }
-                var w = video.videoWidth, h = video.videoHeight;
-                var scale = Math.min(1, 1600 / Math.max(w, h));
-                var c = document.createElement('canvas');
-                c.width = Math.round(w * scale);
-                c.height = Math.round(h * scale);
-                var ctx = c.getContext('2d');
-                if (facing === 'user') { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
-                ctx.drawImage(video, 0, 0, c.width, c.height);
-                c.toBlob(function (blob) {
-                    if (!blob) { msg.textContent = 'That snap did not save — try again.'; return; }
-                    var file = new File([blob], 'snap-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-                    closeSnapSheet();
-                    if (window.Stories && typeof window.Stories.openComposerWith === 'function') {
-                        window.Stories.openComposerWith([file]);
-                    } else if (window.showToast) {
-                        showToast('The story editor is still loading — try again in a moment.', 'warn');
-                    }
-                }, 'image/jpeg', 0.9);
-            };
-            document.addEventListener('keydown', function (ev) {
-                if (ev.key === 'Escape' && !sheet.hidden) closeSnapSheet();
-            });
-            // Mirror Tita Tima's visibility so the two never sit alone/overlap.
-            if (launcher && fab) {
-                var sync = function () { fab.classList.toggle('visible', launcher.classList.contains('visible') && !document.body.classList.contains('snap-open')); };
-                window.syncFab = sync;
-                new MutationObserver(sync).observe(launcher, { attributes: true, attributeFilter: ['class'] });
-                sync();
-            }
-        })();
-    </script>
 
     <!-- TITA TIMA -->
     <button id="titaLauncher" class="tita-launcher" onclick="toggleTitaPanel()" aria-label="Open Tita Tima assistant">
@@ -18024,6 +17839,7 @@ function startReplyTo(commentId, authorName) {
     <script src="stories-shared.js?v=1.11.5"></script>
     <script src="notes-music.js?v=1.2.0"></script>
     <script src="stories.js?v=1.12.13"></script>
+    <script src="quick-snap.js?v=2.0.5" defer></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.1"></script>
