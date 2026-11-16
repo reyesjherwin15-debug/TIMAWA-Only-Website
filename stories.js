@@ -1259,6 +1259,15 @@
     function ctx() {
         return { db, me: st.me, cfg: CFG, toast, now, onPublished: skew => { if (typeof skew === 'number') st.skew = skew; } };
     }
+    // The dashboard quick snap already holds the photo, so skip the picker and
+    // drop straight into the editor.
+    function openComposerWith(files) {
+        if (!st.me) { toast('Sign in to share a story', 'warn'); return; }
+        if (!files || !files.length) return;
+        loadComposer()
+            .then(() => window.StoriesComposer.open(ctx(), files))
+            .catch(() => toast('Could not load the story editor.', 'error'));
+    }
 
     // ------------------------------------------------------------ auto-delete of expired stories
     // Primary mechanism: a Firestore TTL policy on stories.expiresAt (see STORIES_SETUP.md).
@@ -1338,5 +1347,5 @@
     function boot() { auth.onAuthStateChanged(onUser); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
-    window.Stories = { openUser, openById, openComposer, renderChatRef, isActive: id => !!st.stories.find(s => s.id === id), refreshChatRefs, version: '1.12.0' };
+    window.Stories = { openUser, openById, openComposer, openComposerWith, renderChatRef, isActive: id => !!st.stories.find(s => s.id === id), refreshChatRefs, version: '1.12.13' };
 })();

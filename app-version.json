@@ -1,8 +1,8 @@
 {
   "_readme": "The build that is live. pwa.js compares this with the build a device last applied; they differ only when a release needs the member to update, so nothing is shown otherwise. Bump 'version' with every release that changes the icon, the launch screen or the app shell. requiresReinstall:true means the installed icon/manifest changed (phones only re-read it on an app update). announceOnFirstRun:true also prompts devices that have never stored a version — use it when members who installed before this feature existed still need the change.",
-  "version": "1.10.36",
+  "version": "1.10.37",
   "requiresReinstall": false,
   "announceOnFirstRun": true,
-  "title": "The freedom wall is a blackboard now",
-  "message": "The board between the hero and the highlights is a classroom blackboard: green slate, wooden frame and a chalk ledge with chalk and an eraser. Pin a note of up to 100 characters and add a photo from your gallery if you like. No sign-in needed, and every note stays for 14 days. Tap Update now to load it."
+  "title": "Notes that fly, and a quick snap",
+  "message": "The freedom wall now lifts a note off the board while you read it and pins it back when you close it. Busy walls load thirty notes at a time with a Show older notes button, members' own photos are used on their pins, and every post rings the notification bell. There is also a quick snap camera on the dashboard, just above Tita Tima: shoot a photo and the story editor opens with it. Tap Update now to load it."
 }

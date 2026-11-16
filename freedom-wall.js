@@ -14,7 +14,7 @@
 
     var CFG = {
         ttlDays: 14,
-        maxNotes: 40,
+        pageSize: 30,
         charLimit: 100,
         cloudName: 'ooq99nlw',
         uploadPreset: 't-imawa',
@@ -31,6 +31,7 @@
     var emptyEl = document.getElementById('fwEmpty');
     var addBtn = document.getElementById('fwAdd');
     var countEl = document.getElementById('fwCount');
+    var moreBtn = document.getElementById('fwMore');
     var modal = document.getElementById('fwModal');
     var form = document.getElementById('fwForm');
     var area = document.getElementById('fwText');
@@ -54,6 +55,10 @@
 
     var me = null;
     var notes = [];
+    var shown = CFG.pageSize;      // how many notes the listener is asked for
+    var profile = null;            // the signed-in member's name + photo
+    var lift = null;               // the note currently lifted off the board
+    var people = {};               // uid -> { name, photo } | null while it loads
     var unsubscribe = null;
     var pending = null;
     var loadError = false;          // id of the note just posted (for the pin-drop animation)
@@ -125,13 +130,66 @@
 
     function closeSheet(el) {
         el.hidden = true;
+        if (el === viewModal) restoreLift();
         if (modal.hidden && viewModal.hidden) lockScroll(false);
         if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) { /* ignore */ } }
+    }
+
+    /* ── who pinned it ───────────────────────────────────────────── */
+
+    // A member's live public card wins over whatever the note stored, so a new
+    // profile photo shows on old notes too. Guests keep their typed name.
+    function personOf(n) {
+        var card = (!n.isGuest && n.authorUid) ? people[n.authorUid] : null;
+        return {
+            name: (card && card.name) || n.authorName || 'Guest',
+            photo: (card && card.photo) || n.authorPhoto || ''
+        };
+    }
+
+    function paintPerson(uid) {
+        var card = people[uid];
+        if (!card) return;
+        notesEl.querySelectorAll('.fw-note[data-uid="' + uid + '"]').forEach(function (el) {
+            var nameEl = el.querySelector('.fw-name');
+            if (nameEl && card.name) nameEl.textContent = card.name;
+            var ava = el.querySelector('.fw-ava');
+            if (!card.photo || !ava) return;
+            if (ava.tagName === 'IMG') { if (ava.src !== card.photo) ava.src = card.photo; return; }
+            var img = document.createElement('img');
+            img.className = 'fw-ava';
+            img.src = card.photo;
+            img.alt = '';
+            img.loading = 'lazy';
+            img.referrerPolicy = 'no-referrer';
+            ava.replaceWith(img);
+        });
+    }
+
+    function hydratePeople(list) {
+        if (!db) return;
+        var asked = 0;
+        list.forEach(function (n) {
+            if (!n.authorUid || n.isGuest) return;
+            if (people[n.authorUid] !== undefined) return;
+            if (asked >= 25) return;                  // stay polite on a busy wall
+            asked++;
+            people[n.authorUid] = null;               // in flight
+            db.collection('publicProfiles').doc(n.authorUid).get().then(function (doc) {
+                var d = doc.exists ? (doc.data() || {}) : {};
+                people[n.authorUid] = { name: d.displayName || '', photo: d.photoURL || '' };
+                paintPerson(n.authorUid);
+            }).catch(function () {
+                people[n.authorUid] = { name: '', photo: '' };
+            });
+        });
     }
 
     /* ── the board ───────────────────────────────────────────────── */
 
     function noteMarkup(n) {
+        var who = personOf(n);
+        n = Object.assign({}, n, { authorName: who.name, authorPhoto: who.photo });
         var h = hash(n.id);
         var rot = ((h % 61) / 10) - 3;              // -3.0 … 3.0
         var delay = ((h >> 5) % 40) / 10;            // 0 … 3.9s
@@ -146,6 +204,7 @@
             : '';
         return '<button type="button" class="fw-note' + (n.imageUrl ? ' has-img' : '') + '"' +
             ' data-id="' + esc(n.id) + '" data-c="' + colour + '"' +
+            (n.authorUid && !n.isGuest ? ' data-uid="' + esc(n.authorUid) + '"' : '') +
             ' style="--rot:' + rot.toFixed(1) + 'deg;--delay:' + delay.toFixed(1) + 's;--sway:' + sway + 's"' +
             ' aria-label="Note by ' + esc(name) + ': ' + esc(n.text) + '">' +
             '<span class="fw-pin" aria-hidden="true"></span>' +
@@ -189,10 +248,111 @@
                 if (emptyEl.textContent !== line) emptyEl.textContent = line;
             }
         }
+        hydratePeople(live);
         if (countEl) countEl.textContent = live.length;
         document.querySelectorAll('.fw-ago[data-at]').forEach(function (el) {
             el.textContent = ago(Number(el.dataset.at) || 0);
         });
+    }
+
+    function loadMemberProfile(u) {
+        if (!u) { profile = null; return; }
+        profile = {
+            name: u.displayName || (u.email ? u.email.split('@')[0] : 'Member'),
+            photo: u.photoURL || ''
+        };
+        if (!db) return;
+        db.collection('users').doc(u.uid).get().then(function (doc) {
+            if (!doc.exists || me !== u) return;
+            var d = doc.data() || {};
+            if (d.displayName) profile.name = d.displayName;
+            if (d.photoURL) profile.photo = d.photoURL;
+        }).catch(function () { /* the auth record is enough */ });
+    }
+
+    /* ── take a note off the board, put it back ───────────────────── */
+
+    function reduceMotion() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    function liftNote(el) {
+        if (!el || reduceMotion() || !el.animate) return;
+        var r = el.getBoundingClientRect();
+        var clone = el.cloneNode(true);
+        clone.className = 'fw-note fw-lift';
+        clone.removeAttribute('aria-label');
+        clone.style.position = 'fixed';
+        clone.style.margin = '0';
+        clone.style.left = r.left + 'px';
+        clone.style.top = r.top + 'px';
+        clone.style.width = r.width + 'px';
+        clone.style.height = r.height + 'px';
+        clone.style.zIndex = '80';
+        clone.style.pointerEvents = 'none';
+        document.body.appendChild(clone);
+        el.classList.add('is-lifting');
+
+        var dx = window.innerWidth / 2 - (r.left + r.width / 2);
+        var dy = Math.min(window.innerHeight * 0.4, 320) - (r.top + r.height / 2);
+
+        clone.animate([
+            { transform: 'translate(0,0) rotate(0deg) scale(1)', opacity: 1, boxShadow: '0 8px 16px rgba(52,30,8,.22)' },
+            { transform: 'translate(' + (dx * .6) + 'px,' + (dy * .7) + 'px) rotate(4.5deg) scale(1.18)', opacity: 1, offset: .72 },
+            { transform: 'translate(' + dx + 'px,' + dy + 'px) rotate(2deg) scale(1.26)', opacity: .96, boxShadow: '0 30px 64px rgba(20,12,4,.42)' }
+        ], { duration: 330, easing: 'cubic-bezier(.2,.86,.24,1)', fill: 'forwards' });
+
+        lift = { el: el, clone: clone, rect: r, dx: dx, dy: dy };
+    }
+
+    function settleLift() {
+        if (!lift || !lift.clone) return;
+        try {
+            lift.clone.animate([{ opacity: .96 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+        } catch (e) { lift.clone.style.opacity = '0'; }
+    }
+
+    function restoreLift() {
+        if (!lift) return;
+        var l = lift;
+        lift = null;
+        l.el.classList.remove('is-lifting');
+        if (!l.clone) return;
+        var clone = l.clone;
+        if (reduceMotion()) { clone.remove(); return; }
+        clone.animate([
+            { transform: 'translate(' + l.dx + 'px,' + l.dy + 'px) rotate(2deg) scale(1.26)', opacity: .96 },
+            { transform: 'translate(0,0) rotate(0deg) scale(1)', opacity: 1 }
+        ], { duration: 300, easing: 'cubic-bezier(.3,.8,.2,1)', fill: 'forwards' }).onfinish = function () { clone.remove(); };
+    }
+
+    /* members' pins ring the bell everywhere: an announcement the push
+       dispatcher turns into a real notification (guests stay local) */
+    function announceNote(id, text) {
+        if (!me || !db) return;
+        var name = (profile && profile.name) || me.displayName || 'A member';
+        db.collection('announcements').add({
+            type: 'freedom',
+            title: '\uD83D\uDCCC ' + name + ' pinned a note',
+            message: '"' + String(text).slice(0, 90) + '"',
+            icon: '\uD83D\uDCCC',
+            actorUid: me.uid,
+            actorName: name,
+            actorPhoto: (profile && profile.photo) || '',
+            priority: 'info',
+            link: 'index.html#freedom-wall',
+            linkLabel: 'Read the wall',
+            pushUrl: 'index.html#freedom-wall',
+            pushContext: 'freedom',
+            pushPending: true,
+            targetUid: '',
+            referenceId: 'freedom_' + id,
+            readBy: [],
+            createdBy: 'system',
+            createdByName: 'System',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            expiresAt: new Date(Date.now() + 7 * 86400000)
+        }).catch(function () { /* the note is pinned either way */ });
     }
 
     function bindBoard() {
@@ -200,9 +360,13 @@
             var tile = ev.target.closest('.fw-add');
             if (tile) { openComposer(); return; }
             var note = ev.target.closest('.fw-note');
-            if (note) openView(note.dataset.id);
+            if (note) openView(note.dataset.id, note);
         });
         if (addBtn) addBtn.addEventListener('click', openComposer);
+        if (moreBtn) moreBtn.addEventListener('click', function () {
+            shown += CFG.pageSize;
+            load();
+        });
     }
 
     function load() {
@@ -214,9 +378,10 @@
         if (unsubscribe) unsubscribe();
         unsubscribe = db.collection('freedomNotes')
             .orderBy('createdAt', 'desc')
-            .limit(CFG.maxNotes)
+            .limit(shown)
             .onSnapshot(function (snap) {
                 loadError = false;
+                if (moreBtn) moreBtn.hidden = snap.size < shown;
                 notes = snap.docs.map(function (d) {
                     var v = d.data() || {};
                     return {
@@ -227,6 +392,7 @@
                         authorUid: v.authorUid || '',
                         authorName: v.authorName || 'Guest',
                         authorPhoto: v.authorPhoto || '',
+                        isGuest: !!v.isGuest,
                         createdAt: v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : 0,
                         expiresAt: v.expiresAt && v.expiresAt.toMillis ? v.expiresAt.toMillis() : 0
                     };
@@ -335,7 +501,7 @@
         if (!text) { setMsg('Write something first — even one word.'); return; }
 
         var name = me
-            ? (me.displayName || (me.email ? me.email.split('@')[0] : 'Member'))
+            ? ((profile && profile.name) || me.displayName || (me.email ? me.email.split('@')[0] : 'Member'))
             : (nameInput.value.trim() || 'Guest');
 
         if (!me) {
@@ -358,7 +524,7 @@
                 imagePublicId: media ? media.publicId : '',
                 authorUid: me ? me.uid : '',
                 authorName: name,
-                authorPhoto: (me && me.photoURL) ? me.photoURL : '',
+                authorPhoto: (me && profile && profile.photo) ? profile.photo : ((me && me.photoURL) ? me.photoURL : ''),
                 isGuest: !me,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 expiresAt: firebase.firestore.Timestamp.fromDate(
@@ -370,6 +536,13 @@
             postBtn.textContent = 'Pin it';
             closeComposer();
             toast('Pinned — it stays up for 14 days.');
+            announceNote(ref.id, text);
+            if (board) {
+                board.classList.remove('is-thumped');
+                void board.offsetWidth;
+                board.classList.add('is-thumped');
+                setTimeout(function () { board.classList.remove('is-thumped'); }, 620);
+            }
             var first = notesEl.querySelector('.fw-note');
             if (first && board.getBoundingClientRect().top < 0) {
                 board.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -385,7 +558,7 @@
 
     /* ── one note, opened ────────────────────────────────────────── */
 
-    function openView(id) {
+    function openView(id, el) {
         var n = null;
         for (var i = 0; i < notes.length; i++) if (notes[i].id === id) n = notes[i];
         if (!n) return;
@@ -399,21 +572,28 @@
             viewImg.hidden = true;
         }
 
-        var ava = n.authorPhoto
-            ? '<img class="fw-ava" src="' + esc(n.authorPhoto) + '" alt="" referrerpolicy="no-referrer">'
-            : '<span class="fw-ava">' + esc(initials(n.authorName)) + '</span>';
+        var who = personOf(n);
+        var ava = who.photo
+            ? '<img class="fw-ava" src="' + esc(who.photo) + '" alt="" referrerpolicy="no-referrer">'
+            : '<span class="fw-ava">' + esc(initials(who.name)) + '</span>';
         var left = n.expiresAt ? Math.max(0, Math.ceil((n.expiresAt - Date.now()) / 86400000)) : CFG.ttlDays;
         var del = (me && n.authorUid && me.uid === n.authorUid)
             ? '<button type="button" class="fw-view-del" id="fwDelete">Remove</button>' : '';
 
         viewMeta.innerHTML = ava +
-            '<span><b>' + esc(n.authorName || 'Guest') + '</b><br>' + ago(n.createdAt) + ' ago · ' +
+            '<span><b>' + esc(who.name || 'Guest') + '</b><br>' + ago(n.createdAt) + ' ago · ' +
             (left > 0 ? left + ' day' + (left === 1 ? '' : 's') + ' left' : 'fading') + '</span>' + del;
 
         var delBtn = document.getElementById('fwDelete');
         if (delBtn) delBtn.addEventListener('click', function () { removeNote(n); });
 
-        openSheet(viewModal);
+        liftNote(el);
+        if (!lift) { openSheet(viewModal); return; }
+        lockScroll(true);
+        setTimeout(function () {
+            openSheet(viewModal);
+            setTimeout(settleLift, 300);
+        }, 180);
     }
 
     function removeNote(n) {
@@ -479,6 +659,7 @@
     try {
         firebase.auth().onAuthStateChanged(function (u) {
             me = u || null;
+            loadMemberProfile(me);
             if (nameWrap) nameWrap.hidden = !!me;
         });
     } catch (e) { /* visitors without auth still see the wall */ }
