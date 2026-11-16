@@ -70,6 +70,135 @@
     box-shadow: 0 18px 38px rgba(18, 10, 4, .3);
 }
 
+
+/* ── the reading sheet is the note itself ─────────────────────────── */
+
+.fw-sheet.fw-sheet-note {
+    --n1: #fdf3b0;
+    width: min(460px, 100%);
+    max-height: min(84vh, 720px);
+    max-height: min(84dvh, 720px);
+    padding: 44px 28px 22px;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 4px 4px 7px 3px;
+    background: var(--n1);
+    color: #3a2d26;
+    box-shadow:
+        0 34px 70px rgba(10, 6, 2, .46),
+        inset 0 -34px 44px rgba(120, 90, 40, .07);
+    transform: rotate(-1.3deg);
+    animation: fwNotePick .38s cubic-bezier(.2, .9, .3, 1.08) both;
+}
+
+.fw-sheet.fw-sheet-note[data-c="2"] { --n1: #ffe1e8; }
+.fw-sheet.fw-sheet-note[data-c="3"] { --n1: #d8f2e2; }
+.fw-sheet.fw-sheet-note[data-c="4"] { --n1: #dfe7ff; }
+.fw-sheet.fw-sheet-note[data-c="5"] { --n1: #f2e2ff; }
+.fw-sheet.fw-sheet-note[data-c="6"] { --n1: #ffe6cd; }
+
+.fw-view-pin {
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    width: 17px;
+    height: 17px;
+    margin-left: -8px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #fff6e6, #e2685f 48%, #a52f2c 100%);
+    box-shadow: 0 4px 7px rgba(60, 20, 10, .35);
+}
+
+.fw-sheet.fw-sheet-note[data-c="2"] .fw-view-pin { background: radial-gradient(circle at 34% 30%, #fff6e6, #e07a9b 48%, #a5375a 100%); }
+.fw-sheet.fw-sheet-note[data-c="3"] .fw-view-pin { background: radial-gradient(circle at 34% 30%, #fff6e6, #4f9adf 48%, #1d5594 100%); }
+.fw-sheet.fw-sheet-note[data-c="4"] .fw-view-pin { background: radial-gradient(circle at 34% 30%, #fff6e6, #6fbf8a 48%, #2a7a4b 100%); }
+.fw-sheet.fw-sheet-note[data-c="5"] .fw-view-pin { background: radial-gradient(circle at 34% 30%, #fff6e6, #b487dd 48%, #6a3f95 100%); }
+.fw-sheet.fw-sheet-note[data-c="6"] .fw-view-pin { background: radial-gradient(circle at 34% 30%, #fff6e6, #e0a04f 48%, #94661d 100%); }
+
+.fw-view-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.fw-view-x {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(60, 40, 20, .08);
+    color: #4a372a;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.fw-view-x:hover { background: rgba(60, 40, 20, .16); }
+
+.fw-sheet-note .fw-view-body {
+    margin: 0;
+    color: #3a2d26;
+    font-size: 17px;
+    line-height: 1.45;
+    font-weight: 600;
+}
+
+.fw-sheet-note .fw-view-img {
+    margin: 4px 0 2px;
+    border-radius: 4px;
+    max-height: 46vh;
+    background: rgba(0, 0, 0, .08);
+    box-shadow: 0 6px 16px rgba(60, 40, 10, .18);
+}
+
+.fw-sheet-note .fw-view-body:not(:empty) + .fw-view-img { margin-top: 12px; }
+
+.fw-sheet-note .fw-view-meta {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(90, 66, 40, .32);
+    color: #5b4433;
+}
+
+.fw-sheet-note .fw-view-meta b { color: #3a2d26; }
+
+@keyframes fwNotePick {
+    0% { transform: rotate(-6deg) translateY(14px) scale(.94); opacity: 0; }
+    60% { transform: rotate(-.6deg) translateY(-3px) scale(1.015); opacity: 1; }
+    100% { transform: rotate(-1.3deg) translateY(0) scale(1); opacity: 1; }
+}
+
+html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note { --n1: #e8d98f; }
+html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note[data-c="2"] { --n1: #eec9d2; }
+html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note[data-c="3"] { --n1: #c4e2cf; }
+html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note[data-c="4"] { --n1: #cbd6f2; }
+html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note[data-c="5"] { --n1: #ddc9ef; }
+html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note[data-c="6"] { --n1: #efd2b3; }
+
+@media (max-width: 560px) {
+    .fw-sheet.fw-sheet-note { padding: 38px 20px 18px; max-height: min(88dvh, 720px); }
+    .fw-sheet-note .fw-view-body { font-size: 15.5px; }
+    .fw-sheet-note .fw-view-meta { margin-top: 14px; padding-top: 10px; }
+}
+
+/* landscape phones: the note fits above the fold too */
+@media (max-height: 620px) and (orientation: landscape) {
+    .fw-sheet.fw-sheet-note {
+        width: min(560px, 100%);
+        max-height: calc(100dvh - 24px);
+        padding: 30px 22px 14px;
+    }
+    .fw-sheet-note .fw-view-body { font-size: 15px; }
+    .fw-sheet-note .fw-view-img { max-height: 38vh; }
+    .fw-sheet-note .fw-view-meta { margin-top: 10px; padding-top: 8px; }
+}
+
 /* the wooden chalk ledge, with chalk and an eraser resting on it */
 .fw-tray {
     position: absolute;

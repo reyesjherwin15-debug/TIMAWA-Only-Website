@@ -12,7 +12,7 @@
 .qs-fab {
     position: fixed;
     right: 101px;
-    bottom: 24px;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     width: 58px;
     height: 72px;
     padding: 4px 4px 12px;
@@ -77,11 +77,11 @@ body.chat-fullscreen-active .qs-fab,
 body.kb-open .qs-fab { display: none !important; }
 
 @media (max-width: 640px) {
-    .qs-fab { right: 82px; bottom: 18px; width: 52px; height: 66px; }
+    .qs-fab { right: 82px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 52px; height: 66px; }
 }
 
 @media (max-width: 480px) {
-    .qs-fab { right: 78px; bottom: 16px; width: 50px; height: 62px; }
+    .qs-fab { right: 78px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 50px; height: 62px; }
 }
 
 /* ── the snap card ──────────────────────────────────────────────── */
@@ -93,6 +93,10 @@ body.kb-open .qs-fab { display: none !important; }
     display: grid;
     place-items: center;
     padding: 16px;
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
     background: rgba(6, 5, 10, .9);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
@@ -107,8 +111,8 @@ body.kb-open .qs-fab { display: none !important; }
     display: flex;
     flex-direction: column;
     gap: 8px;
-    width: min(392px, 100%);
-    height: min(740px, 88dvh);
+    width: min(412px, 100%);
+    height: min(780px, 88dvh);
     padding: 10px;
     border: 1px solid rgba(255, 255, 255, .08);
     border-radius: 28px;
@@ -118,10 +122,6 @@ body.kb-open .qs-fab { display: none !important; }
     overflow: hidden;
 }
 
-@media (max-width: 480px) {
-    .qs-view { padding: 10px; }
-    .qs-stage { height: min(740px, 92dvh); border-radius: 24px; }
-}
 
 /* header: close, audience chip, the two corner tools */
 .qs-head {
@@ -281,6 +281,14 @@ body.kb-open .qs-fab { display: none !important; }
 
 .qs-input[hidden] { display: none; }
 .qs-input::placeholder { color: rgba(255, 255, 255, .72); }
+
+/* keyboard + pointer affordances */
+.qs-round:focus-visible,
+.qs-btn:focus-visible,
+.qs-thumb:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
 
 /* tap zones */
 .qs-zone {
@@ -525,6 +533,56 @@ body.kb-open .qs-fab { display: none !important; }
     font-size: 12.5px;
     line-height: 1.55;
     color: rgba(255, 255, 255, .68);
+}
+
+@media (max-width: 640px) {
+    .qs-view {
+        padding: 8px;
+        padding-top: max(8px, env(safe-area-inset-top, 0px));
+        padding-right: max(8px, env(safe-area-inset-right, 0px));
+        padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+        padding-left: max(8px, env(safe-area-inset-left, 0px));
+    }
+    .qs-stage { height: min(760px, 92dvh); border-radius: 24px; gap: 7px; }
+    .qs-round { width: 40px; height: 40px; font-size: 15px; }
+    .qs-chip { padding: 8px 12px; font-size: 11px; }
+    .qs-tools { gap: 8px; }
+    .qs-text { font-size: 14.5px; }
+}
+
+@media (max-width: 380px) {
+    .qs-chip { display: none; }          /* the two tools matter more than the label */
+    .qs-tools { margin-left: auto; }
+}
+
+@media (max-width: 480px) {
+    .qs-stage { height: min(760px, 93dvh); }
+}
+
+/* landscape phones: keep the whole card on screen */
+@media (max-height: 620px) and (orientation: landscape) {
+    .qs-view {
+        padding: 8px;
+        padding-top: max(8px, env(safe-area-inset-top, 0px));
+        padding-right: max(8px, env(safe-area-inset-right, 0px));
+        padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+        padding-left: max(8px, env(safe-area-inset-left, 0px));
+    }
+    .qs-stage {
+        width: min(520px, 100%);
+        height: calc(100dvh - 16px);
+        gap: 6px;
+        padding: 8px;
+        border-radius: 20px;
+    }
+    .qs-head { gap: 6px; }
+    .qs-chip { display: none; }
+    .qs-tools { margin-left: auto; }
+    .qs-round { width: 34px; height: 34px; font-size: 13px; }
+    .qs-foot { padding-bottom: 0; }
+    .qs-empty { padding: 16px; gap: 6px; }
+    .qs-empty-ico { width: 40px; height: 40px; font-size: 16px; }
+    .qs-shutter { width: 54px; height: 54px; }
 }
 
 @keyframes qsIn { from { opacity: 0; } to { opacity: 1; } }

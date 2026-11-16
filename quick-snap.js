@@ -46,7 +46,7 @@
 
     var host = document.createElement('div');
     host.innerHTML = [
-        '<button class="qs-fab" id="qsFab" type="button" aria-label="Open quick snaps">',
+        '<button class="qs-fab" id="qsFab" type="button" title="Quick snaps" aria-label="Open quick snaps">',
         '  <span class="qs-fab-img" id="qsFabImg"></span>',
         '  <span class="qs-fab-badge" id="qsFabBadge" hidden></span>',
         '</button>',
@@ -571,10 +571,22 @@
         if (btn) openFromCollection(Number(btn.dataset.i));
     });
 
+    // Desktop: Escape backs out, arrow keys move between snaps, the backdrop closes.
     document.addEventListener('keydown', function (ev) {
-        if (ev.key !== 'Escape' || view.hidden) return;
-        if (!colSheet.hidden) { showCollection(false); return; }
-        closeViewer();
+        if (view.hidden) return;
+        if (ev.target === input) return;                 // never steal keys from the caption
+        if (ev.key === 'Escape') {
+            if (!colSheet.hidden) { showCollection(false); return; }
+            closeViewer();
+            return;
+        }
+        if (mode !== 'feed') return;
+        if (ev.key === 'ArrowRight') { ev.preventDefault(); clearSlide(); showSnap(index + 1); }
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); clearSlide(); showSnap(index - 1); }
+    });
+
+    view.addEventListener('click', function (ev) {
+        if (ev.target === view) closeViewer();           // clicked the space around the card
     });
 
     document.addEventListener('visibilitychange', function () {
