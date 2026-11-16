@@ -409,6 +409,7 @@
     /* ── composer ────────────────────────────────────────────────── */
 
     function openComposer() {
+        if (typeof start === 'function') start();
         if (!db) { toast('The wall is not ready yet.'); return; }
         setMsg('');
         nameWrap.hidden = !!me;
@@ -666,5 +667,37 @@
 
     bindBoard();
     render();          // the add tile is there the moment the section paints
-    load();
+
+    // Nothing is read until the board is close to the screen: a landing-page
+    // visit should not open a Firestore listener it never looks at.
+    var started = false;
+    function start() {
+        if (started) return;
+        started = true;
+        load();
+    }
+    function nearBoard() {
+        var r = board.getBoundingClientRect();
+        return r.top < window.innerHeight + 600 && r.bottom > -600;
+    }
+    if (nearBoard()) {
+        start();
+    } else {
+        // Load when the wall is scrolled near. The scroll listener is the
+        // safety net for browsers that throttle IntersectionObserver.
+        var onScroll = function () {
+            if (!nearBoard()) return;
+            start();
+            window.removeEventListener('scroll', onScroll);
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        if ('IntersectionObserver' in window) {
+            var io = new IntersectionObserver(function (entries) {
+                for (var i = 0; i < entries.length; i++) {
+                    if (entries[i].isIntersecting) { io.disconnect(); start(); return; }
+                }
+            }, { rootMargin: '600px' });
+            io.observe(board);
+        }
+    }
 })();

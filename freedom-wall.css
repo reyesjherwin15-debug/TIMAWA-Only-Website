@@ -719,6 +719,7 @@ html[data-timawa-mode="dark"] .fw-board {
 @media (max-width: 560px) {
     .fw-board { padding: 20px 14px 20px; margin-bottom: 20px; }
     .fw-notes { grid-template-columns: repeat(auto-fill, minmax(102px, 1fr)); gap: 14px 11px; min-height: 190px; }
+    .fw-btn, .fw-tool, .fw-more { min-height: 42px; }
     .fw-note { padding: 20px 10px 9px; }
     .fw-note .fw-name { font-size: 10.5px; }
     .fw-note .fw-text { font-size: 11px; }
@@ -734,4 +735,10 @@ html[data-timawa-mode="dark"] .fw-board {
 html[data-timawa-mode="dark"] .fw-note {
     --n1: #e8d98f; --n2: #eec9d2; --n3: #c4e2cf;
     --n4: #cbd6f2; --n5: #ddc9ef; --n6: #efd2b3;
+}
+
+@media (max-width: 430px) {
+    /* two columns read better than three on a phone */
+    .fw-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 11px; }
+    .fw-note .fw-text { -webkit-line-clamp: 4; }
 }

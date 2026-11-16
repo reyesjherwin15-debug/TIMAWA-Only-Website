@@ -8190,6 +8190,7 @@
                 stop();
                 sheet.hidden = true;
                 document.body.classList.remove('snap-open');
+                if (typeof syncFab === 'function') syncFab();
             };
             window.flipSnapCamera = function () {
                 facing = facing === 'user' ? 'environment' : 'user';
@@ -8222,6 +8223,7 @@
             // Mirror Tita Tima's visibility so the two never sit alone/overlap.
             if (launcher && fab) {
                 var sync = function () { fab.classList.toggle('visible', launcher.classList.contains('visible') && !document.body.classList.contains('snap-open')); };
+                window.syncFab = sync;
                 new MutationObserver(sync).observe(launcher, { attributes: true, attributeFilter: ['class'] });
                 sync();
             }
