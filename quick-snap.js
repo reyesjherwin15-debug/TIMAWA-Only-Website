@@ -6,10 +6,16 @@
    time underneath; if nothing is up, the camera opens so you can be the one
    who posts. Everyone signed in can see every snap for 24 hours.
 
+   The picture is always 1:1 with rounded corners, and its caption sits inside
+   the top-left corner. A torch button lights the scene when the camera
+   supports it, and the square preview is exactly the square that gets posted.
+   Reply opens a small composer that sends a direct message to the author.
+
    Data model
      quickSnaps/{id}          author, image, caption, status,
                               createdAt, expiresAt, purgeAt
      quickSnaps/{id}/reactions/{uid}   one emoji per member
+     chatMessages/{id}        the direct-message reply
      The author keeps a private 7-day archive of what they posted.
 
    Access rules live in firestore.rules: only signed-in members may read an
@@ -27,7 +33,8 @@
         ttlMs: 24 * 60 * 60 * 1000,          // how long a snap stays up
         keepMs: 7 * 24 * 60 * 60 * 1000,     // how long the author keeps it
         maxText: 140,
-        maxSide: 1400,                       // long edge of the uploaded photo
+        maxReply: 500,
+        maxSide: 1400,                       // size of the uploaded square photo
         cloud: 'ooq99nlw',
         preset: 't-imawa',
         folder: 't-imawa/quicksnaps',
@@ -48,6 +55,7 @@
     var current = null;       // the snap on screen
     var stream = null;
     var facing = 'user';
+    var torchOn = false;
     var pendingBlob = null;
     var pendingURL = null;
     var busy = false;
@@ -69,12 +77,9 @@
         '    <div class="qs-head">',
         '      <button class="qs-round" id="qsBack" type="button" aria-label="Back" hidden><i class="fas fa-chevron-left"></i></button>',
         '      <button class="qs-round qs-close" id="qsClose" type="button" aria-label="Close QuickSnap">✕</button>',
-        '      <div class="qs-tabs" role="tablist" aria-label="Snap mode">',
-        '        <button class="qs-tab" type="button" role="tab" tabindex="-1" aria-disabled="true" title="Posting stays where it is">Post</button>',
-        '        <button class="qs-tab is-on" type="button" role="tab" aria-selected="true">Quick Snap</button>',
-        '        <button class="qs-tab" type="button" role="tab" tabindex="-1" aria-disabled="true" title="Stories stay where they are">Story</button>',
-        '      </div>',
+        '      <div class="qs-head-gap"></div>',
         '      <div class="qs-tools">',
+        '        <button class="qs-round qs-flash" id="qsFlash" type="button" title="Flashlight" aria-label="Turn on the flashlight" aria-pressed="false" hidden><i class="fas fa-bolt"></i></button>',
         '        <button class="qs-round" id="qsMakeSnap" type="button" title="Take your own snap" aria-label="Take your own snap" hidden><i class="fas fa-camera"></i></button>',
         '        <button class="qs-round" id="qsFlip" type="button" title="Flip camera" aria-label="Flip camera"><i class="fas fa-rotate"></i></button>',
         '        <button class="qs-round" id="qsRetake" type="button" title="Retake" aria-label="Retake the photo" hidden><i class="fas fa-rotate-left"></i></button>',
@@ -97,8 +102,8 @@
         '          <button class="qs-select-friends" id="qsTakeSnap" type="button">Tap the shutter to take it <i class="fas fa-chevron-right"></i></button>',
         '        </div>',
         '        <div class="qs-dock">',
-        '          <button class="qs-dock-main" id="qsShutter" type="button" aria-label="Take the photo"><i class="fas fa-camera" id="qsShutterIcon"></i></button>',
         '          <button class="qs-dock-side qs-dock-snaps" id="qsSnapsBtn" type="button" aria-label="See the latest snap"><i class="fas fa-images"></i><span class="qs-dock-num" id="qsSnapsNum" hidden></span></button>',
+        '          <button class="qs-dock-main" id="qsShutter" type="button" aria-label="Take the photo"><i class="fas fa-camera" id="qsShutterIcon"></i></button>',
         '          <button class="qs-dock-side qs-dock-archive" id="qsArchiveBtn" type="button" aria-label="Your archive"><i class="fas fa-layer-group"></i></button>',
         '        </div>',
         '      </section>',
@@ -116,11 +121,7 @@
         '        </div>',
         '        <div class="qs-actions" id="qsActions">',
         '          <div class="qs-reactions" id="qsReactions"></div>',
-        '          <button class="qs-btn qs-btn-ghost" id="qsReplyBtn" type="button"><i class="fas fa-reply"></i> Reply</button>',
-        '        </div>',
-        '        <div class="qs-reply" id="qsReply" hidden>',
-        '          <input class="qs-reply-input" id="qsReplyInput" type="text" maxlength="280" placeholder="Reply privately…" />',
-        '          <button class="qs-btn qs-btn-post" id="qsReplySend" type="button">Send</button>',
+        '          <button class="qs-btn qs-btn-ghost" id="qsReplyBtn" type="button"><i class="fas fa-reply"></i> <span id="qsReplyLabel">Reply</span></button>',
         '        </div>',
         '        <div class="qs-owner-tools" id="qsOwnerTools" hidden>',
         '          <button class="qs-btn qs-btn-ghost qs-danger" id="qsDelete" type="button"><i class="fas fa-trash-can"></i> Delete</button>',
@@ -138,6 +139,19 @@
         '        </div>',
         '      </section>',
 
+        // reply straight to the author's direct messages
+        '      <section class="qs-reply" id="qsReply" hidden aria-label="Reply to this snap">',
+        '        <div class="qs-reply-head">',
+        '          <button class="qs-round" id="qsReplyBack" type="button" aria-label="Back to the snap"><i class="fas fa-chevron-left"></i></button>',
+        '          <b>Reply to <span id="qsReplyTo">them</span></b>',
+        '        </div>',
+        '        <p class="qs-reply-note"><i class="fas fa-paper-plane"></i> Sends a direct message</p>',
+        '        <textarea class="qs-reply-input" id="qsReplyInput" rows="4" maxlength="500" placeholder="Write a reply…" aria-label="Reply message"></textarea>',
+        '        <div class="qs-reply-foot">',
+        '          <span class="qs-reply-count" id="qsReplyCount">0 / 500</span>',
+        '          <button class="qs-btn qs-btn-post" id="qsReplySend" type="button">Send reply</button>',
+        '        </div>',
+        '      </section>',
         '      <p class="qs-msg" id="qsMsg" hidden></p>',
         '    </div>',
         '  </div>',
@@ -158,7 +172,9 @@
     var archiveGrid = $('qsArchiveGrid'), archiveEmpty = $('qsArchiveEmpty');
     var msgEl = $('qsMsg');
     var toast = $('qsToast'), toastText = $('qsToastText');
-    var backBtn = $('qsBack'), retake = $('qsRetake');
+    var backBtn = $('qsBack'), retake = $('qsRetake'), flashBtn = $('qsFlash');
+    var replyPanel = $('qsReply'), replyInput = $('qsReplyInput'), replySend = $('qsReplySend');
+    var replyLabel = $('qsReplyLabel');
 
     /* ── small helpers ───────────────────────────────────────────── */
 
@@ -211,16 +227,25 @@
     function stopStream() {
         if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
         if (video) video.srcObject = null;
+        torchOn = false;
+        flashBtn.hidden = true;
+        flashBtn.classList.remove('is-on');
+        flashBtn.setAttribute('aria-pressed', 'false');
     }
 
     function setMode(next) {
         mode = next;
         view.dataset.mode = next;
         Object.keys(screens).forEach(function (k) { screens[k].hidden = k !== next; });
+        if (next !== 'viewer') closeReply();
         msgEl.hidden = true;
         backBtn.hidden = next === 'camera';
         $('qsMakeSnap').hidden = next === 'camera';
-        if (next !== 'camera') { stopStream(); $('qsFlip').hidden = true; retake.hidden = true; }
+        if (next !== 'camera') {
+            stopStream();
+            $('qsFlip').hidden = true;
+            retake.hidden = true;
+        }
         if (next === 'camera') {
             $('qsFlip').hidden = !preview.hidden;
             retake.hidden = preview.hidden;
@@ -235,6 +260,7 @@
         retake.hidden = !hasShot;
         captionInput.hidden = !hasShot;
         frameFlag.hidden = !hasShot;
+        flashBtn.hidden = hasShot;
         sendLine.textContent = hasShot ? 'Everyone can see your snap for 24 hours' : 'Frame it, then tap the shutter';
         $('qsTakeSnap').firstChild.textContent = hasShot ? 'Tap the arrow to post it ' : 'Tap the shutter to take it ';
     }
@@ -244,6 +270,42 @@
         $('qsSnapsNum').hidden = !n;
         $('qsSnapsNum').textContent = n > 9 ? '9+' : String(n);
         fabBadge.hidden = true;
+    }
+
+    /* ── flash (torch) ───────────────────────────────────────────── */
+
+    function torchTrack() {
+        return stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
+    }
+
+    function torchAvailable() {
+        var track = torchTrack();
+        if (!track || !track.getCapabilities) return false;
+        try { return !!track.getCapabilities().torch; } catch (e) { return false; }
+    }
+
+    function refreshFlash() {
+        var available = mode === 'camera' && preview.hidden && torchAvailable();
+        flashBtn.hidden = !available;
+        flashBtn.classList.toggle('is-on', available && torchOn);
+        flashBtn.setAttribute('aria-pressed', available && torchOn ? 'true' : 'false');
+        flashBtn.setAttribute('aria-label', available && torchOn ? 'Turn off the flashlight' : 'Turn on the flashlight');
+    }
+
+    async function toggleFlash() {
+        var track = torchTrack();
+        if (!track) return;
+        var next = !torchOn;
+        try {
+            await track.applyConstraints({ advanced: [{ torch: next }] });
+            torchOn = next;
+            refreshFlash();
+        } catch (err) {
+            console.warn('[quicksnap] torch:', err && err.name);
+            torchOn = false;
+            refreshFlash();
+            showMsg('This camera cannot switch its flashlight on.');
+        }
     }
 
     /* ── data ────────────────────────────────────────────────────── */
@@ -312,6 +374,7 @@
     function openViewer(snap, ownerView) {
         backTo = mode === 'archive' ? 'archive' : 'camera';
         current = snap;
+        closeReply();
         setMode('viewer');
         img.src = sized(snap.imageUrl, 1080);
         img.hidden = false;
@@ -327,9 +390,9 @@
 
         var isOwner = ownerView || snap.ownerUid === (me && me.uid);
         $('qsActions').hidden = isOwner;
-        $('qsReply').hidden = true;
         $('qsOwnerTools').hidden = !isOwner;
-        $('qsReplyBtn').hidden = isOwner;
+        replyLabel.textContent = 'Reply';
+        $('qsReplyTo').textContent = ownerView ? 'you' : snap.ownerName;
 
         renderReactions(snap, isOwner);
     }
@@ -344,8 +407,9 @@
 
     async function react(emoji) {
         if (!current || !me) return;
+        var snap = current;
         try {
-            await db.collection('quickSnaps').doc(current.id).collection('reactions').doc(me.uid)
+            await db.collection('quickSnaps').doc(snap.id).collection('reactions').doc(me.uid)
                 .set({
                     emoji: emoji,
                     uid: me.uid,
@@ -353,24 +417,74 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             showMsg('Reaction sent ' + emoji);
-            setTimeout(closeCard, 700);
+            notifySnap(snap, emoji, profile.name + ' reacted ' + emoji + ' to your QuickSnap',
+                snap.text ? '"' + String(snap.text).slice(0, 80) + '"' : 'Tap to see the snap');
         } catch (err) {
             showMsg('Could not send that reaction.');
         }
     }
 
+    /* the owner hears about every reaction (never their own) */
+    function notifySnap(snap, icon, title, message) {
+        if (!me || !snap || !snap.ownerUid || snap.ownerUid === me.uid) return;
+        var url = 'index.html#quicksnap';
+        db.collection('announcements').add({
+            type: 'quicksnap',
+            title: title,
+            message: message,
+            icon: icon,
+            actorUid: me.uid,
+            actorName: profile.name,
+            actorPhoto: profile.photo,
+            priority: 'info',
+            link: url,
+            linkLabel: 'View QuickSnap',
+            pushUrl: url,
+            pushContext: 'snap:' + snap.id,
+            pushPending: true,
+            targetUid: snap.ownerUid,
+            referenceId: 'snap_' + snap.id,
+            readBy: [],
+            createdBy: 'system',
+            createdByName: 'System',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            expiresAt: new Date(Date.now() + 3 * 86400000)
+        }).catch(function () { /* the reaction is saved either way */ });
+    }
+
+    /* ── reply straight to Direct Messages ──────────────────────── */
+
+    function openReply() {
+        if (!current || !me || current.ownerUid === me.uid) return;
+        $('qsReplyTo').textContent = current.ownerName || 'them';
+        replyInput.value = '';
+        $('qsReplyCount').textContent = '0 / 500';
+        replyPanel.hidden = false;
+        setTimeout(function () { try { replyInput.focus(); } catch (e) { /* ignore */ } }, 40);
+    }
+
+    function closeReply() {
+        if (!replyPanel) return;
+        replyPanel.hidden = true;
+        replyInput.value = '';
+    }
+
     async function sendReply() {
-        var input = $('qsReplyInput');
-        var text = (input.value || '').trim();
         if (!current || !me) return;
-        if (!text) { input.focus(); return; }
+        var text = (replyInput.value || '').trim().slice(0, CFG.maxReply);
+        if (!text) { replyInput.focus(); return; }
+        var ownerUid = current.ownerUid;
+        if (!ownerUid || ownerUid === me.uid) return;
+
+        var snap = current;
+        replySend.disabled = true;
         try {
-            var peer = current.ownerUid;
-            await db.collection('chatMessages').doc().set({
-                senderUid: me.uid,
-                receiverUid: peer,
-                participantsKey: [me.uid, peer].sort().join('_'),
-                participants: [me.uid, peer],
+            var myUid = me.uid;
+            await db.collection('chatMessages').add({
+                senderUid: myUid,
+                receiverUid: ownerUid,
+                participants: [myUid, ownerUid],
+                participantsKey: [myUid, ownerUid].sort().join('_'),
                 senderName: profile.name,
                 senderPhoto: profile.photo,
                 text: text,
@@ -381,16 +495,75 @@
                 reactions: {},
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            input.value = '';
-            showMsg('Reply sent');
-            setTimeout(function () {
-                closeCard();
-                if (typeof window.openChatWith === 'function') {
-                    try { window.openChatWith(peer); } catch (e) { /* chat may be disabled */ }
-                }
-            }, 600);
+            notifyDmReply(ownerUid, text);
+            closeReply();
+            showMsg('Reply sent to ' + (snap.ownerName || 'their messages'));
         } catch (err) {
-            showMsg('Could not send that reply.');
+            console.warn('[quicksnap] reply:', err && err.code);
+            showMsg('That reply did not send — check your connection.');
+        } finally {
+            replySend.disabled = false;
+        }
+    }
+
+    /* one chat notification per sender, exactly like the chat screen's */
+    async function notifyDmReply(ownerUid, text) {
+        var myUid = me.uid;
+        var snippet = String(text || '').slice(0, 80) + (String(text || '').length > 80 ? '...' : '');
+        var pushUrl = 'dashboard.html#chat_' + myUid;
+        var pushContext = 'chat:' + myUid;
+        var expiresAt = new Date(Date.now() + 3 * 86400000);
+        try {
+            var existing = await db.collection('announcements')
+                .where('type', '==', 'chat')
+                .where('targetUid', '==', ownerUid)
+                .where('referenceId', '==', 'dm_' + myUid)
+                .limit(1).get();
+            var previous = existing.empty ? null : existing.docs[0].data();
+            var previousRead = !previous || !Array.isArray(previous.readBy) || previous.readBy.includes(ownerUid);
+            var pushCount = previousRead ? 1 : (Number(previous.pushCount) || 0) + 1;
+            if (!existing.empty) {
+                await existing.docs[0].ref.update({
+                    message: '"' + snippet + '"',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    expiresAt: expiresAt,
+                    readBy: [],
+                    link: pushUrl,
+                    pushUrl: pushUrl,
+                    pushContext: pushContext,
+                    pushPending: true,
+                    pushCount: pushCount,
+                    actorUid: myUid,
+                    actorName: profile.name,
+                    actorPhoto: profile.photo
+                });
+            } else {
+                await db.collection('announcements').add({
+                    type: 'chat',
+                    title: '💬 ' + profile.name + ' replied to your QuickSnap',
+                    message: '"' + snippet + '"',
+                    icon: '💬',
+                    actorUid: myUid,
+                    actorName: profile.name,
+                    actorPhoto: profile.photo,
+                    priority: 'info',
+                    link: pushUrl,
+                    pushUrl: pushUrl,
+                    pushContext: pushContext,
+                    pushPending: true,
+                    pushCount: pushCount,
+                    linkLabel: 'Open Chat',
+                    targetUid: ownerUid,
+                    referenceId: 'dm_' + myUid,
+                    readBy: [],
+                    createdBy: 'system',
+                    createdByName: 'System',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    expiresAt: expiresAt
+                });
+            }
+        } catch (err) {
+            console.warn('[quicksnap] reply notification:', err && err.code);
         }
     }
 
@@ -437,9 +610,17 @@
             hint.hidden = false;
             return;
         }
+        // Ask for a square frame. Without this, phones hand back a tall
+        // portrait stream and the square card has to crop the sides hard,
+        // which is what read as "zoomed in".
         navigator.mediaDevices.getUserMedia({
             audio: false,
-            video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 1600 } }
+            video: {
+                facingMode: { ideal: facing },
+                width: { ideal: 1440 },
+                height: { ideal: 1440 },
+                aspectRatio: { ideal: 1 }
+            }
         }).then(function (s) {
             if (view.hidden || mode !== 'camera') { s.getTracks().forEach(function (t) { t.stop(); }); return; }
             stream = s;
@@ -447,6 +628,8 @@
             video.srcObject = s;
             var started = video.play();
             if (started && started.catch) started.catch(function () {});
+            refreshFlash();
+            setTimeout(refreshFlash, 350);
         }).catch(function (err) {
             console.warn('[quicksnap] camera:', err && err.name);
             hint.textContent = 'No camera access — allow it for this site, then tap the shutter.';
@@ -457,13 +640,18 @@
     function shoot() {
         if (!stream || !video.videoWidth) { showMsg('Hold on — the camera is still waking up.'); return; }
         var w = video.videoWidth, h = video.videoHeight;
-        var scale = Math.min(1, CFG.maxSide / Math.max(w, h));
+
+        // The preview is a square, so the photo is the same centre square —
+        // exactly what the member framed, never a surprise crop on the feed.
+        var side = Math.min(w, h);
+        var sx = (w - side) / 2, sy = (h - side) / 2;
+        var out = Math.min(side, CFG.maxSide);
         var canvas = document.createElement('canvas');
-        canvas.width = Math.round(w * scale);
-        canvas.height = Math.round(h * scale);
+        canvas.width = out;
+        canvas.height = out;
         var ctx = canvas.getContext('2d');
-        if (facing === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (facing === 'user') { ctx.translate(out, 0); ctx.scale(-1, 1); }
+        ctx.drawImage(video, sx, sy, side, side, 0, 0, out, out);
 
         canvas.toBlob(function (blob) {
             if (!blob) { showMsg('That photo did not save — try again.'); return; }
@@ -595,6 +783,7 @@
     }
 
     function closeCard() {
+        closeReply();
         stopStream();
         if (pendingURL) { URL.revokeObjectURL(pendingURL); pendingURL = null; }
         pendingBlob = null;
@@ -627,6 +816,8 @@
 
         await loadSnaps();
         refreshFab();
+        // a notification link lands straight on the snap
+        if (/quicksnap/i.test(location.hash)) setTimeout(openCard, 80);
         if (boot.polling) return;
         boot.polling = true;
         setInterval(async function () {
@@ -646,10 +837,12 @@
 
     $('qsFlip').addEventListener('click', function () {
         facing = facing === 'user' ? 'environment' : 'user';
+        torchOn = false;
         startStream();
     });
     retake.addEventListener('click', openCamera);
     $('qsMakeSnap').addEventListener('click', openCamera);
+    flashBtn.addEventListener('click', toggleFlash);
     $('qsTakeSnap').addEventListener('click', function () {
         if (pendingBlob) postSnap(); else shoot();
     });
@@ -664,16 +857,17 @@
 
     captionInput.addEventListener('input', function () {
         captionInput.style.height = 'auto';
-        captionInput.style.height = Math.min(captionInput.scrollHeight, 180) + 'px';
+        captionInput.style.height = Math.min(captionInput.scrollHeight, 160) + 'px';
     });
 
-    $('qsReplyBtn').addEventListener('click', function () {
-        $('qsReply').hidden = false;
-        $('qsReplyInput').focus();
+    $('qsReplyBtn').addEventListener('click', openReply);
+    $('qsReplyBack').addEventListener('click', closeReply);
+    replySend.addEventListener('click', sendReply);
+    replyInput.addEventListener('input', function () {
+        $('qsReplyCount').textContent = (replyInput.value || '').length + ' / 500';
     });
-    $('qsReplySend').addEventListener('click', sendReply);
-    $('qsReplyInput').addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter') { ev.preventDefault(); sendReply(); }
+    replyInput.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); sendReply(); }
     });
     $('qsDelete').addEventListener('click', function () { deleteSnap(current); });
 
@@ -691,6 +885,7 @@
 
     document.addEventListener('keydown', function (ev) {
         if (view.hidden || ev.key !== 'Escape') return;
+        if (mode === 'viewer' && !replyPanel.hidden) { closeReply(); return; }
         if (mode === 'viewer' && backTo === 'archive') { openArchive(); return; }
         if (mode !== 'camera') { openCamera(); return; }
         closeCard();

@@ -49,6 +49,11 @@
     var viewBody = document.getElementById('fwViewBody');
     var viewImg = document.getElementById('fwViewImg');
     var viewMeta = document.getElementById('fwViewMeta');
+    var reactsEl = document.getElementById('fwReacts');
+    var commentsEl = document.getElementById('fwComments');
+    var commentsEmpty = document.getElementById('fwCommentsEmpty');
+    var commentForm = document.getElementById('fwCommentForm');
+    var commentInput = document.getElementById('fwCommentInput');
 
     var db = null;
     try { db = firebase.app().firestore(); } catch (e) { db = null; }
@@ -65,6 +70,11 @@
     var pendingImage = null;     // File waiting to be uploaded
     var busy = false;
     var lastFocus = null;
+    var viewNote = null;
+    var reactionsUnsub = null;
+    var commentsUnsub = null;
+    var myReacts = {};             // emoji -> true for this device/member
+    var EMOJI = ['❤️', '😂', '😮', '👍', '🔥'];
 
     /* ── helpers ─────────────────────────────────────────────────── */
 
@@ -101,6 +111,30 @@
         return ((parts[0] || 'G')[0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
     }
 
+    function guestKey() {
+        var k = '';
+        try { k = localStorage.getItem('fw_guest_key') || ''; } catch (e) { /* private mode */ }
+        if (!k) {
+            k = 'guest_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+            try { localStorage.setItem('fw_guest_key', k); } catch (e) { /* ignore */ }
+        }
+        return k;
+    }
+
+    function actor() {
+        if (me) {
+            return {
+                uid: me.uid,
+                name: ((profile && profile.name) || me.displayName || (me.email ? me.email.split('@')[0] : 'Member')).slice(0, 40),
+                photo: (profile && profile.photo) || me.photoURL || '',
+                isGuest: false
+            };
+        }
+        var name = '';
+        try { name = localStorage.getItem('fw_guest_name') || ''; } catch (e) { /* ignore */ }
+        return { uid: guestKey(), name: (name || 'Guest').slice(0, 40), photo: '', isGuest: true };
+    }
+
     function toast(text) {
         if (typeof window.showToast === 'function') { try { window.showToast(text); return; } catch (e) { /* fall through */ } }
         var host = document.getElementById('toastStack');
@@ -130,7 +164,7 @@
 
     function closeSheet(el) {
         el.hidden = true;
-        if (el === viewModal) restoreLift();
+        if (el === viewModal) { restoreLift(); detachThreads(); }
         if (modal.hidden && viewModal.hidden) lockScroll(false);
         if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) { /* ignore */ } }
     }
@@ -559,6 +593,150 @@
 
     /* ── one note, opened ────────────────────────────────────────── */
 
+    function detachThreads() {
+        if (reactionsUnsub) { reactionsUnsub(); reactionsUnsub = null; }
+        if (commentsUnsub) { commentsUnsub(); commentsUnsub = null; }
+        viewNote = null;
+        myReacts = {};
+    }
+
+    function reactButton(e, count, mine) {
+        return '<button type="button" class="fw-react' + (mine ? ' is-on' : '') + '"' +
+            ' data-emoji="' + e + '" aria-pressed="' + (mine ? 'true' : 'false') + '">' +
+            '<span class="fw-react-e">' + e + '</span>' +
+            (count ? '<span class="fw-react-n">' + count + '</span>' : '') +
+            '</button>';
+    }
+
+    function renderReacts(rows) {
+        var counts = {};
+        myReacts = {};
+        var mine = actor();
+        rows.forEach(function (r) {
+            if (!r || !r.emoji) return;
+            counts[r.emoji] = (counts[r.emoji] || 0) + 1;
+            if (r.uid === mine.uid) myReacts[r.emoji] = true;
+        });
+        reactsEl.innerHTML = EMOJI.map(function (e) {
+            return reactButton(e, counts[e] || 0, !!myReacts[e]);
+        }).join('');
+    }
+
+    function renderComments(rows) {
+        commentsEl.innerHTML = rows.map(function (c) {
+            var name = c.name || 'Guest';
+            var face = c.photo
+                ? '<img class="fw-ava" src="' + esc(c.photo) + '" alt="" referrerpolicy="no-referrer">'
+                : '<span class="fw-ava">' + esc(initials(name)) + '</span>';
+            return '<div class="fw-comment">' + face +
+                '<div class="fw-comment-body"><b>' + esc(name) + '</b>' +
+                '<small>' + esc(ago(c.createdAt)) + '</small>' +
+                '<p>' + esc(c.text || '') + '</p></div></div>';
+        }).join('');
+        if (commentsEmpty) commentsEmpty.hidden = rows.length > 0;
+    }
+
+    function attachThreads(n) {
+        detachThreads();
+        viewNote = n;
+        if (!db || !n) return;
+        if (commentInput) commentInput.value = '';
+        reactsEl.innerHTML = EMOJI.map(function (e) { return reactButton(e, 0, false); }).join('');
+        commentsEl.innerHTML = '';
+        if (commentsEmpty) commentsEmpty.hidden = true;
+
+        var noteRef = db.collection('freedomNotes').doc(n.id);
+        reactionsUnsub = noteRef.collection('reactions').onSnapshot(function (snap) {
+            renderReacts(snap.docs.map(function (d) { return d.data() || {}; }));
+        }, function () { /* the note still reads without the counts */ });
+
+        commentsUnsub = noteRef.collection('comments').orderBy('createdAt', 'asc').limit(60)
+            .onSnapshot(function (snap) {
+                renderComments(snap.docs.map(function (d) {
+                    var v = d.data() || {};
+                    return {
+                        uid: v.uid || '', name: v.name || 'Guest', photo: v.photo || '',
+                        text: v.text || '', isGuest: !!v.isGuest,
+                        createdAt: v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : 0
+                    };
+                }));
+            }, function () {
+                commentsEl.innerHTML = '<p class="fw-comments-empty">Could not load replies.</p>';
+            });
+    }
+
+    function notifyNote(note, who, icon, title, message) {
+        if (!db || !note || !me || who.isGuest) return;
+        if (!note.authorUid || note.isGuest) return;
+        if (note.authorUid === who.uid) return;
+        db.collection('announcements').add({
+            type: 'freedom',
+            title: title,
+            message: message,
+            icon: icon,
+            actorUid: who.uid,
+            actorName: who.name,
+            actorPhoto: who.photo,
+            priority: 'info',
+            link: 'index.html#freedom-wall',
+            linkLabel: 'Read the note',
+            pushUrl: 'index.html#freedom-wall',
+            pushContext: 'freedom:' + note.id,
+            pushPending: true,
+            targetUid: note.authorUid,
+            referenceId: 'freedom_note_' + note.id,
+            readBy: [],
+            createdBy: 'system',
+            createdByName: 'System',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            expiresAt: new Date(Date.now() + 3 * 86400000)
+        }).catch(function () { /* the reply is posted either way */ });
+    }
+
+    function sendReaction(emoji) {
+        if (!viewNote || !db || !emoji) return;
+        var who = actor();
+        var note = viewNote;
+        var ref = db.collection('freedomNotes').doc(note.id).collection('reactions').doc(who.uid);
+        var mine = !!myReacts[emoji];
+        var write = mine
+            ? ref.delete()
+            : ref.set({
+                emoji: emoji,
+                uid: who.uid,
+                name: who.name,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+              });
+        write.then(function () {
+            if (mine) return;
+            notifyNote(note, who, emoji, who.name + ' reacted ' + emoji + ' to your note',
+                note.text ? '"' + String(note.text).slice(0, 80) + '"' : 'On the freedom wall');
+        }).catch(function () { toast('Could not save that reaction.'); });
+    }
+
+    function sendComment(ev) {
+        if (ev) ev.preventDefault();
+        if (!viewNote || !db) return;
+        var text = (commentInput.value || '').trim().slice(0, 280);
+        if (!text) { commentInput.focus(); return; }
+        var who = actor();
+        var note = viewNote;
+        commentInput.value = '';
+        db.collection('freedomNotes').doc(note.id).collection('comments').add({
+            uid: who.uid,
+            name: who.name,
+            photo: who.photo,
+            isGuest: who.isGuest,
+            text: text,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function () {
+            notifyNote(note, who, '💬', who.name + ' replied to your note', '"' + text + '"');
+        }).catch(function () {
+            commentInput.value = text;
+            toast('Could not send that reply.');
+        });
+    }
+
     function openView(id, el) {
         var n = null;
         for (var i = 0; i < notes.length; i++) if (notes[i].id === id) n = notes[i];
@@ -585,8 +763,13 @@
             '<span><b>' + esc(who.name || 'Guest') + '</b><br>' + ago(n.createdAt) + ' ago · ' +
             (left > 0 ? left + ' day' + (left === 1 ? '' : 's') + ' left' : 'fading') + '</span>' + del;
 
+        var sheetEl = document.getElementById('fwViewSheet');
+        if (sheetEl) sheetEl.dataset.c = String((el && el.dataset.c) || ((hash(n.id) % 6) + 1));
+
         var delBtn = document.getElementById('fwDelete');
         if (delBtn) delBtn.addEventListener('click', function () { removeNote(n); });
+
+        attachThreads(n);
 
         liftNote(el);
         if (!lift) { openSheet(viewModal); return; }
@@ -623,6 +806,11 @@
     /* ── wiring ──────────────────────────────────────────────────── */
 
     if (area) area.addEventListener('input', updateCounter);
+    if (reactsEl) reactsEl.addEventListener('click', function (ev) {
+        var b = ev.target.closest('.fw-react');
+        if (b) sendReaction(b.dataset.emoji);
+    });
+    if (commentForm) commentForm.addEventListener('submit', sendComment);
     if (form) form.addEventListener('submit', submit);
     if (fileInput) fileInput.addEventListener('change', function () { setImage(fileInput.files && fileInput.files[0]); });
     if (pickBtn) pickBtn.addEventListener('click', function () { fileInput.click(); });
