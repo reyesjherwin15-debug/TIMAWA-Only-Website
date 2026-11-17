@@ -75,11 +75,13 @@
 
 .fw-sheet.fw-sheet-note {
     --n1: #fdf3b0;
+    display: flex;
+    flex-direction: column;
     width: min(460px, 100%);
     max-height: min(84vh, 720px);
     max-height: min(84dvh, 720px);
-    padding: 44px 28px 22px;
-    -webkit-overflow-scrolling: touch;
+    padding: 44px 28px 20px;
+    overflow: visible;              /* the pin and close button sit on the edge */
     border-radius: 4px 4px 7px 3px;
     background: var(--n1);
     color: #3a2d26;
@@ -95,6 +97,27 @@
 .fw-sheet.fw-sheet-note[data-c="4"] { --n1: #dfe7ff; }
 .fw-sheet.fw-sheet-note[data-c="5"] { --n1: #f2e2ff; }
 .fw-sheet.fw-sheet-note[data-c="6"] { --n1: #ffe6cd; }
+
+/* only the note scrolls; the close button and reply box stay put, so a long
+   note or thread never gets clipped by the sheet edge */
+.fw-note-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(90, 66, 40, .35) transparent;
+}
+
+.fw-note-scroll::-webkit-scrollbar { width: 6px; }
+.fw-note-scroll::-webkit-scrollbar-thumb {
+    background: rgba(90, 66, 40, .3);
+    border-radius: 999px;
+}
+
+.fw-sheet-note .fw-comment-form { flex: 0 0 auto; }
 
 .fw-view-pin {
     position: absolute;
@@ -182,7 +205,7 @@ html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note[data-c="5"] { --n1: #ddc9e
 html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note[data-c="6"] { --n1: #efd2b3; }
 
 @media (max-width: 560px) {
-    .fw-sheet.fw-sheet-note { padding: 38px 20px 18px; max-height: min(88dvh, 720px); }
+    .fw-sheet.fw-sheet-note { padding: 38px 20px 16px; max-height: min(88dvh, 720px); }
     .fw-sheet-note .fw-view-body { font-size: 15.5px; }
     .fw-sheet-note .fw-view-meta { margin-top: 14px; padding-top: 10px; }
 }
@@ -192,8 +215,9 @@ html[data-timawa-mode="dark"] .fw-sheet.fw-sheet-note[data-c="6"] { --n1: #efd2b
     .fw-sheet.fw-sheet-note {
         width: min(560px, 100%);
         max-height: calc(100dvh - 24px);
-        padding: 30px 22px 14px;
+        padding: 30px 22px 12px;
     }
+    .fw-note-scroll { padding-right: 2px; }
     .fw-sheet-note .fw-view-body { font-size: 15px; }
     .fw-sheet-note .fw-view-img { max-height: 38vh; }
     .fw-sheet-note .fw-view-meta { margin-top: 10px; padding-top: 8px; }

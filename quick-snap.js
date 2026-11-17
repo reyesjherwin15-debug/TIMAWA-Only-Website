@@ -55,7 +55,8 @@
     var current = null;       // the snap on screen
     var stream = null;
     var facing = 'user';
-    var torchOn = false;
+    var flashOn = false;      // the member's choice, always shown
+    var torchLit = false;     // whether the hardware torch actually lit
     var pendingBlob = null;
     var pendingURL = null;
     var busy = false;
@@ -80,7 +81,7 @@
         '      <button class="qs-round qs-close" id="qsClose" type="button" aria-label="Close QuickSnap">✕</button>',
         '      <div class="qs-head-gap"></div>',
         '      <div class="qs-tools">',
-        '        <button class="qs-round qs-flash" id="qsFlash" type="button" title="Flashlight" aria-label="Turn on the flashlight" aria-pressed="false" hidden><i class="fas fa-bolt"></i></button>',
+        '        <button class="qs-round qs-flash" id="qsFlash" type="button" title="Flash" aria-label="Turn on the flash" aria-pressed="false"><i class="fas fa-bolt"></i></button>',
         '        <button class="qs-round" id="qsMakeSnap" type="button" title="Take your own snap" aria-label="Take your own snap" hidden><i class="fas fa-camera"></i></button>',
         '        <button class="qs-round" id="qsFlip" type="button" title="Flip camera" aria-label="Flip camera"><i class="fas fa-rotate"></i></button>',
         '        <button class="qs-round" id="qsRetake" type="button" title="Retake" aria-label="Retake the photo" hidden><i class="fas fa-rotate-left"></i></button>',
@@ -95,6 +96,7 @@
         '          <video class="qs-video" id="qsVideo" playsinline muted autoplay hidden></video>',
         '          <img class="qs-img" id="qsPreview" alt="" hidden />',
         '          <span class="qs-frame-flag" id="qsFrameFlag" hidden><i class="fas fa-check"></i> Captured</span>',
+        '          <span class="qs-flash-fill" id="qsFlashFill" aria-hidden="true"></span>',
         '          <textarea class="qs-caption-box" id="qsCaptionInput" rows="1" maxlength="140" placeholder="Add a caption…" aria-label="Caption" hidden></textarea>',
         '          <p class="qs-frame-hint" id="qsHint" hidden></p>',
         '        </div>',
@@ -173,7 +175,7 @@
     var archiveGrid = $('qsArchiveGrid'), archiveEmpty = $('qsArchiveEmpty');
     var msgEl = $('qsMsg');
     var toast = $('qsToast'), toastText = $('qsToastText');
-    var backBtn = $('qsBack'), retake = $('qsRetake'), flashBtn = $('qsFlash');
+    var backBtn = $('qsBack'), retake = $('qsRetake'), flashBtn = $('qsFlash'), flashFill = $('qsFlashFill');
     var replyPanel = $('qsReply'), replyInput = $('qsReplyInput'), replySend = $('qsReplySend');
     var replyLabel = $('qsReplyLabel');
 
@@ -228,10 +230,10 @@
     function stopStream() {
         if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
         if (video) video.srcObject = null;
-        torchOn = false;
-        flashBtn.hidden = true;
-        flashBtn.classList.remove('is-on');
-        flashBtn.setAttribute('aria-pressed', 'false');
+        torchLit = false;
+        flashOn = false;
+        if (flashFill) flashFill.classList.remove('is-firing');
+        refreshFlash();
     }
 
     function setMode(next) {
@@ -250,6 +252,7 @@
         if (next === 'camera') {
             $('qsFlip').hidden = !preview.hidden;
             retake.hidden = preview.hidden;
+            refreshFlash();
         }
     }
 
@@ -285,28 +288,35 @@
         try { return !!track.getCapabilities().torch; } catch (e) { return false; }
     }
 
+    /* The button is always there in the camera. Phones that expose a torch
+       light it; everything else (front cameras, laptops) fires the white
+       screen fill at capture, so flash works everywhere. */
     function refreshFlash() {
-        var available = mode === 'camera' && preview.hidden && torchAvailable();
-        flashBtn.hidden = !available;
-        flashBtn.classList.toggle('is-on', available && torchOn);
-        flashBtn.setAttribute('aria-pressed', available && torchOn ? 'true' : 'false');
-        flashBtn.setAttribute('aria-label', available && torchOn ? 'Turn off the flashlight' : 'Turn on the flashlight');
+        var inCamera = mode === 'camera' && preview.hidden;
+        flashBtn.hidden = !inCamera;
+        flashBtn.classList.toggle('is-on', inCamera && flashOn);
+        flashBtn.setAttribute('aria-pressed', inCamera && flashOn ? 'true' : 'false');
+        flashBtn.setAttribute('aria-label', flashOn ? 'Turn off the flash' : 'Turn on the flash');
+        flashBtn.title = torchAvailable() ? 'Flashlight' : 'Screen flash';
     }
 
     async function toggleFlash() {
+        var next = !flashOn;
+        flashOn = next;
         var track = torchTrack();
-        if (!track) return;
-        var next = !torchOn;
-        try {
-            await track.applyConstraints({ advanced: [{ torch: next }] });
-            torchOn = next;
-            refreshFlash();
-        } catch (err) {
-            console.warn('[quicksnap] torch:', err && err.name);
-            torchOn = false;
-            refreshFlash();
-            showMsg('This camera cannot switch its flashlight on.');
+        if (next && track && torchAvailable()) {
+            try {
+                await track.applyConstraints({ advanced: [{ torch: true }] });
+                torchLit = true;
+            } catch (err) {
+                console.warn('[quicksnap] torch:', err && err.name);
+                torchLit = false;
+            }
+        } else if (!next && track && torchLit) {
+            try { await track.applyConstraints({ advanced: [{ torch: false }] }); } catch (e) { /* ignore */ }
+            torchLit = false;
         }
+        refreshFlash();
     }
 
     /* ── data ────────────────────────────────────────────────────── */
@@ -696,6 +706,18 @@
 
     function shoot() {
         if (!stream || !video.videoWidth) { showMsg('Hold on — the camera is still waking up.'); return; }
+        if (flashOn && !torchLit) {
+            // screen flash: light the frame, then take the shot it lit
+            flashFill.classList.add('is-firing');
+            setTimeout(function () { flashFill.classList.remove('is-firing'); }, 260);
+            setTimeout(captureFrame, 150);
+            return;
+        }
+        captureFrame();
+    }
+
+    function captureFrame() {
+        if (!stream || !video.videoWidth) return;
         var w = video.videoWidth, h = video.videoHeight;
 
         // The preview is a square, so the photo is the same centre square —
@@ -717,6 +739,8 @@
             preview.src = pendingURL;
             preview.hidden = false;
             video.hidden = true;
+            flashOn = false;
+            torchLit = false;
             stopStream();
             hint.hidden = true;
             setShotState(true);
@@ -894,7 +918,8 @@
 
     $('qsFlip').addEventListener('click', function () {
         facing = facing === 'user' ? 'environment' : 'user';
-        torchOn = false;
+        flashOn = false;
+        torchLit = false;
         startStream();
     });
     retake.addEventListener('click', openCamera);

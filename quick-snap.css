@@ -307,6 +307,19 @@ body.kb-open .qs-fab { display: none !important; }
 .qs-img[hidden],
 .qs-video[hidden] { display: none; }
 
+/* screen flash: the fill that lights a front camera or a laptop */
+.qs-flash-fill {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .1s linear;
+}
+
+.qs-flash-fill.is-firing { opacity: 1; }
+
 .qs-video { transform: scaleX(-1); }
 .qs-view[data-facing="environment"] .qs-video { transform: none; }
 
