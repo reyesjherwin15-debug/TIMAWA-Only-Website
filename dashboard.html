@@ -518,6 +518,8 @@
         .announcement-icon.type-chat { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); }
         .announcement-icon.type-squad { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
         .announcement-icon.type-comment { background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%); }
+        .announcement-icon.type-quicksnap { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+        .announcement-icon.type-freedom { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); }
         /* ★ NEW: reaction type icon */
         .announcement-icon.type-reaction { background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%); }
         .announcement-icon img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
@@ -14278,7 +14280,9 @@ function startReplyTo(commentId, authorName) {
             'chat':      { icon: '💬', cls: 'type-chat',      label: 'Chat' },
             'squad':     { icon: '📢', cls: 'type-squad',     label: 'Squad Alert' },
             'comment':   { icon: '💬', cls: 'type-comment',   label: 'Comment' },
-            'reaction':  { icon: '👍', cls: 'type-reaction',  label: 'Reaction' }
+            'reaction':  { icon: '👍', cls: 'type-reaction',  label: 'Reaction' },
+            'quicksnap': { icon: '⚡', cls: 'type-quicksnap', label: 'QuickSnap' },
+            'freedom':   { icon: '📝', cls: 'type-freedom',   label: 'Freedom wall' }
         };
 
         const ANNOUNCEMENT_ICON_FILES = {
@@ -14292,6 +14296,8 @@ function startReplyTo(commentId, authorName) {
             chat: 'icons/notif-chat.png',
             reaction: 'icons/notif-reaction.png',
             comment: 'icons/notif-chat.png',
+            quicksnap: 'icons/notif-story.png',
+            freedom: 'icons/notif-note.png',
             note: 'icons/notif-note.png',
             story: 'icons/notif-story.png',
             squad: 'icons/notif-admin.png'
@@ -17840,7 +17846,7 @@ function startReplyTo(commentId, authorName) {
     <script src="stories-shared.js?v=1.11.5"></script>
     <script src="notes-music.js?v=1.2.0"></script>
     <script src="stories.js?v=1.12.13"></script>
-    <script src="quick-snap.js?v=3.4.0" defer></script>
+    <script src="quick-snap.js?v=3.4.1" defer></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.1"></script>

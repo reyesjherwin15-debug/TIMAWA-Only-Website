@@ -34,7 +34,7 @@
         keepMs: 7 * 24 * 60 * 60 * 1000,     // how long the author keeps it
         maxText: 140,
         maxReply: 500,
-        maxSide: 1400,                       // size of the uploaded square photo
+        maxSide: 1080,                       // size of the uploaded square photo
         cloud: 'ooq99nlw',
         preset: 't-imawa',
         folder: 't-imawa/quicksnaps',
@@ -59,6 +59,7 @@
     var pendingBlob = null;
     var pendingURL = null;
     var busy = false;
+    var feedUnsub = null;
     var undo = null;          // { timer, run }
 
     /* ── the DOM ─────────────────────────────────────────────────── */
@@ -318,22 +319,32 @@
             ownerName: v.ownerName || 'Member',
             ownerPhoto: v.ownerPhoto || '',
             imageUrl: v.imageUrl || '',
+            imagePublicId: v.imagePublicId || '',
             text: v.text || '',
+            status: v.status || '',
             createdAt: ms(v.createdAt),
             expiresAt: ms(v.expiresAt),
             purgeAt: ms(v.purgeAt)
         };
     }
 
+    /* Matches the read rule exactly: unexpired snaps only. Ordering by
+       expiresAt (creation + fixed TTL) is newest-first and rides the
+       automatic single-field index, so no composite index is needed. */
+    function feedQuery() {
+        return db.collection('quickSnaps')
+            .where('expiresAt', '>', new Date())
+            .orderBy('expiresAt', 'desc')
+            .limit(CFG.feedLimit);
+    }
+
     async function loadSnaps() {
         if (!me) return [];
         try {
-            // one equality filter, sorted here, so no composite index is needed
-            var q = await db.collection('quickSnaps').where('status', '==', 'active')
-                .limit(CFG.feedLimit).get();
+            var q = await feedQuery().get();
             var now = Date.now();
             snaps = q.docs.map(mapSnap).filter(function (s) {
-                return s.imageUrl && s.expiresAt > now;
+                return s.imageUrl && s.status === 'active' && s.expiresAt > now;
             }).sort(function (a, b) { return b.createdAt - a.createdAt; });
         } catch (err) {
             console.warn('[quicksnap] feed:', err && err.code, err && err.message);
@@ -356,6 +367,33 @@
             archive = [];
         }
         return archive;
+    }
+
+    function stopFeed() {
+        if (feedUnsub) { feedUnsub(); feedUnsub = null; }
+    }
+
+    /* one live listener replaces the old 60-second poll: a quiet feed costs
+       nothing after the first snapshot, and a new snap arrives immediately */
+    function startFeed() {
+        stopFeed();
+        if (!me) return;
+        try {
+            feedUnsub = feedQuery().onSnapshot(function (q) {
+                    var now = Date.now();
+                    snaps = q.docs.map(mapSnap).filter(function (s) {
+                        return s.imageUrl && s.status === 'active' && s.expiresAt > now;
+                    }).sort(function (a, b) { return b.createdAt - a.createdAt; });
+                    refreshDock();
+                    renderRibbon();
+                    refreshFab();
+                }, function (err) {
+                    console.warn('[quicksnap] feed stream:', err && err.code);
+                    loadSnaps().then(refreshFab);
+                });
+        } catch (err) {
+            console.warn('[quicksnap] feed stream:', err && err.message);
+        }
     }
 
     async function refreshFab() {
@@ -424,11 +462,29 @@
         }
     }
 
-    /* the owner hears about every reaction (never their own) */
+    /* an uploaded file is deleted by the cleanup worker; queue its exact id so
+       an early delete does not wait for the daily orphan sweep */
+    function queueMedia(publicId, sourceId) {
+        if (!publicId) return;
+        db.collection('mediaCleanupQueue').add({
+            publicId: publicId,
+            resourceType: 'image',
+            source: 'quicksnap',
+            sourceId: sourceId || '',
+            status: 'pending',
+            attempts: 0,
+            requestedBy: (me && me.uid) || '',
+            requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(function () { /* the daily sweep will still find it */ });
+    }
+
+    /* the owner hears about every reaction (never their own); one document per
+       member per snap, so changing an emoji updates instead of piling up */
     function notifySnap(snap, icon, title, message) {
         if (!me || !snap || !snap.ownerUid || snap.ownerUid === me.uid) return;
         var url = 'index.html#quicksnap';
-        db.collection('announcements').add({
+        var noteId = 'qs_react_' + snap.id + '_' + me.uid;
+        db.collection('announcements').doc(noteId).set({
             type: 'quicksnap',
             title: title,
             message: message,
@@ -449,7 +505,7 @@
             createdByName: 'System',
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             expiresAt: new Date(Date.now() + 3 * 86400000)
-        }).catch(function () { /* the reaction is saved either way */ });
+        }, { merge: true }).catch(function () { /* the reaction is saved either way */ });
     }
 
     /* ── reply straight to Direct Messages ──────────────────────── */
@@ -572,6 +628,7 @@
         if (!window.confirm('Delete this snap for everyone?')) return;
         try {
             await db.collection('quickSnaps').doc(snap.id).delete();
+            queueMedia(snap.imagePublicId, snap.id);
             snaps = snaps.filter(function (s) { return s.id !== snap.id; });
             archive = archive.filter(function (s) { return s.id !== snap.id; });
             await refreshFab();
@@ -663,7 +720,7 @@
             stopStream();
             hint.hidden = true;
             setShotState(true);
-        }, 'image/jpeg', 0.9);
+        }, 'image/jpeg', 0.85);
     }
 
     async function upload(blob) {
@@ -685,9 +742,11 @@
         shutter.disabled = true;
         showMsg('Posting your snap…');
         var text = (captionInput.value || '').trim().slice(0, CFG.maxText);
+        var uploaded = null;
 
         try {
             var media = await upload(pendingBlob);
+            uploaded = media;
             var now = new Date();
             var doc = await db.collection('quickSnaps').add({
                 ownerUid: me.uid,
@@ -702,16 +761,20 @@
                 purgeAt: firebase.firestore.Timestamp.fromDate(new Date(now.getTime() + CFG.keepMs))
             });
 
+            uploaded = null;            // the document owns the file now
             if (pendingURL) { URL.revokeObjectURL(pendingURL); pendingURL = null; }
             pendingBlob = null;
             closeCard();
             toastWithUndo('Snap posted for the squad', async function () {
                 try { await db.collection('quickSnaps').doc(doc.id).delete(); } catch (e) { /* ignore */ }
+                queueMedia(media.publicId, doc.id);
                 toast.hidden = true;
-                loadSnaps().then(refreshFab);
+                refreshFab();
             });
         } catch (err) {
             console.warn('[quicksnap] post:', err && err.message);
+            // the upload landed but the document did not: free the asset
+            if (uploaded && uploaded.publicId) queueMedia(uploaded.publicId, '');
             showMsg('That did not post. Check your connection and try again.');
         } finally {
             busy = false;
@@ -777,7 +840,7 @@
     async function openCard() {
         zoomIn();
         lock(true);
-        await loadSnaps();
+        if (!snaps.length) await loadSnaps();
         if (snaps.length) openViewer(snaps[0], snaps[0].ownerUid === me.uid);
         else openCamera();
     }
@@ -792,14 +855,14 @@
         view.classList.remove('is-open');
         lock(false);
         current = null;
-        loadSnaps().then(refreshFab);
+        refreshFab();
     }
 
     /* ── wiring ─────────────────────────────────────────────────── */
 
     async function boot(user) {
         me = user || null;
-        if (!me) { fab.classList.remove('visible'); return; }
+        if (!me) { stopFeed(); fab.classList.remove('visible'); return; }
         profile = {
             name: me.displayName || (me.email ? me.email.split('@')[0] : 'Member'),
             photo: me.photoURL || ''
@@ -814,17 +877,11 @@
             }
         } catch (e) { /* the auth profile is enough */ }
 
-        await loadSnaps();
+        // the live listener's first snapshot fills the feed; no extra read here
+        startFeed();
         refreshFab();
         // a notification link lands straight on the snap
         if (/quicksnap/i.test(location.hash)) setTimeout(openCard, 80);
-        if (boot.polling) return;
-        boot.polling = true;
-        setInterval(async function () {
-            if (!me) return;
-            await loadSnaps();
-            refreshFab();
-        }, 60000);
     }
 
     firebase.auth().onAuthStateChanged(boot);
