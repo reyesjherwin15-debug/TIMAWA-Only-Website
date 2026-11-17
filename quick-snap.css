@@ -473,8 +473,8 @@ body.kb-open .qs-fab { display: none !important; }
 }
 
 .qs-dock-side:active { transform: scale(.92); }
-.qs-dock-friends { background: #ffd166; color: #2a2010; }
-.qs-dock-inbox { background: #b9a6ff; color: #221a33; }
+.qs-dock-snaps { background: #ffd166; color: #2a2010; }
+.qs-dock-archive { background: #b9a6ff; color: #221a33; }
 
 .qs-dock-num {
     position: absolute;
@@ -521,60 +521,6 @@ body.kb-open .qs-fab { display: none !important; }
 
 .qs-link:hover { color: #fff; }
 
-.qs-inbox-list {
-    flex: 1;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-bottom: 4px;
-}
-
-.qs-inbox-item {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    padding: 8px;
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 16px;
-    background: rgba(255, 255, 255, .04);
-    color: #fff;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: background .16s ease, transform .16s ease;
-}
-
-.qs-inbox-item:hover { background: rgba(255, 255, 255, .09); }
-.qs-inbox-item:active { transform: scale(.985); }
-
-.qs-inbox-ava {
-    display: grid;
-    place-items: center;
-    width: 50px;
-    height: 60px;
-    flex: 0 0 auto;
-    border-radius: 12px;
-    overflow: hidden;
-    background: linear-gradient(160deg, #7c5cff, #4f8cff) center/cover;
-    font-size: 15px;
-    font-weight: 800;
-    color: #fff;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, .45);
-}
-
-.qs-inbox-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
-.qs-inbox-body b { font-size: 13.5px; }
-.qs-inbox-body small {
-    font-size: 12px;
-    color: rgba(255, 255, 255, .62);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.qs-inbox-time { font-size: 11px; color: rgba(255, 255, 255, .5); flex: 0 0 auto; }
-
 /* ── viewer ─────────────────────────────────────────────────────── */
 
 .qs-shot {
@@ -612,26 +558,6 @@ body.kb-open .qs-fab { display: none !important; }
 }
 
 .qs-caption[hidden] { display: none; }
-
-.qs-shot-badge {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 10px;
-    border-radius: 999px;
-    background: rgba(8, 6, 12, .55);
-    color: #fff;
-    font-size: 10.5px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .03em;
-    z-index: 2;
-}
-
-.qs-shot-badge[hidden] { display: none; }
 
 .qs-who {
     display: flex;
@@ -765,140 +691,6 @@ body.kb-open .qs-fab { display: none !important; }
     text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
 }
 
-.qs-thumb-seen {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    padding: 2px 6px;
-    border-radius: 999px;
-    background: rgba(8, 6, 12, .7);
-    color: #fff;
-    font-size: 9.5px;
-    font-style: normal;
-    font-weight: 750;
-}
-
-/* ── recipient picker ───────────────────────────────────────────── */
-
-.qs-picker {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-    padding: 2px;
-    border-radius: 20px;
-    background: #0a0a0c;
-    animation: qsFade .16s ease both;
-}
-
-.qs-picker[hidden] { display: none; }
-
-.qs-picker-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 2px 0;
-}
-
-.qs-picker-head b { font-size: 14px; }
-
-.qs-picker-search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 13px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .08);
-    color: rgba(255, 255, 255, .6);
-}
-
-.qs-picker-search input {
-    flex: 1;
-    min-width: 0;
-    border: 0;
-    background: none;
-    color: #fff;
-    font: inherit;
-    font-size: 16px;
-    outline: none;
-}
-
-.qs-close-friends {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 11px 13px;
-    border: 1px solid rgba(255, 255, 255, .1);
-    border-radius: 14px;
-    background: rgba(255, 255, 255, .04);
-    color: #fff;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.qs-close-friends i { color: #ffd166; }
-.qs-close-friends small { margin-left: auto; font-size: 11px; opacity: .6; font-weight: 600; }
-
-.qs-picker-list {
-    flex: 1;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-bottom: 4px;
-}
-
-.qs-pick {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    padding: 8px 10px;
-    border: 1px solid transparent;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, .04);
-    color: #fff;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.qs-pick.is-on { background: rgba(124, 92, 255, .18); border-color: rgba(124, 92, 255, .5); }
-
-.qs-pick-ava {
-    display: grid;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    overflow: hidden;
-    background: rgba(255, 255, 255, .14);
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.qs-pick-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.qs-pick-name { flex: 1; font-size: 13px; font-weight: 650; }
-
-.qs-pick-check {
-    display: grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(255, 255, 255, .3);
-    font-size: 10px;
-    color: transparent;
-}
-
-.qs-pick.is-on .qs-pick-check { background: #7c5cff; border-color: #7c5cff; color: #fff; }
-
 /* ── shared states ──────────────────────────────────────────────── */
 
 .qs-empty {
@@ -1002,7 +794,6 @@ body.kb-open .qs-fab { display: none !important; }
 .qs-dock-main:focus-visible,
 .qs-dock-side:focus-visible,
 .qs-select-friends:focus-visible,
-.qs-inbox-item:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
 @keyframes qsFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes qsZoom {
@@ -1011,7 +802,7 @@ body.kb-open .qs-fab { display: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .qs-view, .qs-picker { animation: none; }
+    .qs-view { animation: none; }
     .qs-view.is-open .qs-stage { animation: none; }
     .qs-fab, .qs-round, .qs-shutter, .qs-dock-main, .qs-dock-side, .qs-emoji { transition: none; }
 }
