@@ -7418,7 +7418,7 @@
     </style>
     <link rel="stylesheet" href="mobile-nav.css?v=1.2.0" />
     <link rel="stylesheet" href="tita-panel.css?v=2.3.0" />
-    <link rel="stylesheet" href="quick-snap.css?v=3.3.2" />
+    <link rel="stylesheet" href="quick-snap.css?v=3.4.0" />
     <link rel="stylesheet" href="launch.css?v=1.9.7" />
     <style>
         /* Keyboard-aware full-bleed sheets.
@@ -12556,6 +12556,7 @@
                         </div>
                         ${Threads.refHtml(comment, highlightCommentsById)}
                         <div class="comment-text">${textHtml}</div>
+                        ${window.CommentReactions ? CommentReactions.row(comment, currentUser ? currentUser.uid : null, 'highlightComments') : ''}
                         <div class="comment-actions">
                             ${replyBtn}
                             ${deleteBtn}
@@ -14123,6 +14124,7 @@ function startHighlightReply(commentId, authorName) {
                         </div>
                         ${Threads.refHtml(comment, noteCommentsById)}
                         <div class="comment-text">${textHtml}</div>
+                        ${window.CommentReactions ? CommentReactions.row(comment, currentUser ? currentUser.uid : null, 'noteComments') : ''}
                         <div class="comment-actions">
                             ${replyBtn}
                             ${deleteBtn}
@@ -17844,9 +17846,9 @@ function startReplyTo(commentId, authorName) {
     </script>
 
     <script src="stories-shared.js?v=1.11.5"></script>
-    <script src="notes-music.js?v=1.2.0"></script>
+    <script src="notes-music.js?v=1.3.0"></script>
     <script src="stories.js?v=1.12.13"></script>
-    <script src="quick-snap.js?v=3.4.2" defer></script>
+    <script src="quick-snap.js?v=3.5.0" defer></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.1"></script>

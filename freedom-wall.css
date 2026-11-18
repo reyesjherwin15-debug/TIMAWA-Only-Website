@@ -1021,3 +1021,138 @@ html[data-timawa-mode="dark"] .fw-note {
     .fw-sheet.fw-sheet-note { padding: 40px 20px 18px; }
     .fw-react { padding: 6px 9px; }
 }
+
+/* ── reply threads on a note ──────────────────────────────────────── */
+
+.fw-thread + .fw-thread { margin-top: 10px; }
+
+/* every answer to a reply still lives inside the thread it belongs to, one
+   indent in, so a long back-and-forth never walks off the note */
+.fw-comment-replies {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 8px 0 0 30px;
+    padding-left: 10px;
+    border-left: 2px solid rgba(58, 45, 38, .16);
+}
+
+.fw-comment-top {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.fw-comment-top b { font-size: 12px; }
+.fw-comment-top small { font-size: 10.5px; color: rgba(58, 45, 38, .55); }
+
+.fw-comment-ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    margin-top: 3px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(58, 45, 38, .08);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: rgba(58, 45, 38, .72);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fw-comment-ref i { font-size: 8px; }
+
+.fw-comment-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.fw-comment-reply {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: #6b4a2f;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background .14s ease;
+}
+
+.fw-comment-reply:hover { background: rgba(58, 45, 38, .09); }
+.fw-comment-reply i { font-size: 9px; }
+
+.fw-creacts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.fw-creact {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border: 1px solid rgba(58, 45, 38, .14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .3);
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background .14s ease, transform .12s ease, border-color .14s ease;
+}
+
+.fw-creact:hover { background: rgba(255, 255, 255, .62); }
+.fw-creact:active { transform: scale(.93); }
+
+.fw-creact.is-on {
+    background: rgba(255, 255, 255, .86);
+    border-color: rgba(58, 45, 38, .34);
+    box-shadow: 0 1px 5px rgba(58, 45, 38, .12);
+}
+
+.fw-creact-n { font-size: 10px; font-weight: 800; opacity: .72; }
+
+/* "Replying to …" — pinned above the reply box like the note itself */
+.fw-reply-banner {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 14px 0 0;
+    padding: 7px 10px;
+    border-radius: 10px;
+    background: rgba(58, 45, 38, .1);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #4a372a;
+}
+
+.fw-reply-banner[hidden] { display: none; }
+
+.fw-reply-banner button {
+    border: 0;
+    background: none;
+    padding: 2px 4px;
+    cursor: pointer;
+    color: #6b4a2f;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.fw-reply-banner button:hover { color: #a33a2a; }
+
+.fw-reply-banner:not([hidden]) + .fw-comment-form { margin-top: 8px; }

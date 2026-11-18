@@ -20,11 +20,11 @@
 
 .qs-fab {
     position: fixed;
-    right: -12px;
+    right: -14px;
     bottom: calc(98px + env(safe-area-inset-bottom, 0px));
-    width: 54px;
-    height: 66px;
-    padding: 4px 4px 11px;
+    width: 70px;
+    height: 86px;
+    padding: 4px 4px 12px;
     border: 0;
     border-radius: 6px;
     background: #fffdf8;
@@ -62,7 +62,7 @@
     width: 100%;
     height: 100%;
     color: #fff;
-    font-size: 18px;
+    font-size: 24px;
 }
 
 .qs-fab-badge {
@@ -87,22 +87,22 @@ body.kb-open .qs-fab { display: none !important; }
 
 @media (max-width: 640px) {
     .qs-fab {
-        width: 50px; height: 61px;
-        right: -11px;
+        width: 66px; height: 81px;
+        right: -13px;
         bottom: calc(84px + env(safe-area-inset-bottom, 0px));
     }
 }
 
 @media (max-width: 480px) {
     .qs-fab {
-        width: 47px; height: 58px;
-        right: -10px;
+        width: 62px; height: 76px;
+        right: -12px;
         bottom: calc(76px + env(safe-area-inset-bottom, 0px));
     }
 }
 
 @media (max-height: 560px) and (orientation: landscape) {
-    .qs-fab { width: 42px; height: 52px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: -9px; }
+    .qs-fab { width: 52px; height: 64px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: -10px; }
 }
 
 /* ── the ribbon above conversations ─────────────────────────────── */
@@ -319,6 +319,25 @@ body.kb-open .qs-fab { display: none !important; }
 }
 
 .qs-flash-fill.is-firing { opacity: 1; }
+
+/* front-camera flash: the entire outer screen turns white — that white is the
+   light — and it sits above the card, so the light reaches the face */
+.qs-screenflash {
+    position: fixed;
+    inset: 0;
+    z-index: 9900;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .07s linear;
+    will-change: opacity;
+}
+
+.qs-screenflash.is-firing { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    .qs-screenflash { transition: none; }
+}
 
 .qs-video { transform: scaleX(-1); }
 .qs-view[data-facing="environment"] .qs-video { transform: none; }

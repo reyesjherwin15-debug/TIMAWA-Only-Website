@@ -54,6 +54,9 @@
     var commentsEmpty = document.getElementById('fwCommentsEmpty');
     var commentForm = document.getElementById('fwCommentForm');
     var commentInput = document.getElementById('fwCommentInput');
+    var replyBanner = document.getElementById('fwReplyBanner');
+    var replyNameEl = document.getElementById('fwReplyName');
+    var replyCancel = document.getElementById('fwReplyCancel');
 
     var db = null;
     try { db = firebase.app().firestore(); } catch (e) { db = null; }
@@ -74,6 +77,8 @@
     var reactionsUnsub = null;
     var commentsUnsub = null;
     var myReacts = {};             // emoji -> true for this device/member
+    var threadRows = [];           // the replies currently on screen
+    var replyTarget = null;        // { rootId, commentId, uid, name, isGuest }
     var EMOJI = ['❤️', '😂', '😮', '👍', '🔥'];
 
     /* ── helpers ─────────────────────────────────────────────────── */
@@ -598,6 +603,8 @@
         if (commentsUnsub) { commentsUnsub(); commentsUnsub = null; }
         viewNote = null;
         myReacts = {};
+        threadRows = [];
+        clearReplyTarget();
     }
 
     function reactButton(e, count, mine) {
@@ -622,18 +629,111 @@
         }).join('');
     }
 
+    /* one emoji per member per reply, kept on the reply document itself so a
+       thread costs no extra reads: the comments listener already carries it */
+    function commentReacts(c) {
+        var map = (c && c.reactions && typeof c.reactions === 'object') ? c.reactions : {};
+        var uid = actor().uid;
+        var counts = {};
+        Object.keys(map).forEach(function (k) {
+            var e = map[k];
+            if (e) counts[e] = (counts[e] || 0) + 1;
+        });
+        return EMOJI.map(function (e) {
+            var on = map[uid] === e;
+            return '<button type="button" class="fw-creact' + (on ? ' is-on' : '') + '"' +
+                ' data-fw-creact="' + esc(e) + '" aria-pressed="' + (on ? 'true' : 'false') + '"' +
+                ' aria-label="React ' + esc(e) + '">' + e +
+                (counts[e] ? '<span class="fw-creact-n">' + counts[e] + '</span>' : '') +
+                '</button>';
+        }).join('');
+    }
+
+    function commentMarkup(c, isReply) {
+        var name = c.name || 'Guest';
+        var face = c.photo
+            ? '<img class="fw-ava" src="' + esc(c.photo) + '" alt="" referrerpolicy="no-referrer">'
+            : '<span class="fw-ava">' + esc(initials(name)) + '</span>';
+        var ref = (isReply && c.replyToName)
+            ? '<span class="fw-comment-ref"><i class="fas fa-reply" aria-hidden="true"></i> ' + esc(c.replyToName) + '</span>'
+            : '';
+        return '<div class="fw-comment' + (isReply ? ' is-reply' : '') + '" data-cid="' + esc(c.id) + '">' + face +
+            '<div class="fw-comment-body">' +
+            '<div class="fw-comment-top"><b>' + esc(name) + '</b><small>' + esc(ago(c.createdAt)) + '</small></div>' +
+            ref +
+            '<p>' + esc(c.text || '') + '</p>' +
+            '<div class="fw-comment-foot">' +
+            '<button type="button" class="fw-comment-reply" data-fw-reply="' + esc(c.id) + '">' +
+            '<i class="fas fa-reply" aria-hidden="true"></i> Reply</button>' +
+            '</div>' +
+            '<div class="fw-creacts">' + commentReacts(c) + '</div>' +
+            '</div></div>';
+    }
+
+    /* top-level replies first, then everything that answers them sits inside
+       the same thread (one indent), whichever reply it answered */
     function renderComments(rows) {
-        commentsEl.innerHTML = rows.map(function (c) {
-            var name = c.name || 'Guest';
-            var face = c.photo
-                ? '<img class="fw-ava" src="' + esc(c.photo) + '" alt="" referrerpolicy="no-referrer">'
-                : '<span class="fw-ava">' + esc(initials(name)) + '</span>';
-            return '<div class="fw-comment">' + face +
-                '<div class="fw-comment-body"><b>' + esc(name) + '</b>' +
-                '<small>' + esc(ago(c.createdAt)) + '</small>' +
-                '<p>' + esc(c.text || '') + '</p></div></div>';
+        threadRows = rows || [];
+        var byId = {};
+        rows.forEach(function (c) { byId[c.id] = c; });
+        var roots = rows.filter(function (c) { return !c.parentId || !byId[c.parentId]; });
+        var kids = {};
+        rows.forEach(function (c) {
+            if (!c.parentId || c.parentId === c.id || !byId[c.parentId]) return;
+            (kids[c.parentId] = kids[c.parentId] || []).push(c);
+        });
+        commentsEl.innerHTML = roots.map(function (r) {
+            var list = kids[r.id] || [];
+            return '<div class="fw-thread">' + commentMarkup(r, false) +
+                (list.length
+                    ? '<div class="fw-comment-replies">' + list.map(function (k) { return commentMarkup(k, true); }).join('') + '</div>'
+                    : '') +
+                '</div>';
         }).join('');
         if (commentsEmpty) commentsEmpty.hidden = rows.length > 0;
+    }
+
+    function clearReplyTarget() {
+        replyTarget = null;
+        if (replyBanner) replyBanner.hidden = true;
+        if (commentInput) commentInput.placeholder = 'Reply to this note…';
+    }
+
+    function setReplyTarget(commentId) {
+        var c = null;
+        threadRows.forEach(function (x) { if (x.id === commentId) c = x; });
+        if (!c) return;
+        replyTarget = {
+            rootId: c.parentId || c.id,
+            commentId: c.id,
+            uid: c.uid || '',
+            name: c.name || 'Guest',
+            isGuest: !!c.isGuest
+        };
+        if (replyBanner) replyBanner.hidden = false;
+        if (replyNameEl) replyNameEl.textContent = replyTarget.name;
+        if (commentInput) {
+            commentInput.placeholder = 'Reply to ' + replyTarget.name + '…';
+            commentInput.focus();
+        }
+    }
+
+    function toggleCommentReact(chip) {
+        if (!viewNote || !db || !chip) return;
+        var wrap = chip.closest('.fw-comment');
+        var cid = wrap && wrap.getAttribute('data-cid');
+        if (!cid) return;
+        var c = null;
+        threadRows.forEach(function (x) { if (x.id === cid) c = x; });
+        if (!c) return;
+        var emoji = chip.getAttribute('data-fw-creact');
+        var who = actor();
+        var mine = c.reactions && c.reactions[who.uid] === emoji;
+        var data = {};
+        data['reactions.' + who.uid] = mine ? firebase.firestore.FieldValue.delete() : emoji;
+        db.collection('freedomNotes').doc(viewNote.id).collection('comments').doc(cid)
+            .update(data)
+            .catch(function () { toast('Could not save that reaction.'); });
     }
 
     function attachThreads(n) {
@@ -641,6 +741,8 @@
         viewNote = n;
         if (!db || !n) return;
         if (commentInput) commentInput.value = '';
+        clearReplyTarget();
+        threadRows = [];
         reactsEl.innerHTML = EMOJI.map(function (e) { return reactButton(e, 0, false); }).join('');
         commentsEl.innerHTML = '';
         if (commentsEmpty) commentsEmpty.hidden = true;
@@ -655,8 +757,14 @@
                 renderComments(snap.docs.map(function (d) {
                     var v = d.data() || {};
                     return {
+                        id: d.id,
                         uid: v.uid || '', name: v.name || 'Guest', photo: v.photo || '',
                         text: v.text || '', isGuest: !!v.isGuest,
+                        parentId: v.parentId || '',
+                        replyToCommentId: v.replyToCommentId || '',
+                        replyToName: v.replyToName || '',
+                        replyToUid: v.replyToUid || '',
+                        reactions: (v.reactions && typeof v.reactions === 'object') ? v.reactions : {},
                         createdAt: v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : 0
                     };
                 }));
@@ -665,10 +773,10 @@
             });
     }
 
-    function notifyNote(note, who, icon, title, message) {
+    function notifyNote(note, who, icon, title, message, toUid, refId) {
         if (!db || !note || !me || who.isGuest) return;
-        if (!note.authorUid || note.isGuest) return;
-        if (note.authorUid === who.uid) return;
+        var target = toUid || note.authorUid;
+        if (!target || target === who.uid) return;
         db.collection('announcements').add({
             type: 'freedom',
             title: title,
@@ -683,8 +791,8 @@
             pushUrl: 'index.html#freedom-wall',
             pushContext: 'freedom:' + note.id,
             pushPending: true,
-            targetUid: note.authorUid,
-            referenceId: 'freedom_note_' + note.id,
+            targetUid: target,
+            referenceId: refId || ('freedom_note_' + note.id + (toUid ? '_' + toUid : '')),
             readBy: [],
             createdBy: 'system',
             createdByName: 'System',
@@ -721,16 +829,35 @@
         if (!text) { commentInput.focus(); return; }
         var who = actor();
         var note = viewNote;
-        commentInput.value = '';
-        db.collection('freedomNotes').doc(note.id).collection('comments').add({
+        var target = replyTarget;
+        var doc = {
             uid: who.uid,
             name: who.name,
             photo: who.photo,
             isGuest: who.isGuest,
             text: text,
+            reactions: {},
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        }).then(function () {
-            notifyNote(note, who, '💬', who.name + ' replied to your note', '"' + text + '"');
+        };
+        if (target) {
+            doc.parentId = target.rootId;
+            doc.replyToCommentId = target.commentId;
+            doc.replyToUid = target.uid || '';
+            doc.replyToName = target.name || '';
+        }
+        commentInput.value = '';
+        db.collection('freedomNotes').doc(note.id).collection('comments').add(doc).then(function () {
+            if (target) {
+                // a guest reply has no account to ring, and the note's author is
+                // not the one being answered, so only members get a bell
+                if (!target.isGuest && target.uid) {
+                    notifyNote(note, who, '💬', who.name + ' replied to your reply', '"' + text + '"',
+                        target.uid, 'freedom_c_' + target.commentId);
+                }
+            } else {
+                notifyNote(note, who, '💬', who.name + ' replied to your note', '"' + text + '"');
+            }
+            clearReplyTarget();
         }).catch(function () {
             commentInput.value = text;
             toast('Could not send that reply.');
@@ -810,6 +937,13 @@
         var b = ev.target.closest('.fw-react');
         if (b) sendReaction(b.dataset.emoji);
     });
+    if (commentsEl) commentsEl.addEventListener('click', function (ev) {
+        var rb = ev.target.closest('[data-fw-reply]');
+        if (rb) { ev.preventDefault(); setReplyTarget(rb.getAttribute('data-fw-reply')); return; }
+        var chip = ev.target.closest('[data-fw-creact]');
+        if (chip) { ev.preventDefault(); toggleCommentReact(chip); }
+    });
+    if (replyCancel) replyCancel.addEventListener('click', clearReplyTarget);
     if (commentForm) commentForm.addEventListener('submit', sendComment);
     if (form) form.addEventListener('submit', submit);
     if (fileInput) fileInput.addEventListener('change', function () { setImage(fileInput.files && fileInput.files[0]); });

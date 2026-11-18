@@ -159,7 +159,9 @@
         '    </div>',
         '  </div>',
         '</div>',
-        '<div class="qs-toast" id="qsToast" hidden><span id="qsToastText"></span><button type="button" id="qsUndo">Undo</button></div>'
+        '<div class="qs-toast" id="qsToast" hidden><span id="qsToastText"></span><button type="button" id="qsUndo">Undo</button></div>',
+        // front cameras have no torch: this fills the whole screen with light
+        '<div class="qs-screenflash" id="qsScreenFlash" aria-hidden="true"></div>'
     ].join('');
     document.body.appendChild(host);
 
@@ -178,6 +180,9 @@
     var backBtn = $('qsBack'), retake = $('qsRetake'), flashBtn = $('qsFlash'), flashFill = $('qsFlashFill');
     var replyPanel = $('qsReply'), replyInput = $('qsReplyInput'), replySend = $('qsReplySend');
     var replyLabel = $('qsReplyLabel');
+    var screenFlash = $('qsScreenFlash');
+    var screenFlashTimer = null;
+    var brightnessBefore = null;
 
     /* ── small helpers ───────────────────────────────────────────── */
 
@@ -289,8 +294,8 @@
     }
 
     /* The button is always there in the camera. Phones that expose a torch
-       light it; everything else (front cameras, laptops) fires the white
-       screen fill at capture, so flash works everywhere. */
+       light it; everything else (front cameras, laptops, tablets) lights the
+       whole outer screen white, so flash works on every camera. */
     function refreshFlash() {
         var inCamera = mode === 'camera' && preview.hidden;
         flashBtn.hidden = !inCamera;
@@ -298,6 +303,50 @@
         flashBtn.setAttribute('aria-pressed', inCamera && flashOn ? 'true' : 'false');
         flashBtn.setAttribute('aria-label', flashOn ? 'Turn off the flash' : 'Turn on the flash');
         flashBtn.title = torchAvailable() ? 'Flashlight' : 'Screen flash';
+    }
+
+    /* No torch on a front camera, so the light has to come from the display:
+       push the panel to full brightness where the browser exposes the Screen
+       Brightness API, and paint the entire viewport white while it fires. */
+    function setScreenBrightnessMax(on) {
+        try {
+            var sb = navigator.screenBrightness;
+            if (sb && typeof sb.set === 'function') {
+                if (on) {
+                    if (brightnessBefore == null) {
+                        var level = Number(sb.value);
+                        brightnessBefore = isFinite(level) ? level : null;
+                    }
+                    sb.set(1);
+                } else if (typeof sb.reset === 'function') {
+                    sb.reset();
+                } else if (brightnessBefore != null) {
+                    sb.set(brightnessBefore);
+                }
+                brightnessBefore = null;
+                return;
+            }
+            if (typeof navigator.setScreenBrightness === 'function') {
+                navigator.setScreenBrightness(on ? 1 : 0.5);
+            }
+        } catch (e) { /* the white fill still lights the scene */ }
+    }
+
+    function fireScreenFlash(ms) {
+        if (!screenFlash) return;
+        screenFlash.classList.add('is-firing');
+        setScreenBrightnessMax(true);
+        clearTimeout(screenFlashTimer);
+        screenFlashTimer = setTimeout(function () {
+            screenFlash.classList.remove('is-firing');
+            setScreenBrightnessMax(false);
+        }, ms || 320);
+    }
+
+    function clearScreenFlash() {
+        clearTimeout(screenFlashTimer);
+        if (screenFlash) screenFlash.classList.remove('is-firing');
+        setScreenBrightnessMax(false);
     }
 
     async function toggleFlash() {
@@ -312,10 +361,14 @@
                 console.warn('[quicksnap] torch:', err && err.name);
                 torchLit = false;
             }
-        } else if (!next && track && torchLit) {
+        } else if (next) {
+            // a short pulse so the member sees the screen flash is on
+            fireScreenFlash(180);
+        } else if (track && torchLit) {
             try { await track.applyConstraints({ advanced: [{ torch: false }] }); } catch (e) { /* ignore */ }
             torchLit = false;
         }
+        if (!next) clearScreenFlash();
         refreshFlash();
     }
 
@@ -707,10 +760,12 @@
     function shoot() {
         if (!stream || !video.videoWidth) { showMsg('Hold on — the camera is still waking up.'); return; }
         if (flashOn && !torchLit) {
-            // screen flash: light the frame, then take the shot it lit
+            // screen flash: the whole display goes white (and to full
+            // brightness) so the front camera has light, then we capture it
             flashFill.classList.add('is-firing');
-            setTimeout(function () { flashFill.classList.remove('is-firing'); }, 260);
-            setTimeout(captureFrame, 150);
+            setTimeout(function () { flashFill.classList.remove('is-firing'); }, 600);
+            fireScreenFlash(600);
+            setTimeout(captureFrame, 190);
             return;
         }
         captureFrame();
@@ -871,6 +926,7 @@
 
     function closeCard() {
         closeReply();
+        clearScreenFlash();
         stopStream();
         if (pendingURL) { URL.revokeObjectURL(pendingURL); pendingURL = null; }
         pendingBlob = null;

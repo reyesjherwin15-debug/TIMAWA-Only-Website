@@ -448,5 +448,80 @@
     };
 
     window.NoteMusic = { hasContent, bubbleText, bubbleInner, fitMarquees, idOf, clean, cardHtml, injectStyles, canEditSong, setDraft, syncDraft, isReplacing, isActive, setReplaceNote, getDraft, getDraftForSave, mountModal, mountDetail, stop, openPicker };
+    // ------------------------------------------------------------ comment reactions (every comment surface)
+    // One emoji per member per comment, stored as comment.reactions[uid].
+    // Keeping it on the comment document means every comment list already has
+    // the counts from the snapshot it reads — no listener per comment.
+    const CR_EMOJI = ['❤️', '😂', '😮', '👍', '🔥'];
+    function crStyles() {
+        if (document.getElementById('crStyles')) return;
+        const st = document.createElement('style');
+        st.id = 'crStyles';
+        st.textContent = `
+        .cr-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+        .cr-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;border:1px solid color-mix(in srgb,var(--theme-text,#000) 14%,transparent);background:transparent;color:var(--theme-text-muted,#666);font:inherit;font-size:12px;line-height:1.55;cursor:pointer;transition:background .14s ease,border-color .14s ease,transform .12s ease}
+        .cr-chip:hover{background:color-mix(in srgb,var(--theme-text,#000) 7%,transparent)}
+        .cr-chip:active{transform:scale(.93)}
+        .cr-chip.is-on{background:color-mix(in srgb,var(--theme-primary,#1089d3) 14%,transparent);border-color:color-mix(in srgb,var(--theme-primary,#1089d3) 45%,transparent);color:var(--theme-text,#1a1a2e)}
+        .cr-chip:focus-visible{outline:2px solid var(--theme-primary,#1089d3);outline-offset:1px}
+        .cr-n{font-size:10.5px;font-weight:800;opacity:.78;font-variant-numeric:tabular-nums}
+        `;
+        document.head.appendChild(st);
+    }
+    const CommentReactions = {
+        row(comment, uid, collection) {
+            if (!comment || !comment.id) return '';
+            crStyles();
+            const map = (comment.reactions && typeof comment.reactions === 'object') ? comment.reactions : {};
+            const counts = {};
+            Object.keys(map).forEach(k => { const e = map[k]; if (e) counts[e] = (counts[e] || 0) + 1; });
+            const mine = uid ? map[uid] : '';
+            const chips = CR_EMOJI.map(e => {
+                const on = mine === e;
+                return `<button type="button" class="cr-chip${on ? ' is-on' : ''}" data-cr-emoji="${e}" aria-pressed="${on}" aria-label="React ${e}">` +
+                    `<span class="cr-e">${e}</span>` +
+                    (counts[e] ? `<span class="cr-n">${counts[e]}</span>` : '') +
+                    '</button>';
+            }).join('');
+            return `<div class="cr-row" data-cr-id="${esc(comment.id)}" data-cr-col="${esc(collection || '')}">${chips}</div>`;
+        },
+        write(collection, id, emoji) {
+            const uid = meUid();
+            if (!uid || !collection || !id) return Promise.resolve(false);
+            const data = {};
+            data['reactions.' + uid] = emoji || firebase.firestore.FieldValue.delete();
+            return firebase.app().firestore().collection(collection).doc(id).update(data).then(() => true);
+        }
+    };
+    // one delegated handler, so any page that renders a row gets reactions
+    document.addEventListener('click', e => {
+        const chip = e.target.closest && e.target.closest('.cr-chip');
+        if (!chip) return;
+        const row = chip.closest('.cr-row');
+        if (!row) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const id = row.getAttribute('data-cr-id');
+        const wasOn = chip.classList.contains('is-on');
+        const emoji = chip.getAttribute('data-cr-emoji');
+        row.querySelectorAll('.cr-chip').forEach(c => {
+            const on = c === chip ? !wasOn : false;
+            c.classList.toggle('is-on', on);
+            c.setAttribute('aria-pressed', on ? 'true' : 'false');
+            if (c !== chip) return;
+            const n = c.querySelector('.cr-n');
+            const count = Math.max(0, (Number(n ? n.textContent : 0) || 0) + (wasOn ? -1 : 1));
+            if (count) {
+                if (n) n.textContent = count;
+                else { const s = document.createElement('span'); s.className = 'cr-n'; s.textContent = count; c.appendChild(s); }
+            } else if (n) { n.remove(); }
+        });
+        CommentReactions.write(row.getAttribute('data-cr-col'), id, wasOn ? null : emoji).catch(() => {
+            chip.classList.toggle('is-on', wasOn);
+            chip.setAttribute('aria-pressed', wasOn ? 'true' : 'false');
+        });
+    });
+    window.CommentReactions = CommentReactions;
+
     window.Threads = Threads;
 })();
