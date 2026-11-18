@@ -69,6 +69,8 @@ MEDIA_COLLECTIONS = (
     "favoritePlaces",
     "thingsToDo",
     "chatMessages",
+    "freedomNotes",
+    "quickSnaps",
 )
 
 
@@ -222,9 +224,18 @@ def referenced_ids(db, limit: int) -> set[str]:
     ids: set[str] = set()
     for name in MEDIA_COLLECTIONS:
         try:
+            seen = 0
             docs = db.collection(name).limit(limit).stream()
             for doc in docs:
+                seen += 1
                 _collect_media(doc.to_dict() or {}, ids)
+            # A capped scan is an incomplete reference list: media referenced
+            # only by the docs past the cap would look like orphans. Refuse to
+            # sweep instead of deleting something still in use.
+            if seen >= limit:
+                raise RuntimeError(
+                    f"{name} has at least {limit} documents — raise --scan-limit"
+                )
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError(f"could not scan {name}: {exc}") from exc
     return ids
@@ -311,6 +322,8 @@ EXPIRING = (
     ("stories", "expiresAt", ("reactions", "views")),
     ("highlights", "expiresAt", ()),
     ("announcements", "expiresAt", ()),
+    ("freedomNotes", "expiresAt", ("comments", "reactions")),
+    ("quickSnaps", "purgeAt", ("reactions",)),
 )
 
 

@@ -70,6 +70,8 @@ TYPE_ICONS = {
     "note": "icons/notif-note.png",
     "reply": "icons/notif-reply.png",
     "squad": "icons/notif-admin.png",
+    "quicksnap": "icons/notif-story.png",
+    "freedom": "icons/notif-note.png",
 }
 DEFAULT_ICON = "icons/notif-default.png"
 

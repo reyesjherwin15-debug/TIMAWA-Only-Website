@@ -16618,9 +16618,36 @@ function startReplyTo(commentId, authorName) {
         // ================================================================
         // ===== UPLOAD =====
         // ================================================================
+        /* A highlight photo is a full camera frame (often 8–20 MB) and
+           Cloudinary stores the original we send. Downscale to 2000 px — more
+           than any phone or laptop screen shows — and re-encode at 0.85, which
+           cuts each upload's storage several times over without a visible
+           difference. Anything the browser cannot decode is sent untouched. */
+        async function shrinkForUpload(file, maxDim = 2000, quality = 0.85) {
+            if (!file || !/^image\//.test(file.type || '') || /gif|svg/.test(file.type)) return file;
+            try {
+                const img = await new Promise((resolve, reject) => {
+                    const el = new Image();
+                    const url = URL.createObjectURL(file);
+                    el.onload = () => { URL.revokeObjectURL(url); resolve(el); };
+                    el.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode')); };
+                    el.src = url;
+                });
+                const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+                if (scale >= 1 && file.size < 600 * 1024) return file;
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(img.width * scale));
+                canvas.height = Math.max(1, Math.round(img.height * scale));
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                if (!blob || blob.size >= file.size) return file;
+                return new File([blob], 'highlight.jpg', { type: 'image/jpeg' });
+            } catch (e) { return file; }
+        }
+
         async function uploadToCloudinary(file, expiryDateStr, onProgress) {
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', await shrinkForUpload(file));
             formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
             formData.append('folder', 't-imawa/highlights');
 

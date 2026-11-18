@@ -24,14 +24,26 @@ secret belongs — deletes them. This also fixes the old behaviour: `dashboard.h
 used to call `/image/destroy` unsigned, which always failed silently, so every
 deleted highlight stayed in the account forever.
 
+## What is uploaded
+
+Cloudinary stores the original we send it, so the upload itself is the first
+place storage is won. Highlight photos are downscaled to 2000 px and re-encoded
+at JPEG 0.85 (`dashboard.html`), item photos to 1600 px (`admin.html`), and
+avatars are already cropped at 400–640 px. Anything the browser cannot decode,
+and anything already small, is uploaded untouched. On top of that, every page
+requests delivery URLs with `f_auto,q_auto,w_…`, so the browser never downloads a
+full-size original for a thumbnail.
+
 ## What happens when content is deleted
 
 | Action | Where | Queue document |
 |---|---|---|
 | Delete a highlight | `admin.html` (single, batch, "Delete Expired", auto-cleanup) | `source: 'highlight'` |
+| Delete an expired highlight | `index.html` expiry sweep | `source: 'highlight'` |
 | Delete one photo from a highlight | `dashboard.html` gallery | `source: 'highlight'` |
 | Delete a highlight from the app | `dashboard.html` | `source: 'highlight'` |
 | Delete a story (admin) | `admin.html` moderation | `source: 'story'` |
+| A story upload that could not be published | `stories-composer.js` | `source: 'story'` |
 | Admin sweep of expired stories | `admin.html` | `source: 'story'` |
 | Delete your own story | `stories.js` | `source: 'story'` |
 | Auto-delete your expired stories | `stories.js` | `source: 'story'` |
@@ -40,6 +52,9 @@ deleted highlight stayed in the account forever.
 | Admin replaces their own photo | `admin_profile.html` | `source: 'profile'` |
 | Delete a member (admin) | `admin.html` | `source: 'profile'` |
 | Remove your own freedom-wall note | `freedom-wall.js` | `source: 'freedom'` |
+| Delete a coffee shop / place / activity | `admin.html` items | `source: 'item'` |
+| Replace a coffee shop / place / activity photo | `admin.html` items | `source: 'item'` |
+| Delete a QuickSnap (incl. the undo action) | `quick-snap.js` | `source: 'quicksnap'` |
 
 Each entry is one document in `mediaCleanupQueue`:
 
@@ -151,10 +166,18 @@ Safety rails:
 
 - only IDs under `t-imawa/` are touched (`--prefix`, `--allow-outside-prefix` to
   override deliberately);
+- the reference scan streams whole collections — a capped scan would be an
+  incomplete picture; `--scan-limit` (20 000 documents per collection) is a
+  safety rail that stops the run with a clear message instead of ever treating
+  a live file as an orphan;
 - at most `--max-delete` (300) per run;
 - orphan sweep skips anything younger than `--min-age-hours`;
 - failures are retried up to 5 times, then marked `failed` and left in the queue
   for inspection;
+- a 401/403 from Cloudinary is **not** counted as an attempt: the run stops, the
+  queued documents stay `pending`, and the job fails with an error naming the
+  secrets. A bad secret can therefore never park every file as `failed` — fix
+  the secret and the next run deletes exactly what was waiting;
 - the expired step only deletes documents already past `expiresAt`, and keeps
   any media another document still references.
 

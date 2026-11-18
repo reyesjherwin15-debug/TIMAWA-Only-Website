@@ -1658,12 +1658,33 @@
         });
     }
     async function discardUploads(list) {
+        const queued = [];
         for (const up of list) {
+            if (!up) continue;
+            if (up.public_id) queued.push({ id: up.public_id, type: up.resource_type === 'video' ? 'video' : 'image' });
             try {
-                if (!up || !up.delete_token) continue;
+                if (!up.delete_token) continue;   // unsigned uploads never get one
                 const fd = new FormData(); fd.append('token', up.delete_token);
                 await fetch(`https://api.cloudinary.com/v1_1/${C.cfg.cloudName}/delete_by_token`, { method: 'POST', body: fd });
             } catch (e) {}
+        }
+        // The `t-imawa` preset is unsigned, so Cloudinary never issues a delete
+        // token: queue the public ids instead and the cleanup workflow removes
+        // the files that a failed publish left behind.
+        for (const item of queued) {
+            try {
+                const docId = String(item.id).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 400);
+                await C.db.collection('mediaCleanupQueue').doc(docId).set({
+                    publicId: item.id,
+                    resourceType: item.type,
+                    source: 'story',
+                    sourceId: '',
+                    status: 'pending',
+                    attempts: 0,
+                    requestedBy: (C.me && C.me.uid) || '',
+                    requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (e) { /* the daily orphan sweep still finds it */ }
         }
     }
     async function publish() {

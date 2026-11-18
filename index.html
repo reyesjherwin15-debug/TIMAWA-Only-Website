@@ -7974,7 +7974,7 @@ function startHighlightReply(commentId, authorName) {
                             if (timeLeft > 0) {
                                 validHighlights.push({ id: doc.id, ...data });
                             } else {
-                                expiredIds.push({ id: doc.id, imageURLs: data.imageURLs || [] });
+                                expiredIds.push({ id: doc.id, imageURLs: data.imageURLs || [], imagePublicIds: data.imagePublicIds || [] });
                             }
                         });
 
@@ -8002,8 +8002,8 @@ function startHighlightReply(commentId, authorName) {
 
                         if (expiredIds.length && isUserLoggedIn) {
                             setTimeout(() => {
-                                expiredIds.forEach(({ id, imageURLs }) => {
-                                    deleteHighlight(id, imageURLs);
+                                expiredIds.forEach(({ id, imageURLs, imagePublicIds }) => {
+                                    deleteHighlight(id, imageURLs, imagePublicIds);
                                 });
                             }, 0);
                         }
@@ -8014,8 +8014,19 @@ function startHighlightReply(commentId, authorName) {
                     });
             }
 
-            async function deleteHighlight(id, imageUrls) {
+            async function deleteHighlight(id, imageUrls, imagePublicIds) {
                 try {
+                    // Free the photos as well: a highlight removed here (the
+                    // owner deleting it, or this expiry sweep) must not leave
+                    // its Cloudinary files behind. Exact ids when the document
+                    // has them, otherwise derived from the URLs.
+                    try {
+                        const ids = (Array.isArray(imagePublicIds) ? imagePublicIds.slice() : [])
+                            .concat((Array.isArray(imageUrls) ? imageUrls : []).map(publicIdFromCloudinaryUrl))
+                            .filter(Boolean);
+                        if (ids.length) await queueMediaCleanup(ids, { source: 'highlight', sourceId: id });
+                    } catch (e) { /* the daily orphan sweep still finds it */ }
+
                     // Delete reactions subcollection
                     try {
                         const reactionsSnap = await db.collection('highlights').doc(id)
@@ -8964,6 +8975,42 @@ function startHighlightReply(commentId, authorName) {
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
             return `${monthNames[month - 1]} ${day}`;
+        }
+
+        /* ── Cloudinary cleanup queue ──────────────────────────────────
+           A page cannot delete a Cloudinary asset: /image/destroy needs the
+           API secret and every upload here is unsigned. So a file that stops
+           being used is written to `mediaCleanupQueue`, and the hourly
+           "Cloudinary cleanup" workflow removes it within the hour. */
+        function publicIdFromCloudinaryUrl(url) {
+            if (typeof url !== 'string' || url.indexOf('/upload/') === -1) return '';
+            const parts = url.split('/upload/')[1].split('/');
+            while (parts.length && (/^v\d+$/.test(parts[0]) || parts[0].indexOf(',') > -1)) parts.shift();
+            return parts.join('/').replace(/\.[A-Za-z0-9]+$/, '');
+        }
+
+        async function queueMediaCleanup(publicIds, meta) {
+            const list = (Array.isArray(publicIds) ? publicIds : [publicIds]).filter(Boolean);
+            if (!list.length) return 0;
+            const uid = (auth.currentUser && auth.currentUser.uid) || '';
+            let queued = 0;
+            for (const id of list) {
+                try {
+                    const docId = String(id).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 400);
+                    await db.collection('mediaCleanupQueue').doc(docId).set({
+                        publicId: String(id),
+                        resourceType: (meta && meta.resourceType) === 'video' ? 'video' : 'image',
+                        source: (meta && meta.source) || 'other',
+                        sourceId: (meta && meta.sourceId) || '',
+                        status: 'pending',
+                        attempts: 0,
+                        requestedBy: uid,
+                        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    queued++;
+                } catch (e) { console.warn('Could not queue media cleanup:', id, e.message); }
+            }
+            return queued;
         }
 
         function cloudinaryThumb(url, width = 500) {

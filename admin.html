@@ -4043,9 +4043,35 @@
             if (fill) fill.style.width = '0%';
         }
 
+        /* Camera photos arrive at 5–20 MB and Cloudinary keeps the original we
+           send, so shrink an uploaded picture to 1600 px (more than any screen
+           shows) before it is sent. A file the browser cannot decode — or one
+           that is already small — is uploaded untouched. */
+        async function shrinkForUpload(file, maxDim = 1600, quality = 0.85) {
+            if (!file || !/^image\//.test(file.type || '') || /gif|svg/.test(file.type)) return file;
+            try {
+                const img = await new Promise((resolve, reject) => {
+                    const el = new Image();
+                    const url = URL.createObjectURL(file);
+                    el.onload = () => { URL.revokeObjectURL(url); resolve(el); };
+                    el.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode')); };
+                    el.src = url;
+                });
+                const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+                if (scale >= 1 && file.size < 600 * 1024) return file;
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(img.width * scale));
+                canvas.height = Math.max(1, Math.round(img.height * scale));
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                if (!blob || blob.size >= file.size) return file;
+                return new File([blob], 'upload.jpg', { type: 'image/jpeg' });
+            } catch (e) { return file; }
+        }
+
         async function uploadToCloudinary(file, folder = 't-imawa/items', onProgress) {
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', await shrinkForUpload(file));
             formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
             formData.append('folder', folder);
 
@@ -6547,6 +6573,17 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 if (id) {
+                    // A replaced picture stops being referenced the moment the
+                    // new URL is saved — queue the old file now rather than
+                    // waiting for the daily orphan sweep.
+                    try {
+                        const before = await db.collection(collectionName).doc(id).get();
+                        const oldUrl = before.exists ? ((before.data() || {}).imageUrl || '') : '';
+                        const oldId = publicIdFromCloudinaryUrl(oldUrl);
+                        if (oldId && oldId !== publicIdFromCloudinaryUrl(imageUrl)) {
+                            await queueCloudinaryCleanup([oldId], { source: 'item', sourceId: id });
+                        }
+                    } catch (e) { /* best effort */ }
                     await db.collection(collectionName).doc(id).update(data);
                 } else {
                     data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -6573,6 +6610,15 @@
                 onConfirm: async () => {
                     const collectionName = COLLECTIONS[type];
                     try {
+                        // The picture goes with the item: queue its exact id so
+                        // the cleanup workflow frees it instead of leaving it in
+                        // the account forever.
+                        try {
+                            const before = await db.collection(collectionName).doc(id).get();
+                            const oldUrl = before.exists ? ((before.data() || {}).imageUrl || '') : '';
+                            const oldId = publicIdFromCloudinaryUrl(oldUrl);
+                            if (oldId) await queueCloudinaryCleanup([oldId], { source: 'item', sourceId: id });
+                        } catch (e) { /* the daily orphan sweep still finds it */ }
                         await db.collection(collectionName).doc(id).delete();
                         showToast('Item deleted successfully!', 'success');
                     } catch (error) {
