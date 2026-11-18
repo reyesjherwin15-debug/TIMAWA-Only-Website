@@ -4088,13 +4088,42 @@
                 const userData = userDoc.data();
                 const authorName = userData?.displayName || user.displayName || user.email || 'Someone';
 
-                await db.collection('events').add({
+                const startsAt = new Date(dateTime);
+                const eventRef = await db.collection('events').add({
                     title: title, type: type,
-                    dateTime: new Date(dateTime),
+                    dateTime: startsAt,
                     location: location, description: description,
                     createdBy: authorName, createdByUid: user.uid,
                     rsvps: {},
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Ring the whole squad's bell (and their phones through the push
+                // dispatcher). The `created_` prefix keeps this out of the way of
+                // the tomorrow-reminder, which dedupes on the bare event id.
+                const whenText = startsAt.toLocaleString('en-US', {
+                    weekday: 'short', month: 'short', day: 'numeric',
+                    hour: 'numeric', minute: '2-digit'
+                });
+                db.collection('announcements').add({
+                    type: 'event',
+                    pushPending: true,
+                    pushContext: 'event:new_' + eventRef.id,
+                    title: `📅 ${authorName} added a new event`,
+                    message: `${title}${location ? ' at ' + location : ''} — ${whenText}`,
+                    icon: '📅', priority: 'info',
+                    actorUid: user.uid,
+                    actorName: authorName,
+                    actorPhoto: (userData && userData.photoURL) || user.photoURL || '',
+                    link: 'calendar.html', linkLabel: 'View Event',
+                    pushUrl: 'calendar.html',
+                    targetUid: '', referenceId: 'created_' + eventRef.id, readBy: [],
+                    createdBy: 'system', createdByName: 'System',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                }).catch((err) => {
+                    // the event exists either way; a notification is best-effort
+                    console.warn('Event notification failed:', err.message);
                 });
 
                 closeEventModal();
