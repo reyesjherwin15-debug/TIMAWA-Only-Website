@@ -6,12 +6,10 @@ name: Push dispatcher
 # private key and the Firebase service account come from repository secrets:
 #   Settings -> Secrets and variables -> Actions
 #
-# Cadence (the `schedule` below):
-#   */10 * * * *  current setting — up to ~10 min delivery latency
-#   */5  * * * *  faster delivery (public repo: unlimited free minutes)
-#   */30 * * * *  private repo on the free plan (2,000 min/month, ~1,440 used)
+# GitHub Actions has a 5-minute minimum schedule interval. Runs can start late,
+# so this is near-real-time within GitHub's scheduler limits (not instant).
 #
-# NOTE: GitHub pauses scheduled workflows after 60 days without repo activity.
+# NOTE: GitHub can pause scheduled workflows after 60 days without repo activity.
 # Re-enable from the Actions tab if that happens.
 
 on:
