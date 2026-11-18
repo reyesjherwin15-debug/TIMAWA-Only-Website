@@ -3309,7 +3309,7 @@
 
                     if (profileData.photoURL) {
                         const avatarEl = document.getElementById('heroAvatar');
-                        avatarEl.innerHTML = `<img src="${profileData.photoURL}" alt="Profile Photo" /><label class="photo-upload-btn-overlay"><i class="fas fa-camera"></i><input type="file" id="photoInput" accept="image/*" /></label>`;
+                        avatarEl.innerHTML = `<img src="${profileData.photoURL}" alt="${profileData.displayName || 'Member'}" data-avatar-name="${profileData.displayName || 'Member'}" /><label class="photo-upload-btn-overlay"><i class="fas fa-camera"></i><input type="file" id="photoInput" accept="image/*" /></label>`;
                         document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
                     }
                 } else {
@@ -3378,7 +3378,7 @@
 
                         if (profileData.photoURL) {
                             const avatarEl = document.getElementById('heroAvatar');
-                            avatarEl.innerHTML = `<img src="${profileData.photoURL}" alt="Profile Photo" /><label class="photo-upload-btn-overlay"><i class="fas fa-camera"></i><input type="file" id="photoInput" accept="image/*" /></label>`;
+                            avatarEl.innerHTML = `<img src="${profileData.photoURL}" alt="${profileData.displayName || 'Member'}" data-avatar-name="${profileData.displayName || 'Member'}" /><label class="photo-upload-btn-overlay"><i class="fas fa-camera"></i><input type="file" id="photoInput" accept="image/*" /></label>`;
                             document.getElementById('photoInput').addEventListener('change', handlePhotoUpload);
                         }
                         updateLoveLifeBadge(profileData.loveLife || '');
@@ -4157,5 +4157,6 @@
             });
         });
     </script>
+    <script src="avatar-fallback.js?v=1.0.0" defer></script>
 </body>
 </html>

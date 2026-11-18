@@ -3128,7 +3128,7 @@ body.tw-previewing #pwaInstallBanner {
 
             let avatarHtml = '<i class="fas fa-user" style="font-size:18px;color:#888;"></i>';
             if (selectedAvatarFile) {
-                avatarHtml = `<img src="${document.getElementById('avatarPreview').src}" alt="Avatar" class="review-avatar" />`;
+                avatarHtml = `<img src="${document.getElementById('avatarPreview').src}" alt="${escapeHtml(name)}" class="review-avatar" />`;
             }
 
             container.innerHTML = `
@@ -4144,5 +4144,6 @@ body.tw-previewing #pwaInstallBanner {
     <script src="pwa.js?v=1.5.14" defer></script>
     <!-- keyboard guard only: this page has no burger menu, so the drawer part returns immediately -->
     <script src="mobile-nav.js?v=1.3.0"></script>
+    <script src="avatar-fallback.js?v=1.0.0" defer></script>
 </body>
 </html>

@@ -482,7 +482,7 @@
         caption.textContent = snap.text || '';
         caption.hidden = !snap.text;
         ava.innerHTML = snap.ownerPhoto
-            ? '<img src="' + esc(snap.ownerPhoto) + '" alt="" referrerpolicy="no-referrer">'
+            ? '<img src="' + esc(snap.ownerPhoto) + '" alt="' + esc(snap.ownerName) + '" referrerpolicy="no-referrer">'
             : esc(initials(snap.ownerName));
         who.textContent = ownerView ? 'You' : snap.ownerName;
         when.textContent = (ownerView ? 'Your snap · ' : '') + ago(snap.createdAt);
@@ -901,7 +901,7 @@
             owners.map(function (s) {
                 return '<button class="qs-rail-item" type="button" data-id="' + esc(s.id) + '">' +
                     '<span class="qs-rail-ring has-snap">' +
-                    (s.ownerPhoto ? '<img src="' + esc(s.ownerPhoto) + '" alt="" referrerpolicy="no-referrer">' : esc(initials(s.ownerName))) +
+                    (s.ownerPhoto ? '<img src="' + esc(s.ownerPhoto) + '" alt="' + esc(s.ownerName) + '" referrerpolicy="no-referrer">' : esc(initials(s.ownerName))) +
                     '</span><small>' + esc(String(s.ownerName).split(' ')[0]) + '</small></button>';
             }).join('');
     }

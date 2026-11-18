@@ -236,7 +236,7 @@
         var colour = (h % 6) + 1;
         var name = n.authorName || 'Guest';
         var ava = n.authorPhoto
-            ? '<img class="fw-ava" src="' + esc(n.authorPhoto) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+            ? '<img class="fw-ava" src="' + esc(n.authorPhoto) + '" alt="' + esc(name) + '" loading="lazy" referrerpolicy="no-referrer">'
             : '<span class="fw-ava">' + esc(initials(name)) + '</span>';
         var img = n.imageUrl
             ? '<span class="fw-thumb" style="background-image:url(' + esc(thumb(n.imageUrl)) + ')"></span>'
@@ -652,7 +652,7 @@
     function commentMarkup(c, isReply) {
         var name = c.name || 'Guest';
         var face = c.photo
-            ? '<img class="fw-ava" src="' + esc(c.photo) + '" alt="" referrerpolicy="no-referrer">'
+            ? '<img class="fw-ava" src="' + esc(c.photo) + '" alt="' + esc(name) + '" referrerpolicy="no-referrer">'
             : '<span class="fw-ava">' + esc(initials(name)) + '</span>';
         var ref = (isReply && c.replyToName)
             ? '<span class="fw-comment-ref"><i class="fas fa-reply" aria-hidden="true"></i> ' + esc(c.replyToName) + '</span>'
@@ -880,7 +880,7 @@
 
         var who = personOf(n);
         var ava = who.photo
-            ? '<img class="fw-ava" src="' + esc(who.photo) + '" alt="" referrerpolicy="no-referrer">'
+            ? '<img class="fw-ava" src="' + esc(who.photo) + '" alt="' + esc(who.name) + '" referrerpolicy="no-referrer">'
             : '<span class="fw-ava">' + esc(initials(who.name)) + '</span>';
         var left = n.expiresAt ? Math.max(0, Math.ceil((n.expiresAt - Date.now()) / 86400000)) : CFG.ttlDays;
         var del = (me && n.authorUid && me.uid === n.authorUid)

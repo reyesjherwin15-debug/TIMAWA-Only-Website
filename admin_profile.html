@@ -3285,7 +3285,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                     if (profileData.photoURL) {
                         const avatarEl = document.getElementById('profileAvatar');
                         avatarEl.innerHTML = `
-                            <img src="${profileData.photoURL}" alt="Profile Photo" />
+                            <img src="${profileData.photoURL}" alt="${profileData.displayName || 'Admin'}" data-avatar-name="${profileData.displayName || 'Admin'}" />
                             <label class="photo-overlay">
                                 <i class="fas fa-camera"></i>
                                 <input type="file" id="photoInput" accept="image/*" />
@@ -3396,7 +3396,7 @@ personal details, socials, appearance/theme picker, then Save / Reset.
                         if (profileData.photoURL) {
                             const avatarEl = document.getElementById('profileAvatar');
                             avatarEl.innerHTML = `
-                                <img src="${profileData.photoURL}" alt="Profile Photo" />
+                                <img src="${profileData.photoURL}" alt="${profileData.displayName || 'Admin'}" data-avatar-name="${profileData.displayName || 'Admin'}" />
                                 <label class="photo-overlay">
                                     <i class="fas fa-camera"></i>
                                     <input type="file" id="photoInput" accept="image/*" />
@@ -3689,5 +3689,6 @@ personal details, socials, appearance/theme picker, then Save / Reset.
     <!-- Admin Profile has no notification settings: keep the global push nudge off this page. -->
     <script>window.TIMAWA_NO_PUSH_NUDGE = true;</script>
     <script src="pwa.js?v=1.5.14" defer></script>
+    <script src="avatar-fallback.js?v=1.0.0" defer></script>
 </body>
 </html>

@@ -199,7 +199,7 @@
     function avatarHtml(name, photo, size) {
         const ini = (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
         const src = photo ? S.esc(S.cloudAvatar(photo, size || 120)) : '';
-        return src ? `<img src="${src}" alt="" loading="lazy" onerror="this.remove()">` + '' : S.esc(ini);
+        return src ? `<img src="${src}" alt="${S.esc(name || 'Member')}" data-avatar-name="${S.esc(name || 'Member')}" loading="lazy">` + '' : S.esc(ini);
     }
     function renderRow() {
         const ms = mounts();
