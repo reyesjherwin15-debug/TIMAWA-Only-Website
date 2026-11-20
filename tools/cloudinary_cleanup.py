@@ -24,7 +24,7 @@ Two sources of work
 
 Usage
 -----
-    python tools/cloudinary_cleanup.py --mode queue --dry-run
+    python tools/cloudinary_cleanup.py --mode queue              # dry run (default)
     python tools/cloudinary_cleanup.py --mode both --apply --max-delete 300
 
 Environment
@@ -43,7 +43,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -53,6 +53,16 @@ QUEUE = "mediaCleanupQueue"
 CLOUD = os.environ.get("CLOUDINARY_CLOUD_NAME", "ooq99nlw")
 PREFIX = "t-imawa/"
 MAX_ATTEMPTS = 5
+
+# A QuickSnap's private archive lasts seven days (quick-snap.js CFG.keepMs); the
+# document carries the same deadline in `purgeAt`. Documents written before that
+# field existed fall back to createdAt + KEEP_DAYS below.
+KEEP_DAYS = 7
+
+# Set when Cloudinary rejects the API key/secret. A 401 is never about one file
+# — it is the whole account — so the run stops instead of burning every queued
+# item's five attempts and parking them as `failed` until someone notices.
+AUTH_REJECTED = False
 
 # Every collection that can point at a Cloudinary file. The orphan sweep only
 # deletes what is NOT referenced here, so a missing collection would mean
@@ -106,6 +116,18 @@ def _looks_like_transformation(segment: str) -> bool:
         return False
     # w_480,q_auto,f_auto / so_0,w_480,h_854,c_fill,f_jpg / e_blur:300
     return "," in segment or bool(re.fullmatch(r"[a-z]{1,3}_[A-Za-z0-9._:%-]+", segment))
+
+
+def _credentials_rejected(message: str) -> bool:
+    """True when Cloudinary answered 401/403 rather than a per-asset problem."""
+    return message.startswith("auth rejected")
+
+
+def _mark_auth_rejected(step: str) -> None:
+    global AUTH_REJECTED
+    AUTH_REJECTED = True
+    log(f"::error::Cloudinary rejected the API credentials during '{step}' — "
+        "stopping so no queued item is marked failed by a bad secret.")
 
 
 def destroy(public_id: str, resource_type: str, key: str, secret: str,
@@ -215,27 +237,36 @@ def _collect_media(value, ids: set[str], depth: int = 0) -> None:
             _collect_media(v, ids, depth + 1)
 
 
+class _ScanTooLarge(Exception):
+    """A collection is bigger than --scan-limit, so the scan is incomplete."""
+
+
 def referenced_ids(db, limit: int) -> set[str]:
     """Every Cloudinary public id any live document still points at.
+
+    The whole collection is streamed, not a capped page: a capped scan is an
+    incomplete reference list (media referenced only by documents past the cap
+    would look like orphans). --scan-limit is a safety rail — inside it the scan
+    is complete, and past it the scan stops before spending the reads. It used
+    to cap at 5000 documents and refuse to run, which meant one large collection
+    (chat, for example) silently stopped the queue and the sweep for good.
 
     Raises if a collection cannot be read: an incomplete reference list would
     look like a pile of orphans, and the sweep would delete live media.
     """
     ids: set[str] = set()
     for name in MEDIA_COLLECTIONS:
+        seen = 0
         try:
-            seen = 0
-            docs = db.collection(name).limit(limit).stream()
-            for doc in docs:
+            for doc in db.collection(name).stream():
                 seen += 1
+                if seen > limit:
+                    raise _ScanTooLarge(
+                        f"{name} has more than {limit} documents — raise --scan-limit"
+                    )
                 _collect_media(doc.to_dict() or {}, ids)
-            # A capped scan is an incomplete reference list: media referenced
-            # only by the docs past the cap would look like orphans. Refuse to
-            # sweep instead of deleting something still in use.
-            if seen >= limit:
-                raise RuntimeError(
-                    f"{name} has at least {limit} documents — raise --scan-limit"
-                )
+        except _ScanTooLarge:
+            raise
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError(f"could not scan {name}: {exc}") from exc
     return ids
@@ -299,6 +330,12 @@ def drain_queue(db, key: str, secret: str, args) -> tuple[int, int]:
             if not args.dry_run:
                 doc.reference.delete()
             done += 1
+        elif _credentials_rejected(msg):
+            # Leave the document exactly as it was: the file is still there and
+            # must be deleted once the secret is corrected.
+            log(f"  ✗ {pid} — {msg}")
+            _mark_auth_rejected("queue")
+            return done, failed
         else:
             attempts += 1
             log(f"  ✗ {pid} — {msg}")
@@ -327,6 +364,25 @@ EXPIRING = (
 )
 
 
+def _as_datetime(value):
+    """A Firestore Timestamp, a plain datetime, or None."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    for attr in ("to_datetime", "timestamp"):
+        fn = getattr(value, attr, None)
+        if not callable(fn):
+            continue
+        try:
+            got = fn()
+        except Exception:  # noqa: BLE001
+            continue
+        if isinstance(got, datetime):
+            return got if got.tzinfo else got.replace(tzinfo=timezone.utc)
+        if isinstance(got, (int, float)):
+            return datetime.fromtimestamp(got, timezone.utc)
+    return None
+
+
 def purge_expired(db, key: str, secret: str, args) -> tuple[int, int, int]:
     """Delete documents whose expiry has passed, then the media they held.
 
@@ -352,6 +408,31 @@ def purge_expired(db, key: str, secret: str, args) -> tuple[int, int, int]:
             log(f"expired: {len(docs)} {name} document(s) past their {field}")
         for doc in docs:
             doomed.append((name, doc.id, doc.to_dict() or {}))
+
+    # QuickSnaps written before `purgeAt` existed: Firestore never matches a
+    # missing field in a `<=` filter, so those documents were never purged and,
+    # because they still referenced their image, the orphan sweep kept the file
+    # too — the archive's seven days never ended. Give them the same deadline,
+    # measured from createdAt, and only when the document has no future purgeAt
+    # of its own.
+    seen = {doc_id for name, doc_id, _data in doomed if name == "quickSnaps"}
+    try:
+        legacy = list(db.collection("quickSnaps")
+                      .where("createdAt", "<=", now - timedelta(days=KEEP_DAYS))
+                      .limit(args.max_delete).stream())
+    except Exception as exc:  # noqa: BLE001
+        log(f"expired: could not scan quickSnaps.createdAt: {exc}")
+        legacy = []
+    for doc in legacy:
+        if doc.id in seen:
+            continue
+        data = doc.to_dict() or {}
+        purge_at = _as_datetime(data.get("purgeAt"))
+        if purge_at is not None and purge_at > now:
+            continue                    # an explicit purgeAt always wins
+        log(f"expired: quickSnaps/{doc.id} has no purgeAt — using createdAt + {KEEP_DAYS}d")
+        doomed.append(("quickSnaps", doc.id, data))
+        seen.add(doc.id)
 
     if not doomed:
         log("expired: nothing past its expiry")
@@ -411,6 +492,9 @@ def purge_expired(db, key: str, secret: str, args) -> tuple[int, int, int]:
             continue
         ok, msg = destroy(pid, held[pid], key, secret, False)
         log(f"  {'✓' if ok else '✗'} {pid} — {msg}")
+        if not ok and _credentials_rejected(msg):
+            _mark_auth_rejected("expired")
+            break                       # the documents are gone; media waits for the fix
         done += 1 if ok else 0
         failed += 0 if ok else 1
         if ok:
@@ -459,6 +543,9 @@ def sweep_orphans(db, key: str, secret: str, args) -> tuple[int, int]:
     for c in candidates:
         ok, msg = destroy(c["public_id"], c["resource_type"], key, secret, args.dry_run)
         log(f"  {'✓' if ok else '✗'} {c['public_id']} — {msg}")
+        if not ok and _credentials_rejected(msg):
+            _mark_auth_rejected("orphans")
+            break                             # nothing more can be deleted this run
         done += 1 if ok else 0
         failed += 0 if ok else 1
         if not args.dry_run:
@@ -478,8 +565,9 @@ def main() -> int:
     ap.add_argument("--allow-outside-prefix", action="store_true")
     ap.add_argument("--max-delete", type=int, default=300)
     ap.add_argument("--list-limit", type=int, default=2000)
-    ap.add_argument("--scan-limit", type=int, default=5000,
-                    help="documents scanned per collection when finding orphans")
+    ap.add_argument("--scan-limit", type=int, default=20000,
+                    help="maximum documents scanned per collection before the "
+                         "reference scan refuses to run (raise it as the app grows)")
     ap.add_argument("--min-age-hours", type=float, default=24.0,
                     help="orphans must be at least this old (upload in flight guard)")
     ap.add_argument("--purge-expired", action=argparse.BooleanOptionalAction, default=True,
@@ -521,7 +609,7 @@ def main() -> int:
         total_done += done
         total_failed += failed
 
-    if args.mode in ("orphans", "both"):
+    if args.mode in ("orphans", "both") and not AUTH_REJECTED:
         if not key or not secret:
             log("orphans: skipped (needs credentials to list the account)")
         else:
@@ -533,6 +621,12 @@ def main() -> int:
         f"{expired_docs}")
     log(f"{'would delete' if args.dry_run else 'deleted'}: {total_done} · "
         f"failed: {total_failed}")
+    if AUTH_REJECTED:
+        log("::error::Cloudinary rejected the API credentials, so nothing else was "
+            "deleted. Set CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET to the current "
+            "pair (Cloudinary dashboard -> Settings -> API Keys). Queued files were "
+            "left in place and the next run deletes them.")
+        return 1
     if total_failed:
         log("::warning::some assets could not be deleted — see the lines above")
     return 0
