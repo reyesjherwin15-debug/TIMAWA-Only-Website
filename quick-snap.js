@@ -181,8 +181,10 @@
     var replyPanel = $('qsReply'), replyInput = $('qsReplyInput'), replySend = $('qsReplySend');
     var replyLabel = $('qsReplyLabel');
     var screenFlash = $('qsScreenFlash');
-    var screenFlashTimer = null;
     var brightnessBefore = null;
+    var flashShot = false;         // a flash shot is lighting the screen right now
+    var FLASH_WARMUP_MS = 450;     // white on the display before the frame is read
+    var FLASH_TORCH_MS = 200;      // torch ramp-up before the frame is read
 
     /* ── small helpers ───────────────────────────────────────────── */
 
@@ -237,7 +239,7 @@
         if (video) video.srcObject = null;
         torchLit = false;
         flashOn = false;
-        if (flashFill) flashFill.classList.remove('is-firing');
+        clearScreenFlash();
         refreshFlash();
     }
 
@@ -295,14 +297,18 @@
 
     /* The button is always there in the camera. Phones that expose a torch
        light it; everything else (front cameras, laptops, tablets) lights the
-       whole outer screen white, so flash works on every camera. */
+       screen itself, so flash works on every camera. */
     function refreshFlash() {
         var inCamera = mode === 'camera' && preview.hidden;
+        var hasTorch = torchAvailable();
         flashBtn.hidden = !inCamera;
         flashBtn.classList.toggle('is-on', inCamera && flashOn);
         flashBtn.setAttribute('aria-pressed', inCamera && flashOn ? 'true' : 'false');
         flashBtn.setAttribute('aria-label', flashOn ? 'Turn off the flash' : 'Turn on the flash');
-        flashBtn.title = torchAvailable() ? 'Flashlight' : 'Screen flash';
+        flashBtn.title = hasTorch ? 'Flashlight' : 'Screen flash';
+        // no hardware torch: the card around the frame turns white while the
+        // flash is on, so the display itself is the light (see quick-snap.css)
+        view.classList.toggle('is-screen-flash', inCamera && flashOn && !hasTorch);
     }
 
     /* No torch on a front camera, so the light has to come from the display:
@@ -332,21 +338,34 @@
         } catch (e) { /* the white fill still lights the scene */ }
     }
 
-    function fireScreenFlash(ms) {
-        if (!screenFlash) return;
-        screenFlash.classList.add('is-firing');
-        setScreenBrightnessMax(true);
-        clearTimeout(screenFlashTimer);
-        screenFlashTimer = setTimeout(function () {
-            screenFlash.classList.remove('is-firing');
-            setScreenBrightnessMax(false);
-        }, ms || 320);
+    function clearScreenFlash() {
+        if (screenFlash) screenFlash.classList.remove('is-firing');
+        if (flashFill) flashFill.classList.remove('is-firing');
+        setScreenBrightnessMax(false);
     }
 
-    function clearScreenFlash() {
-        clearTimeout(screenFlashTimer);
-        if (screenFlash) screenFlash.classList.remove('is-firing');
-        setScreenBrightnessMax(false);
+    /* the light itself: the white fill over the frame, the white whole screen
+       and full brightness, all switched together */
+    function lightScreen(on) {
+        if (on) {
+            if (flashFill) flashFill.classList.add('is-firing');
+            if (screenFlash) screenFlash.classList.add('is-firing');
+            setScreenBrightnessMax(true);
+            return;
+        }
+        clearScreenFlash();
+    }
+
+    function nextPaint() {
+        return new Promise(function (resolve) {
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () { resolve(); });
+            });
+        });
+    }
+
+    function wait(ms) {
+        return new Promise(function (resolve) { setTimeout(resolve, ms); });
     }
 
     async function toggleFlash() {
@@ -361,14 +380,12 @@
                 console.warn('[quicksnap] torch:', err && err.name);
                 torchLit = false;
             }
-        } else if (next) {
-            // a short pulse so the member sees the screen flash is on
-            fireScreenFlash(180);
-        } else if (track && torchLit) {
+        } else if (!next && track && torchLit) {
             try { await track.applyConstraints({ advanced: [{ torch: false }] }); } catch (e) { /* ignore */ }
             torchLit = false;
         }
         if (!next) clearScreenFlash();
+        else if (!torchLit) setScreenBrightnessMax(true);   // screen flash: go bright now
         refreshFlash();
     }
 
@@ -757,49 +774,67 @@
         });
     }
 
-    function shoot() {
+    /* Light first, then shoot — the order is the whole feature.
+
+       The old code lit the screen and grabbed the frame 190 ms later, often
+       before the white had even been painted, and always before the camera had
+       metered for the extra light, so the photo came out as dark as if the
+       flash had never been used. Now the light goes on, the browser is given
+       two frames to paint it, the camera is given FLASH_WARMUP_MS to expose for
+       it, and only then is the frame read — while the light is still on. */
+    async function shoot() {
+        if (flashShot) return;
         if (!stream || !video.videoWidth) { showMsg('Hold on — the camera is still waking up.'); return; }
-        if (flashOn && !torchLit) {
-            // screen flash: the whole display goes white (and to full
-            // brightness) so the front camera has light, then we capture it
-            flashFill.classList.add('is-firing');
-            setTimeout(function () { flashFill.classList.remove('is-firing'); }, 600);
-            fireScreenFlash(600);
-            setTimeout(captureFrame, 190);
-            return;
+        if (!flashOn) { await captureFrame(); return; }
+
+        flashShot = true;
+        try {
+            if (!torchLit) {
+                lightScreen(true);
+                await nextPaint();                 // the white is on the display
+                await wait(FLASH_WARMUP_MS);       // the camera has metered for it
+            } else {
+                await wait(FLASH_TORCH_MS);        // the LED has ramped up
+            }
+            await captureFrame();                  // read it while the light is on
+        } finally {
+            lightScreen(false);
+            flashShot = false;
         }
-        captureFrame();
     }
 
     function captureFrame() {
-        if (!stream || !video.videoWidth) return;
-        var w = video.videoWidth, h = video.videoHeight;
+        return new Promise(function (resolve) {
+            if (!stream || !video.videoWidth) { resolve(false); return; }
+            var w = video.videoWidth, h = video.videoHeight;
 
-        // The preview is a square, so the photo is the same centre square —
-        // exactly what the member framed, never a surprise crop on the feed.
-        var side = Math.min(w, h);
-        var sx = (w - side) / 2, sy = (h - side) / 2;
-        var out = Math.min(side, CFG.maxSide);
-        var canvas = document.createElement('canvas');
-        canvas.width = out;
-        canvas.height = out;
-        var ctx = canvas.getContext('2d');
-        if (facing === 'user') { ctx.translate(out, 0); ctx.scale(-1, 1); }
-        ctx.drawImage(video, sx, sy, side, side, 0, 0, out, out);
+            // The preview is a square, so the photo is the same centre square —
+            // exactly what the member framed, never a surprise crop on the feed.
+            var side = Math.min(w, h);
+            var sx = (w - side) / 2, sy = (h - side) / 2;
+            var out = Math.min(side, CFG.maxSide);
+            var canvas = document.createElement('canvas');
+            canvas.width = out;
+            canvas.height = out;
+            var ctx = canvas.getContext('2d');
+            if (facing === 'user') { ctx.translate(out, 0); ctx.scale(-1, 1); }
+            ctx.drawImage(video, sx, sy, side, side, 0, 0, out, out);
 
-        canvas.toBlob(function (blob) {
-            if (!blob) { showMsg('That photo did not save — try again.'); return; }
-            pendingBlob = blob;
-            pendingURL = URL.createObjectURL(blob);
-            preview.src = pendingURL;
-            preview.hidden = false;
-            video.hidden = true;
-            flashOn = false;
-            torchLit = false;
-            stopStream();
-            hint.hidden = true;
-            setShotState(true);
-        }, 'image/jpeg', 0.85);
+            canvas.toBlob(function (blob) {
+                if (!blob) { showMsg('That photo did not save — try again.'); resolve(false); return; }
+                pendingBlob = blob;
+                pendingURL = URL.createObjectURL(blob);
+                preview.src = pendingURL;
+                preview.hidden = false;
+                video.hidden = true;
+                flashOn = false;
+                torchLit = false;
+                stopStream();
+                hint.hidden = true;
+                setShotState(true);
+                resolve(true);
+            }, 'image/jpeg', 0.85);
+        });
     }
 
     async function upload(blob) {

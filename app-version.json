@@ -1,8 +1,8 @@
 {
   "_readme": "The build that is live. pwa.js compares this with the build a device last applied; they differ only when a release needs the member to update, so nothing is shown otherwise. Bump 'version' with every release that changes the icon, the launch screen or the app shell. requiresReinstall:true means the installed icon/manifest changed (phones only re-read it on an app update). announceOnFirstRun:true also prompts devices that have never stored a version — use it when members who installed before this feature existed still need the change.",
-  "version": "1.10.51",
+  "version": "1.10.52",
   "requiresReinstall": false,
   "announceOnFirstRun": true,
-  "title": "Storage cleanup and lighter uploads",
-  "message": "Highlight photos, item photos and avatar files that are deleted or replaced are now removed from Cloudinary automatically, and new highlight uploads are resized before they are stored, so the squad's storage is not filled by photos nobody can see."
+  "title": "Brighter snaps, tidier archive",
+  "message": "The QuickSnap flash now lights the screen (or the torch) first and only then takes the photo, so night shots come out lit instead of dark. Archived snaps are now removed from Cloudinary at the end of their seven days, including the ones posted before the archive had a deadline."
 }

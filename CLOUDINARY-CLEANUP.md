@@ -106,6 +106,12 @@ Every run now starts by deleting documents whose `expiresAt` has passed in
 `reactions` and `views` subcollections), and then deleting the media those
 documents were holding.
 
+`quickSnaps` are the squad's QuickSnaps: a snap leaves the feed after 24 hours
+but the author's private archive keeps it for seven days (`purgeAt`), and this
+step removes the document and its photo when those seven days are up — never
+before. Snaps written before `purgeAt` existed fall back to `createdAt` + 7 days,
+so an older archive is cleaned instead of holding its files forever.
+
 `freedomNotes` is the freedom wall on `index.html`: a note lives 14 days, the
 board stops showing it the moment `expiresAt` passes, and this step removes the
 document and its optional photo. Nothing has to stay open for that to happen. A file is still kept if anything else references it, so a story quoted
