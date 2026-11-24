@@ -1,0 +1,71 @@
+name: Push keep-alive
+
+# GitHub pauses scheduled workflows after 60 days without repository activity.
+# The push dispatcher is TIMAWA's only sender, so on the 27th of every month
+# this job:
+#   1. re-enables push-dispatch.yml if GitHub paused it,
+#   2. writes a heartbeat commit (the repository activity GitHub requires),
+#   3. runs one dispatch pass so anything queued goes out immediately.
+#
+# Nothing secret expires monthly: the VAPID key pair is permanent, and changing
+# it would make every member enable notifications again. This is the only
+# recurring "refresh" the push pipeline needs.
+
+on:
+  schedule:
+    - cron: '27 3 27 * *'   # 11:27 AM Asia/Manila on the 27th
+  workflow_dispatch:
+
+permissions:
+  contents: write   # heartbeat commit
+  actions: write    # re-enable / start push-dispatch.yml
+
+concurrency:
+  group: push-keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    name: Refresh the push dispatcher
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Re-enable the dispatcher if GitHub paused it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh workflow enable push-dispatch.yml; then
+            echo "push-dispatch.yml is enabled."
+          else
+            echo "::warning::Could not enable push-dispatch.yml. Open Actions -> Push dispatcher -> Enable workflow."
+          fi
+
+      - name: Record the monthly heartbeat
+        run: |
+          mkdir -p .github
+          printf 'push dispatcher check-in: %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > .github/push-heartbeat.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/push-heartbeat.txt
+          if git diff --cached --quiet; then
+            echo "Heartbeat unchanged; nothing to commit."
+          else
+            git commit -m "chore: monthly push dispatcher keep-alive"
+            git push
+          fi
+
+      - name: Send anything that queued up
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh workflow run push-dispatch.yml; then
+            echo "Started a Push dispatcher run."
+          else
+            echo "::warning::Could not start push-dispatch.yml; the 5-minute schedule will pick it up."
+          fi
