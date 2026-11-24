@@ -266,6 +266,18 @@ def handle(ref, item: dict, *, db, vapid_private, subject: str,
     doc_id = ref.id
     target_uid = item.get("targetUid") or None
 
+    # A previous attempt failed (push service unreachable, worker timeout).
+    # Wait out the backoff instead of dropping the alert: the member may simply
+    # be offline, and the next scheduled run will try again.
+    retry_after = item.get("pushRetryAfter")
+    if retry_after:
+        try:
+            if now < float(retry_after):
+                log(f"[{doc_id}] retry backoff — not due yet")
+                return
+        except (TypeError, ValueError):
+            pass
+
     should, why = decide(item, target_uid)
     if not should:
         if item.get("pushPending"):
@@ -310,6 +322,7 @@ def handle(ref, item: dict, *, db, vapid_private, subject: str,
     if not subs:
         log(f"          no subscriptions for {'everyone' if not target_uid else target_uid}")
         ref.update({"pushPending": False,
+                    "pushRetryAfter": 0,
                     "pushSkippedAt": datetime.now(timezone.utc),
                     "pushSkipReason": "no subscribers"})
         return
@@ -319,9 +332,47 @@ def handle(ref, item: dict, *, db, vapid_private, subject: str,
                      dry_run=False, delay=0.03, quiet=False)
     log(f"          {stats['sent']} sent · {stats['gone']} gone · {stats['failed']} failed")
 
+    attempts = int(fresh.get("pushAttempts") or 0) + 1
+
+    # Nothing reached the push service: keep the announcement queued. A 5xx,
+    # a timeout or a dropped connection is temporary, and clearing the flag
+    # here is exactly how an offline member used to lose the alert forever.
+    if stats["sent"] == 0 and stats["failed"] > 0:
+        # A permanently bad endpoint (403 that is not 404/410) must not retry
+        # forever. 24 attempts spans roughly a day of scheduled runs.
+        if attempts >= 24:
+            try:
+                ref.update({
+                    "pushPending": False,
+                    "pushRetryAfter": 0,
+                    "pushAttempts": attempts,
+                    "pushSkippedAt": datetime.now(timezone.utc),
+                    "pushSkipReason": "retry limit",
+                    "pushResult": stats,
+                })
+                log("          retry limit reached — giving up")
+            except Exception as exc:  # noqa: BLE001
+                log(f"          could not clear after retry limit: {exc}")
+            return
+
+        delay = min(3600, 60 * (2 ** min(attempts, 6)))
+        try:
+            ref.update({
+                "pushAttempts": attempts,
+                "pushLastAttemptAt": datetime.now(timezone.utc),
+                "pushRetryAfter": time.time() + delay,
+                "pushResult": stats,
+            })
+            log(f"          all sends failed — retrying in {delay}s")
+        except Exception as exc:  # noqa: BLE001
+            log(f"          could not schedule retry: {exc}")
+        return
+
     try:
         ref.update({
             "pushPending": False,
+            "pushAttempts": attempts,
+            "pushRetryAfter": 0,
             "pushSentAt": datetime.now(timezone.utc),
             "pushResult": stats,
         })

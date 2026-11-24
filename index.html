@@ -88,7 +88,7 @@
         html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
     </style>
     <link rel="stylesheet" href="theme.css?v=1.17.30" />
-    <link rel="stylesheet" href="freedom-wall.css?v=1.6.0" />
+    <link rel="stylesheet" href="freedom-wall.css?v=1.6.1" />
     <link rel="stylesheet" href="stories.css?v=1.13.0" />
     <script src="theme.js?v=1.41.54"></script>
 
@@ -1057,8 +1057,9 @@
         .note-comment-input-wrap textarea {
             width: 100%;
             box-sizing: border-box;
-            min-height: 40px;
-            max-height: 140px;
+            min-height: 22px;
+            max-height: 120px;
+            overflow-y: hidden;
             padding: 2px 0 0;
             border: 0;
             border-radius: 0;
@@ -1069,7 +1070,13 @@
             resize: none;
             line-height: 1.5;
         }
-        .note-comment-input-wrap textarea::placeholder { color: var(--theme-text-faint); opacity: 1; }
+        .note-comment-input-wrap textarea::placeholder {
+            color: var(--theme-text-faint);
+            opacity: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .note-comment-input-wrap textarea:focus {
             outline: none;
             border: 0;
@@ -1517,8 +1524,9 @@
         .highlight-comment-input-wrap textarea {
             width: 100%;
             box-sizing: border-box;
-            min-height: 40px;
-            max-height: 140px;
+            min-height: 22px;
+            max-height: 120px;
+            overflow-y: hidden;
             padding: 2px 0 0;
             border: 0;
             border-radius: 0;
@@ -1529,7 +1537,13 @@
             resize: none;
             line-height: 1.5;
         }
-        .highlight-comment-input-wrap textarea::placeholder { color: var(--theme-text-faint); opacity: 1; }
+        .highlight-comment-input-wrap textarea::placeholder {
+            color: var(--theme-text-faint);
+            opacity: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .highlight-comment-input-wrap textarea:focus {
             outline: none;
             border: 0;
@@ -1593,6 +1607,46 @@
             animation: mentionSlideIn 0.18s ease-out;
         }
         .highlight-mention-dropdown.show { display: block; }
+
+        /* Mention suggestions: a compact card on desktop, a thumb-sized sheet
+           inside the modal on phones. Both stay inside the viewport. */
+        @media (min-width: 769px) {
+            .mention-dropdown,
+            .highlight-mention-dropdown {
+                width: 320px;
+                right: auto;
+            }
+        }
+        @media (max-width: 768px) {
+            .mention-dropdown,
+            .highlight-mention-dropdown {
+                left: 0;
+                right: 0;
+                width: auto;
+                max-height: min(48vh, 300px);
+                border-radius: 16px;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+            .mention-dropdown-header {
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: var(--theme-card);
+                padding: 10px 14px 6px;
+            }
+            .mention-option {
+                min-height: 48px;
+                padding: 9px 14px;
+                gap: 11px;
+            }
+            .mention-option .mention-avatar {
+                width: 34px;
+                height: 34px;
+            }
+            .mention-option .mention-name { font-size: 14px; }
+            .mention-option .mention-hint { font-size: 11px; }
+        }
 
         /* ================================================================
            ===== ★ HIGHLIGHT REACTIONS =====
@@ -3195,7 +3249,7 @@
 
         const NOTE_COMMENT_MAX_LEN = 150;
         const HIGHLIGHT_COMMENT_MAX_LEN = 200;
-        const MENTION_MAX_RESULTS = 6;
+        const MENTION_MAX_RESULTS = 12;
         const MENTION_REGEX = /@([\w\s.'-]{0,30})$/;
         let noteMentionCandidates = [];
         let noteMentionOpen = false;
@@ -3300,6 +3354,7 @@
         let highlightCommentsById = {};
 
         let pendingMentions = new Map();
+        let mentionDirectoryTried = false;
         let mentionDropdownIndex = -1;
         let mentionCandidates = [];
         let mentionDropdownOpen = false;
@@ -3317,6 +3372,9 @@
 
         let announcementUser = null;
         let announcementUnsubscribe = null;
+        let announcementTargetUnsubscribe = null;
+        let announcementFeedDocs = [];
+        let announcementTargetDocs = [];
         let announcementItems = [];
         let announcementReadIds = new Set();
         let currentAnnouncementViewId = null;
@@ -3325,6 +3383,7 @@
         const ANNOUNCEMENT_AUTOGEN_KEY = 'timawa_ann_autogen_';
         const ANNOUNCEMENT_CACHE_KEY = 'timawa_ann_cache_';
         const ANNOUNCEMENT_LIMIT = 30;
+        const ANNOUNCEMENT_TARGET_LIMIT = 60;
         const ANNOUNCEMENT_CACHE_TTL = 5 * 60 * 1000;
 
         // ================================================================
@@ -4440,8 +4499,32 @@
             else if (len > NOTE_COMMENT_MAX_LEN * 0.7) counter.classList.add('warn');
         }
 
+        // A comment box can open before the Members list has loaded. Fetch the
+        // directory once so the @ suggestions are never mysteriously empty.
+        function ensureMentionDirectory() {
+            if (mentionDirectoryTried || !db) return Promise.resolve();
+            mentionDirectoryTried = true;
+            return db.collection('users').limit(200).get().then(snapshot => {
+                snapshot.forEach(doc => {
+                    userProfileCache[doc.id] = { id: doc.id, ...doc.data() };
+                });
+            }).catch(() => { /* suggestions fall back to what is already cached */ });
+        }
+
+        // The composer stays one line while empty and grows only with text, so
+        // the placeholder can never wrap onto a second line.
+        function autoGrowCommentInput(input) {
+            if (!input) return;
+            const max = 120;
+            input.style.height = 'auto';
+            const next = Math.min(Math.max(input.scrollHeight, 21), max);
+            input.style.height = next + 'px';
+            input.style.overflowY = input.scrollHeight > max ? 'auto' : 'hidden';
+        }
+
         function handleCommentInput(e) {
             updateCommentCharCount();
+            autoGrowCommentInput(e.target);
             detectMentionQuery(e.target);
         }
 
@@ -4501,6 +4584,9 @@
 
             if (allMembers.length === 0) {
                 closeMentionDropdown();
+                ensureMentionDirectory().then(() => {
+                    if (document.activeElement === input) detectMentionQuery(input);
+                });
                 return;
             }
 
@@ -4632,6 +4718,7 @@
 
             closeMentionDropdown();
             updateCommentCharCount();
+            autoGrowCommentInput(input);
             input.focus();
         }
 
@@ -5169,6 +5256,7 @@ function startReplyTo(commentId, authorName) {
                 });
 
                 input.value = '';
+                autoGrowCommentInput(input);
                 pendingMentions.clear();
                 updateCommentCharCount();
                 cancelReplyTo();
@@ -5330,6 +5418,7 @@ function startReplyTo(commentId, authorName) {
 
         function handleHighlightCommentInput(e) {
             updateHighlightCommentCharCount();
+            autoGrowCommentInput(e.target);
             detectHighlightMentionQuery(e.target);
         }
 
@@ -5389,6 +5478,9 @@ function startReplyTo(commentId, authorName) {
 
             if (allMembers.length === 0) {
                 closeHighlightMentionDropdown();
+                ensureMentionDirectory().then(() => {
+                    if (document.activeElement === input) detectHighlightMentionQuery(input);
+                });
                 return;
             }
 
@@ -5516,6 +5608,7 @@ function startReplyTo(commentId, authorName) {
 
             closeHighlightMentionDropdown();
             updateHighlightCommentCharCount();
+            autoGrowCommentInput(input);
             input.focus();
         }
 
@@ -5701,6 +5794,7 @@ function startHighlightReply(commentId, authorName) {
                 }
 
                 input.value = '';
+                autoGrowCommentInput(input);
                 highlightPendingMentions.clear();
                 updateHighlightCommentCharCount();
                 cancelHighlightReply();
@@ -6204,11 +6298,66 @@ function startHighlightReply(commentId, authorName) {
             syncModalOpenState();
         }
 
+        function announcementItemFromDoc(doc, user, now, firestoreReadIds) {
+            const data = doc.data();
+
+            if (data.expiresAt) {
+                const exp = data.expiresAt.seconds
+                    ? new Date(data.expiresAt.seconds * 1000)
+                    : new Date(data.expiresAt);
+                if (exp < now) return null;
+            }
+
+            if (data.targetUid && data.targetUid !== '' && data.targetUid !== user.uid) return null;
+            if (Array.isArray(data.targetUids) && !data.targetUids.includes(user.uid)) return null;
+
+            if (Array.isArray(data.readBy) && data.readBy.includes(user.uid)) {
+                firestoreReadIds.add(doc.id);
+            }
+
+            return { id: doc.id, ...data };
+        }
+
+        function mergeAnnouncementSources(user) {
+            const now = new Date();
+            const firestoreReadIds = new Set();
+            const byId = new Map();
+
+            announcementFeedDocs.concat(announcementTargetDocs).forEach(doc => {
+                if (byId.has(doc.id)) return;
+                const item = announcementItemFromDoc(doc, user, now, firestoreReadIds);
+                if (item) byId.set(doc.id, item);
+            });
+
+            let changed = false;
+            firestoreReadIds.forEach(id => {
+                if (!announcementReadIds.has(id)) {
+                    announcementReadIds.add(id);
+                    changed = true;
+                }
+            });
+            if (changed) saveAnnouncementReadCache(user.uid, announcementReadIds);
+
+            const timeOf = (item) => {
+                if (!item.createdAt) return 0;
+                if (item.createdAt.seconds) return item.createdAt.seconds * 1000;
+                const parsed = new Date(item.createdAt).getTime();
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
+
+            announcementItems = [...byId.values()].sort((a, b) => timeOf(b) - timeOf(a));
+            saveAnnouncementSnapshotCache(user.uid, announcementItems);
+            renderAnnouncements();
+        }
+
         function loadAnnouncements(user) {
             if (!user) return;
             if (announcementUnsubscribe) announcementUnsubscribe();
+            if (announcementTargetUnsubscribe) announcementTargetUnsubscribe();
 
             announcementUser = user;
+            announcementFeedDocs = [];
+            announcementTargetDocs = [];
             announcementReadIds = loadAnnouncementReadCache(user.uid);
 
             const popup = document.getElementById('announcementPopup');
@@ -6220,51 +6369,32 @@ function startHighlightReply(commentId, authorName) {
                 renderAnnouncements();
             }
 
+            // Two feeds, merged: the newest activity everyone sees, plus every
+            // announcement addressed to this member. Without the second listener,
+            // a busy squad can push a member's mention past the global 30-document
+            // window — and they would never see it after coming back online.
             announcementUnsubscribe = db.collection('announcements')
                 .orderBy('createdAt', 'desc')
                 .limit(ANNOUNCEMENT_LIMIT)
                 .onSnapshot((snapshot) => {
-                    const now = new Date();
-                    const items = [];
-                    const firestoreReadIds = new Set();
-
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-
-                        if (data.expiresAt) {
-                            const exp = data.expiresAt.seconds
-                                ? new Date(data.expiresAt.seconds * 1000)
-                                : new Date(data.expiresAt);
-                            if (exp < now) return;
-                        }
-
-                        if (data.targetUid && data.targetUid !== '' && data.targetUid !== user.uid) return;
-
-                        items.push({ id: doc.id, ...data });
-
-                        if (Array.isArray(data.readBy) && data.readBy.includes(user.uid)) {
-                            firestoreReadIds.add(doc.id);
-                        }
-                    });
-
-                    let changed = false;
-                    firestoreReadIds.forEach(id => {
-                        if (!announcementReadIds.has(id)) {
-                            announcementReadIds.add(id);
-                            changed = true;
-                        }
-                    });
-                    if (changed) saveAnnouncementReadCache(user.uid, announcementReadIds);
-
-                    announcementItems = items;
-                    saveAnnouncementSnapshotCache(user.uid, items);
-                    renderAnnouncements();
+                    announcementFeedDocs = snapshot.docs.slice();
+                    mergeAnnouncementSources(user);
                 }, (error) => {
                     console.warn('Announcements listener error:', error.message);
                     if (!announcementItems.length) {
                         announcementItems = [];
                         renderAnnouncements();
                     }
+                });
+
+            announcementTargetUnsubscribe = db.collection('announcements')
+                .where('targetUid', '==', user.uid)
+                .limit(ANNOUNCEMENT_TARGET_LIMIT)
+                .onSnapshot((snapshot) => {
+                    announcementTargetDocs = snapshot.docs.slice();
+                    mergeAnnouncementSources(user);
+                }, (error) => {
+                    console.warn('Targeted announcements listener error:', error.message);
                 });
         }
 
@@ -6708,6 +6838,12 @@ function startHighlightReply(commentId, authorName) {
                     announcementUnsubscribe();
                     announcementUnsubscribe = null;
                 }
+                if (announcementTargetUnsubscribe) {
+                    announcementTargetUnsubscribe();
+                    announcementTargetUnsubscribe = null;
+                }
+                announcementFeedDocs = [];
+                announcementTargetDocs = [];
                 announcementUser = null;
                 announcementItems = [];
 
@@ -9137,14 +9273,15 @@ function startHighlightReply(commentId, authorName) {
                 <span>Replying to <strong id="fwReplyName"></strong></span>
                 <button type="button" id="fwReplyCancel" aria-label="Cancel reply">✕</button>
             </div>
-            <form class="fw-comment-form" id="fwCommentForm">
-                <input class="fw-comment-input" id="fwCommentInput" maxlength="280" placeholder="Reply to this note…" aria-label="Reply to this note" />
+            <form class="fw-comment-form" id="fwCommentForm" autocomplete="off">
+                <div class="fw-mention-dropdown" id="fwMentionDropdown" role="listbox" hidden></div>
+                <input class="fw-comment-input" id="fwCommentInput" maxlength="280" placeholder="Reply to this note…" aria-label="Reply to this note" aria-autocomplete="list" aria-controls="fwMentionDropdown" />
                 <button class="fw-comment-send" type="submit" aria-label="Send reply"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
             </form>
         </div>
     </div>
 
-    <script src="freedom-wall.js?v=1.5.1"></script>
+    <script src="freedom-wall.js?v=1.5.2"></script>
     <script src="quick-snap.js?v=3.6.0" defer></script>
     <script src="avatar-fallback.js?v=1.0.0" defer></script>
 </body>

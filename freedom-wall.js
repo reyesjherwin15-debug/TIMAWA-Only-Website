@@ -57,6 +57,7 @@
     var replyBanner = document.getElementById('fwReplyBanner');
     var replyNameEl = document.getElementById('fwReplyName');
     var replyCancel = document.getElementById('fwReplyCancel');
+    var mentionDropdown = document.getElementById('fwMentionDropdown');
 
     var db = null;
     try { db = firebase.app().firestore(); } catch (e) { db = null; }
@@ -80,6 +81,12 @@
     var threadRows = [];           // the replies currently on screen
     var replyTarget = null;        // { rootId, commentId, uid, name, isGuest }
     var EMOJI = ['❤️', '😂', '😮', '👍', '🔥'];
+    var fwMentionUsers = null;     // every member, loaded once for @suggestions
+    var fwMentionLoading = null;
+    var fwMentionCandidates = [];
+    var fwMentionIndex = 0;
+    var fwMentionOpen = false;
+    var fwPendingMentions = new Map();   // lower(name) -> { uid, name }
 
     /* ── helpers ─────────────────────────────────────────────────── */
 
@@ -661,7 +668,7 @@
             '<div class="fw-comment-body">' +
             '<div class="fw-comment-top"><b>' + esc(name) + '</b><small>' + esc(ago(c.createdAt)) + '</small></div>' +
             ref +
-            '<p>' + esc(c.text || '') + '</p>' +
+            '<p>' + mentionHtml(c.text || '', c.mentions) + '</p>' +
             '<div class="fw-comment-foot">' +
             '<button type="button" class="fw-comment-reply" data-fw-reply="' + esc(c.id) + '">' +
             '<i class="fas fa-reply" aria-hidden="true"></i> Reply</button>' +
@@ -718,6 +725,207 @@
         }
     }
 
+    /* ── @mentions in replies ────────────────────────────────────── */
+
+    function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Every app member, so the suggestions are not limited to people who
+    // happened to pin a note. Loaded once per visit; a failed lookup just
+    // leaves the picker empty instead of breaking replies.
+    function loadFwMentionUsers() {
+        if (fwMentionUsers) return Promise.resolve(fwMentionUsers);
+        if (fwMentionLoading) return fwMentionLoading;
+        if (!db) { fwMentionUsers = []; return Promise.resolve(fwMentionUsers); }
+        fwMentionLoading = db.collection('users').limit(200).get().then(function (snap) {
+            var rows = [];
+            snap.forEach(function (doc) {
+                var d = doc.data() || {};
+                var name = String(d.displayName || d.email || '').trim();
+                if (!name) return;
+                rows.push({
+                    uid: doc.id,
+                    name: name,
+                    photo: d.photoURL || '',
+                    email: d.email || ''
+                });
+            });
+            rows.sort(function (a, b) { return a.name.localeCompare(b.name); });
+            fwMentionUsers = rows;
+            fwMentionLoading = null;
+            return rows;
+        }).catch(function () {
+            fwMentionUsers = [];
+            fwMentionLoading = null;
+            return fwMentionUsers;
+        });
+        return fwMentionLoading;
+    }
+
+    function closeFwMentions() {
+        fwMentionOpen = false;
+        fwMentionCandidates = [];
+        fwMentionIndex = -1;
+        if (mentionDropdown) mentionDropdown.hidden = true;
+    }
+
+    function detectFwMention() {
+        if (!commentInput || !me) { closeFwMentions(); return; }
+
+        var value = commentInput.value || '';
+        var caret = commentInput.selectionStart == null ? value.length : commentInput.selectionStart;
+        var before = value.slice(0, caret);
+        var match = before.match(/@([\w\s.'-]{0,30})$/);
+        if (!match) { closeFwMentions(); return; }
+
+        var query = match[1].toLowerCase().trim();
+        var pendingCaret = caret;
+
+        loadFwMentionUsers().then(function (users) {
+            if (!commentInput || document.activeElement !== commentInput) return;
+            // The caret may have moved while the member list was loading.
+            var nowCaret = commentInput.selectionStart == null ? commentInput.value.length : commentInput.selectionStart;
+            var nowBefore = commentInput.value.slice(0, nowCaret);
+            if (!/@([\w\s.'-]{0,30})$/.test(nowBefore) || nowCaret !== pendingCaret) return;
+
+            var list = users.filter(function (u) { return u.uid !== (me && me.uid); });
+            if (query) {
+                list = list.filter(function (u) {
+                    return u.name.toLowerCase().indexOf(query) >= 0 ||
+                        (u.email || '').toLowerCase().indexOf(query) >= 0;
+                });
+                list.sort(function (a, b) {
+                    var aStarts = a.name.toLowerCase().indexOf(query) === 0 ? 0 : 1;
+                    var bStarts = b.name.toLowerCase().indexOf(query) === 0 ? 0 : 1;
+                    if (aStarts !== bStarts) return aStarts - bStarts;
+                    return a.name.localeCompare(b.name);
+                });
+            }
+
+            fwMentionCandidates = list.slice(0, 8);
+            fwMentionIndex = 0;
+            fwMentionOpen = true;
+            renderFwMentions();
+        });
+    }
+
+    function renderFwMentions() {
+        if (!mentionDropdown) return;
+        if (!fwMentionOpen) { mentionDropdown.hidden = true; return; }
+
+        var html = '<div class="fw-mention-head"><i class="fas fa-at" aria-hidden="true"></i> Mention a member</div>';
+        if (!fwMentionCandidates.length) {
+            html += '<div class="fw-mention-empty">No members found</div>';
+        } else {
+            fwMentionCandidates.forEach(function (user, idx) {
+                var ava = user.photo
+                    ? '<img src="' + esc(user.photo) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+                    : esc(initials(user.name));
+                html += '<button type="button" class="fw-mention-option' + (idx === fwMentionIndex ? ' is-active' : '') + '"' +
+                    ' role="option" aria-selected="' + (idx === fwMentionIndex ? 'true' : 'false') + '"' +
+                    ' data-fw-mention-idx="' + idx + '">' +
+                    '<span class="fw-mention-ava">' + ava + '</span>' +
+                    '<span><span class="fw-mention-name">' + esc(user.name) + '</span>' +
+                    '<span class="fw-mention-hint">Tap to mention</span></span>' +
+                    '</button>';
+            });
+        }
+
+        mentionDropdown.innerHTML = html;
+        mentionDropdown.hidden = false;
+    }
+
+    function selectFwMention(user) {
+        if (!commentInput || !user) return;
+        var value = commentInput.value || '';
+        var caret = commentInput.selectionStart == null ? value.length : commentInput.selectionStart;
+        var match = value.slice(0, caret).match(/@([\w\s.'-]{0,30})$/);
+        if (!match) { closeFwMentions(); return; }
+
+        var start = caret - match[0].length;
+        var insert = '@' + user.name + ' ';
+        commentInput.value = value.slice(0, start) + insert + value.slice(caret);
+
+        var pos = start + insert.length;
+        try { commentInput.setSelectionRange(pos, pos); } catch (e) { /* older browsers */ }
+
+        fwPendingMentions.set(user.name.toLowerCase(), { uid: user.uid, name: user.name });
+        closeFwMentions();
+        commentInput.focus();
+    }
+
+    function resolveFwMentions(text) {
+        var found = new Map();
+
+        fwPendingMentions.forEach(function (info) {
+            if (text.toLowerCase().indexOf('@' + info.name.toLowerCase()) >= 0) {
+                found.set(info.uid, info.name);
+            }
+        });
+
+        (fwMentionUsers || []).slice().sort(function (a, b) {
+            return b.name.length - a.name.length;
+        }).forEach(function (u) {
+            if (u.uid === (me && me.uid)) return;
+            var re = new RegExp('@' + escapeRegExp(u.name) + '(?=\\s|[.,!?;:]|$)', 'i');
+            if (re.test(text)) found.set(u.uid, u.name);
+        });
+
+        return Array.from(found, function (pair) {
+            return { uid: pair[0], name: pair[1] };
+        });
+    }
+
+    function mentionHtml(text, mentions) {
+        var safe = esc(text);
+        var list = Array.isArray(mentions) ? mentions : [];
+        var names = [];
+
+        list.forEach(function (m) {
+            if (m && typeof m === 'object' && m.name) names.push(String(m.name));
+        });
+        names.sort(function (a, b) { return b.length - a.length; });
+
+        names.forEach(function (name) {
+            var safeName = esc(name);
+            var re = new RegExp('@' + escapeRegExp(safeName) + '(?=\\s|[.,!?;:]|$)', 'g');
+            safe = safe.replace(re, function () {
+                return '<span class="fw-mention">@' + safeName + '</span>';
+            });
+        });
+
+        return safe;
+    }
+
+    function notifyFwMention(note, who, targetUid, text, commentId) {
+        if (!db || !note || !me || who.isGuest) return;
+        if (!targetUid || targetUid === who.uid) return;
+
+        db.collection('announcements').add({
+            type: 'mention',
+            pushPending: true,
+            pushContext: 'mention:freedom_' + note.id,
+            title: '📣 ' + who.name + ' mentioned you',
+            message: '"' + String(text).slice(0, 120) + '"',
+            icon: '📣',
+            actorUid: who.uid,
+            actorName: who.name,
+            actorPhoto: who.photo,
+            priority: 'info',
+            link: 'index.html#freedom-wall',
+            linkLabel: 'View Mention',
+            pushUrl: 'index.html#freedom-wall',
+            targetUid: targetUid,
+            referenceId: 'freedom_c_' + commentId,
+            readBy: [],
+            createdBy: 'system',
+            createdByName: 'System',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            expiresAt: new Date(Date.now() + 7 * 86400000)
+        }).catch(function () { /* the reply is posted either way */ });
+    }
+
     function toggleCommentReact(chip) {
         if (!viewNote || !db || !chip) return;
         var wrap = chip.closest('.fw-comment');
@@ -741,6 +949,8 @@
         viewNote = n;
         if (!db || !n) return;
         if (commentInput) commentInput.value = '';
+        fwPendingMentions.clear();
+        closeFwMentions();
         clearReplyTarget();
         threadRows = [];
         reactsEl.innerHTML = EMOJI.map(function (e) { return reactButton(e, 0, false); }).join('');
@@ -764,6 +974,7 @@
                         replyToCommentId: v.replyToCommentId || '',
                         replyToName: v.replyToName || '',
                         replyToUid: v.replyToUid || '',
+                        mentions: Array.isArray(v.mentions) ? v.mentions : [],
                         reactions: (v.reactions && typeof v.reactions === 'object') ? v.reactions : {},
                         createdAt: v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : 0
                     };
@@ -830,6 +1041,7 @@
         var who = actor();
         var note = viewNote;
         var target = replyTarget;
+        var mentioned = resolveFwMentions(text);
         var doc = {
             uid: who.uid,
             name: who.name,
@@ -839,6 +1051,7 @@
             reactions: {},
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
+        if (mentioned.length) doc.mentions = mentioned;
         if (target) {
             doc.parentId = target.rootId;
             doc.replyToCommentId = target.commentId;
@@ -846,17 +1059,29 @@
             doc.replyToName = target.name || '';
         }
         commentInput.value = '';
-        db.collection('freedomNotes').doc(note.id).collection('comments').add(doc).then(function () {
+        fwPendingMentions.clear();
+        closeFwMentions();
+        db.collection('freedomNotes').doc(note.id).collection('comments').add(doc).then(function (ref) {
+            var notified = {};
             if (target) {
                 // a guest reply has no account to ring, and the note's author is
                 // not the one being answered, so only members get a bell
                 if (!target.isGuest && target.uid) {
                     notifyNote(note, who, '💬', who.name + ' replied to your reply', '"' + text + '"',
                         target.uid, 'freedom_c_' + target.commentId);
+                    notified[target.uid] = true;
                 }
             } else {
                 notifyNote(note, who, '💬', who.name + ' replied to your note', '"' + text + '"');
+                if (note.authorUid) notified[note.authorUid] = true;
             }
+
+            // One notification per person: a reply that also @mentions the
+            // person being answered must not ring their bell twice.
+            mentioned.forEach(function (m) {
+                if (notified[m.uid]) return;
+                notifyFwMention(note, who, m.uid, text, ref.id);
+            });
             clearReplyTarget();
         }).catch(function () {
             commentInput.value = text;
@@ -945,6 +1170,49 @@
     });
     if (replyCancel) replyCancel.addEventListener('click', clearReplyTarget);
     if (commentForm) commentForm.addEventListener('submit', sendComment);
+
+    if (commentInput) {
+        commentInput.addEventListener('input', detectFwMention);
+        commentInput.addEventListener('keydown', function (ev) {
+            if (!fwMentionOpen) return;
+            if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                if (!fwMentionCandidates.length) return;
+                fwMentionIndex = ev.key === 'ArrowDown'
+                    ? (fwMentionIndex + 1) % fwMentionCandidates.length
+                    : (fwMentionIndex <= 0 ? fwMentionCandidates.length - 1 : fwMentionIndex - 1);
+                renderFwMentions();
+                return;
+            }
+            if (ev.key === 'Enter' || ev.key === 'Tab') {
+                if (!fwMentionCandidates[fwMentionIndex]) return;
+                ev.preventDefault();
+                selectFwMention(fwMentionCandidates[fwMentionIndex]);
+                return;
+            }
+            if (ev.key === 'Escape') {
+                ev.preventDefault();
+                closeFwMentions();
+            }
+        });
+        commentInput.addEventListener('blur', function () {
+            setTimeout(closeFwMentions, 180);
+        });
+    }
+
+    if (mentionDropdown) {
+        // Keep the input focused while a suggestion is pressed, then select on click.
+        mentionDropdown.addEventListener('mousedown', function (ev) {
+            if (ev.target.closest('[data-fw-mention-idx]')) ev.preventDefault();
+        });
+        mentionDropdown.addEventListener('click', function (ev) {
+            var opt = ev.target.closest('[data-fw-mention-idx]');
+            if (!opt) return;
+            ev.preventDefault();
+            var user = fwMentionCandidates[Number(opt.getAttribute('data-fw-mention-idx'))];
+            if (user) selectFwMention(user);
+        });
+    }
     if (form) form.addEventListener('submit', submit);
     if (fileInput) fileInput.addEventListener('change', function () { setImage(fileInput.files && fileInput.files[0]); });
     if (pickBtn) pickBtn.addEventListener('click', function () { fileInput.click(); });

@@ -231,6 +231,33 @@ resolves it **whether or not the member tapped the notification**:
 announcement read. Tapping a chat notification deep-links straight into the
 conversation (`dashboard.html#chat_<uid>`), which resolves it the same way.
 
+### Members who were offline
+
+A push the push service accepts is queued for the device and shown when it
+reconnects, even if TIMAWA is closed. The sender only clears `pushPending` after
+at least one device accepted it. If **every** send fails (network error, 5xx),
+the announcement stays queued with `pushAttempts` and `pushRetryAfter` and is
+retried with growing delays (1, 2, 4 … minutes, capped at one hour; at most 24
+attempts).
+
+The in-app bell is the durable fallback. Every bell listens to **two** feeds:
+the newest 30 announcements everyone sees, plus up to 60 addressed to the
+signed-in member (`targetUid == uid`). A member's mention can no longer scroll
+out of the global window while they are away, and `readBy` keeps its unread
+badge until they open it.
+
+### The 27th-of-the-month check-in
+
+GitHub pauses scheduled workflows after 60 days without repository activity.
+`push-keepalive.yml` runs at **03:27 UTC on the 27th** of every month, and:
+
+1. re-enables `push-dispatch.yml` if GitHub paused it,
+2. commits `.github/push-heartbeat.txt` (the repository activity GitHub needs),
+3. starts one dispatch pass for anything already queued.
+
+There is nothing to refresh by hand. The VAPID key pair does not expire, and
+replacing it would force every member to enable notifications again.
+
 ---
 
 ## 7b. How notifications look
@@ -261,7 +288,7 @@ screen; the profile photo is shown inside the in-app notification list.
 
 * **Offline:** pages a member has already opened are served from cache; anything
   else falls back to `offline.html`. Firestore keeps working from its own cache.
-* **Updates:** `sw.js` caches under `timawa-shell-v1.5.17`. After editing any
+* **Updates:** `sw.js` caches under `timawa-shell-v1.7.0`. After editing any
   cached file, bump `CACHE_VERSION` so phones pick up the new shell.
 * **Not cached:** Firebase, Cloudinary and CDN requests — those always go to the
   network, so data stays live and the cache stays small.
@@ -288,7 +315,7 @@ screen; the profile photo is shown inside the in-app notification list.
 
 1. Desktop Chrome → DevTools → Application → **Manifest**: name, icons, start URL.
 2. **Service Workers**: `sw.js` is *activated and running*.
-3. **Cache Storage**: `timawa-shell-v1.0.3` and `timawa-runtime-v1.0.3` exist.
+3. **Cache Storage**: `timawa-shell-v1.7.0` and `timawa-runtime-v1.7.0` exist.
 4. Sign in → Profile → Activity notifications → Enable → row appears in
    `pushSubscriptions` in the Firebase console.
 5. `--test` from the terminal → notification appears with the site closed.

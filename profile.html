@@ -2403,6 +2403,9 @@
         // ================================================================
         let announcementUser = null;
         let announcementUnsubscribe = null;
+        let announcementTargetUnsubscribe = null;
+        let announcementFeedDocs = [];
+        let announcementTargetDocs = [];
         let announcementItems = [];
         let announcementReadIds = new Set();
         let currentAnnouncementViewId = null;
@@ -2411,6 +2414,7 @@
         const ANNOUNCEMENT_AUTOGEN_KEY = 'timawa_ann_autogen_';
         const ANNOUNCEMENT_CACHE_KEY = 'timawa_ann_cache_';
         const ANNOUNCEMENT_LIMIT = 30;
+        const ANNOUNCEMENT_TARGET_LIMIT = 60;
         const ANNOUNCEMENT_CACHE_TTL = 5 * 60 * 1000;
 
         function escapeAttr(text) {
@@ -2763,11 +2767,58 @@
             currentAnnouncementViewId = null;
         }
 
+        function announcementItemFromDoc(doc, user, now, firestoreReadIds) {
+            const data = doc.data();
+            if (data.expiresAt) {
+                const exp = data.expiresAt.seconds ? new Date(data.expiresAt.seconds * 1000) : new Date(data.expiresAt);
+                if (exp < now) return null;
+            }
+            if (data.targetUid && data.targetUid !== '' && data.targetUid !== user.uid) return null;
+            if (Array.isArray(data.targetUids) && !data.targetUids.includes(user.uid)) return null;
+            if (Array.isArray(data.readBy) && data.readBy.includes(user.uid)) firestoreReadIds.add(doc.id);
+            return { id: doc.id, ...data };
+        }
+
+        function mergeAnnouncementSources(user) {
+            const now = new Date();
+            const firestoreReadIds = new Set();
+            const byId = new Map();
+
+            announcementFeedDocs.concat(announcementTargetDocs).forEach(doc => {
+                if (byId.has(doc.id)) return;
+                const item = announcementItemFromDoc(doc, user, now, firestoreReadIds);
+                if (item) byId.set(doc.id, item);
+            });
+
+            let changed = false;
+            firestoreReadIds.forEach(id => {
+                if (!announcementReadIds.has(id)) {
+                    announcementReadIds.add(id);
+                    changed = true;
+                }
+            });
+            if (changed) saveAnnouncementReadCache(user.uid, announcementReadIds);
+
+            const timeOf = (item) => {
+                if (!item.createdAt) return 0;
+                if (item.createdAt.seconds) return item.createdAt.seconds * 1000;
+                const parsed = new Date(item.createdAt).getTime();
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
+
+            announcementItems = [...byId.values()].sort((a, b) => timeOf(b) - timeOf(a));
+            saveAnnouncementSnapshotCache(user.uid, announcementItems);
+            renderAnnouncements();
+        }
+
         function loadAnnouncements(user) {
             if (!user) return;
             if (announcementUnsubscribe) announcementUnsubscribe();
+            if (announcementTargetUnsubscribe) announcementTargetUnsubscribe();
 
             announcementUser = user;
+            announcementFeedDocs = [];
+            announcementTargetDocs = [];
             announcementReadIds = loadAnnouncementReadCache(user.uid);
 
             const popup = document.getElementById('announcementPopup');
@@ -2783,41 +2834,22 @@
                 .orderBy('createdAt', 'desc')
                 .limit(ANNOUNCEMENT_LIMIT)
                 .onSnapshot((snapshot) => {
-                    const now = new Date();
-                    const items = [];
-                    const firestoreReadIds = new Set();
-
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        if (data.expiresAt) {
-                            const exp = data.expiresAt.seconds ? new Date(data.expiresAt.seconds * 1000) : new Date(data.expiresAt);
-                            if (exp < now) return;
-                        }
-                        if (data.targetUid && data.targetUid !== '' && data.targetUid !== user.uid) return;
-                        items.push({ id: doc.id, ...data });
-                        if (Array.isArray(data.readBy) && data.readBy.includes(user.uid)) {
-                            firestoreReadIds.add(doc.id);
-                        }
-                    });
-
-                    let changed = false;
-                    firestoreReadIds.forEach(id => {
-                        if (!announcementReadIds.has(id)) {
-                            announcementReadIds.add(id);
-                            changed = true;
-                        }
-                    });
-                    if (changed) saveAnnouncementReadCache(user.uid, announcementReadIds);
-
-                    announcementItems = items;
-                    saveAnnouncementSnapshotCache(user.uid, items);
-                    renderAnnouncements();
+                    announcementFeedDocs = snapshot.docs.slice();
+                    mergeAnnouncementSources(user);
                 }, (error) => {
                     console.warn('Announcements listener error:', error.message);
-                    if (!announcementItems.length) {
-                        announcementItems = [];
-                        renderAnnouncements();
-                    }
+                });
+
+            // Addressed to this member: survives a busy global feed, so a
+            // mention is still waiting when they come back online.
+            announcementTargetUnsubscribe = db.collection('announcements')
+                .where('targetUid', '==', user.uid)
+                .limit(ANNOUNCEMENT_TARGET_LIMIT)
+                .onSnapshot((snapshot) => {
+                    announcementTargetDocs = snapshot.docs.slice();
+                    mergeAnnouncementSources(user);
+                }, (error) => {
+                    console.warn('Targeted announcements listener error:', error.message);
                 });
         }
 

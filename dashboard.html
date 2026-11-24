@@ -3143,6 +3143,41 @@
             color: var(--theme-primary-soft);
         }
 
+        /* Mention suggestions: compact on desktop, thumb-friendly in the modal
+           on phones, and never wider than the viewport. */
+        @media (min-width: 769px) {
+            .mention-dropdown { width: 320px; right: auto; }
+        }
+        @media (max-width: 768px) {
+            .mention-dropdown {
+                left: 0;
+                right: 0;
+                width: auto;
+                max-height: min(48vh, 300px);
+                border-radius: 16px;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+            .mention-dropdown-header {
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: var(--theme-card);
+                padding: 10px 14px 6px;
+            }
+            .mention-option {
+                min-height: 48px;
+                padding: 9px 14px;
+                gap: 11px;
+            }
+            .mention-option .mention-avatar {
+                width: 34px;
+                height: 34px;
+            }
+            .mention-option .mention-name { font-size: 14px; }
+            .mention-option .mention-hint { font-size: 11px; }
+        }
+
         .mention-chip {
             display: inline-block;
             background: var(--theme-primary-soft);
@@ -5178,8 +5213,9 @@
         .note-comment-input-wrap textarea {
             width: 100%;
             box-sizing: border-box;
-            min-height: 40px;
-            max-height: 140px;
+            min-height: 22px;
+            max-height: 120px;
+            overflow-y: hidden;
             padding: 2px 0 0;
             border: 0;
             border-radius: 0;
@@ -5190,7 +5226,13 @@
             resize: none;
             line-height: 1.5;
         }
-        .note-comment-input-wrap textarea::placeholder { color: var(--theme-text-faint); opacity: 1; }
+        .note-comment-input-wrap textarea::placeholder {
+            color: var(--theme-text-faint);
+            opacity: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .note-comment-input-wrap textarea:focus {
             outline: none;
             border: 0;
@@ -5438,8 +5480,9 @@
         .highlight-comment-input-wrap textarea {
             width: 100%;
             box-sizing: border-box;
-            min-height: 40px;
-            max-height: 140px;
+            min-height: 22px;
+            max-height: 120px;
+            overflow-y: hidden;
             padding: 2px 0 0;
             border: 0;
             border-radius: 0;
@@ -5450,7 +5493,13 @@
             resize: none;
             line-height: 1.5;
         }
-        .highlight-comment-input-wrap textarea::placeholder { color: var(--theme-text-faint); opacity: 1; }
+        .highlight-comment-input-wrap textarea::placeholder {
+            color: var(--theme-text-faint);
+            opacity: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .highlight-comment-input-wrap textarea:focus {
             outline: none;
             border: 0;
@@ -8185,7 +8234,7 @@
         const COMMENT_CLEANUP_INITIAL_DELAY_MS = 8000;
         const COMMENT_CLEANUP_BATCH_LIMIT = 450;
         const NOTE_COMMENT_MAX_LEN = 150;
-        const MENTION_MAX_RESULTS = 6;
+        const MENTION_MAX_RESULTS = 12;
         const MENTION_REGEX = /@([\w\s.'-]{0,30})$/;
 
         const CHAT_MSG_MAX_LEN = 500;
@@ -8331,6 +8380,7 @@
 
         // ===== MENTION (notes) STATE =====
         let pendingMentions = new Map();
+        let mentionDirectoryTried = false;
         let mentionDropdownIndex = -1;
         let titaNoteMentionCandidates = [];
         let titaNoteMentionIndex = 0;
@@ -8444,6 +8494,9 @@
         // ================================================================
         let announcementUser = null;
         let announcementUnsubscribe = null;
+        let announcementTargetUnsubscribe = null;
+        let announcementFeedDocs = [];
+        let announcementTargetDocs = [];
         let announcementItems = [];
         let announcementReadIds = new Set();
         let currentAnnouncementViewId = null;
@@ -8452,6 +8505,7 @@
         const ANNOUNCEMENT_AUTOGEN_KEY = 'timawa_ann_autogen_';
         const ANNOUNCEMENT_CACHE_KEY = 'timawa_ann_cache_';
         const ANNOUNCEMENT_LIMIT = 30;
+        const ANNOUNCEMENT_TARGET_LIMIT = 60;
         const ANNOUNCEMENT_CACHE_TTL = 5 * 60 * 1000;
 
         function isMobile() { return window.innerWidth <= MOBILE_BREAKPOINT; }
@@ -12306,6 +12360,7 @@
         // ================================================================
         function handleHighlightCommentInput(e) {
             updateHighlightCommentCharCount();
+            autoGrowCommentInput(e.target);
             detectHighlightMentionQuery(e.target);
         }
 
@@ -12365,6 +12420,9 @@
 
             if (allMembers.length === 0) {
                 closeHighlightMentionDropdown();
+                ensureMentionDirectory().then(() => {
+                    if (document.activeElement === input) detectHighlightMentionQuery(input);
+                });
                 return;
             }
 
@@ -12486,6 +12544,7 @@
 
             closeHighlightMentionDropdown();
             updateHighlightCommentCharCount();
+            autoGrowCommentInput(input);
             input.focus();
         }
 
@@ -12671,6 +12730,7 @@ function startHighlightReply(commentId, authorName) {
                 }
 
                 input.value = '';
+                autoGrowCommentInput(input);
                 highlightPendingMentions.clear();
                 updateHighlightCommentCharCount();
                 cancelHighlightReply();
@@ -13799,8 +13859,32 @@ function startHighlightReply(commentId, authorName) {
             else if (len > NOTE_COMMENT_MAX_LEN * 0.7) counter.classList.add('warn');
         }
 
+        // A comment box can open before the Members list has loaded. Fetch the
+        // directory once so the @ suggestions are never mysteriously empty.
+        function ensureMentionDirectory() {
+            if (mentionDirectoryTried || !db) return Promise.resolve();
+            mentionDirectoryTried = true;
+            return db.collection('users').limit(200).get().then(snapshot => {
+                snapshot.forEach(doc => {
+                    userProfileCache[doc.id] = { id: doc.id, ...doc.data() };
+                });
+            }).catch(() => { /* suggestions fall back to what is already cached */ });
+        }
+
+        // One line while empty; grows only with text (max 120px), so the
+        // placeholder never wraps onto a second line.
+        function autoGrowCommentInput(input) {
+            if (!input) return;
+            const max = 120;
+            input.style.height = 'auto';
+            const next = Math.min(Math.max(input.scrollHeight, 21), max);
+            input.style.height = next + 'px';
+            input.style.overflowY = input.scrollHeight > max ? 'auto' : 'hidden';
+        }
+
         function handleCommentInput(e) {
             updateCommentCharCount();
+            autoGrowCommentInput(e.target);
             detectMentionQuery(e.target);
         }
 
@@ -13854,7 +13938,13 @@ function startHighlightReply(commentId, authorName) {
             const allMembers = Object.values(userProfileCache)
                 .filter(u => u.id !== myUid && (u.displayName || u.email));
 
-            if (allMembers.length === 0) { closeMentionDropdown(); return; }
+            if (allMembers.length === 0) {
+                closeMentionDropdown();
+                ensureMentionDirectory().then(() => {
+                    if (document.activeElement === input) detectMentionQuery(input);
+                });
+                return;
+            }
 
             let filtered;
             if (!query) {
@@ -13957,6 +14047,7 @@ function startHighlightReply(commentId, authorName) {
 
             closeMentionDropdown();
             updateCommentCharCount();
+            autoGrowCommentInput(input);
             input.focus();
         }
 
@@ -14237,6 +14328,7 @@ function startReplyTo(commentId, authorName) {
                 });
 
                 input.value = '';
+                autoGrowCommentInput(input);
                 pendingMentions.clear();
                 updateCommentCharCount();
                 cancelReplyTo();
@@ -14633,11 +14725,63 @@ function startReplyTo(commentId, authorName) {
             syncModalOpenState();
         }
 
+        function announcementItemFromDoc(doc, user, now, firestoreReadIds) {
+            const data = doc.data();
+            if (data.expiresAt) {
+                const exp = data.expiresAt.seconds
+                    ? new Date(data.expiresAt.seconds * 1000)
+                    : new Date(data.expiresAt);
+                if (exp < now) return null;
+            }
+            if (data.targetUid && data.targetUid !== '' && data.targetUid !== user.uid) return null;
+            if (Array.isArray(data.targetUids) && !data.targetUids.includes(user.uid)) return null;
+
+            if (Array.isArray(data.readBy) && data.readBy.includes(user.uid)) {
+                firestoreReadIds.add(doc.id);
+            }
+            return { id: doc.id, ...data };
+        }
+
+        function mergeAnnouncementSources(user) {
+            const now = new Date();
+            const firestoreReadIds = new Set();
+            const byId = new Map();
+
+            announcementFeedDocs.concat(announcementTargetDocs).forEach(doc => {
+                if (byId.has(doc.id)) return;
+                const item = announcementItemFromDoc(doc, user, now, firestoreReadIds);
+                if (item) byId.set(doc.id, item);
+            });
+
+            let changed = false;
+            firestoreReadIds.forEach(id => {
+                if (!announcementReadIds.has(id)) {
+                    announcementReadIds.add(id);
+                    changed = true;
+                }
+            });
+            if (changed) saveAnnouncementReadCache(user.uid, announcementReadIds);
+
+            const timeOf = (item) => {
+                if (!item.createdAt) return 0;
+                if (item.createdAt.seconds) return item.createdAt.seconds * 1000;
+                const parsed = new Date(item.createdAt).getTime();
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
+
+            announcementItems = [...byId.values()].sort((a, b) => timeOf(b) - timeOf(a));
+            saveAnnouncementSnapshotCache(user.uid, announcementItems);
+            renderAnnouncements();
+        }
+
         function loadAnnouncements(user) {
             if (!user) return;
             if (announcementUnsubscribe) announcementUnsubscribe();
+            if (announcementTargetUnsubscribe) announcementTargetUnsubscribe();
 
             announcementUser = user;
+            announcementFeedDocs = [];
+            announcementTargetDocs = [];
             announcementReadIds = loadAnnouncementReadCache(user.uid);
 
             const popup = document.getElementById('announcementPopup');
@@ -14649,45 +14793,27 @@ function startReplyTo(commentId, authorName) {
                 renderAnnouncements();
             }
 
+            // Newest announcements for everyone, plus every announcement
+            // addressed to this member. The second listener is what keeps an
+            // offline member's mentions from scrolling out of the global window.
             announcementUnsubscribe = db.collection('announcements')
                 .orderBy('createdAt', 'desc')
                 .limit(ANNOUNCEMENT_LIMIT)
                 .onSnapshot((snapshot) => {
-                    const now = new Date();
-                    const items = [];
-                    const firestoreReadIds = new Set();
-
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        if (data.expiresAt) {
-                            const exp = data.expiresAt.seconds
-                                ? new Date(data.expiresAt.seconds * 1000)
-                                : new Date(data.expiresAt);
-                            if (exp < now) return;
-                        }
-                        if (data.targetUid && data.targetUid !== '' && data.targetUid !== user.uid) return;
-                        if (Array.isArray(data.targetUids) && !data.targetUids.includes(user.uid)) return;
-
-                        items.push({ id: doc.id, ...data });
-                        if (Array.isArray(data.readBy) && data.readBy.includes(user.uid)) {
-                            firestoreReadIds.add(doc.id);
-                        }
-                    });
-
-                    let changed = false;
-                    firestoreReadIds.forEach(id => {
-                        if (!announcementReadIds.has(id)) {
-                            announcementReadIds.add(id);
-                            changed = true;
-                        }
-                    });
-                    if (changed) saveAnnouncementReadCache(user.uid, announcementReadIds);
-
-                    announcementItems = items;
-                    saveAnnouncementSnapshotCache(user.uid, items);
-                    renderAnnouncements();
+                    announcementFeedDocs = snapshot.docs.slice();
+                    mergeAnnouncementSources(user);
                 }, (error) => {
                     console.warn('Announcements listener error:', error.message);
+                });
+
+            announcementTargetUnsubscribe = db.collection('announcements')
+                .where('targetUid', '==', user.uid)
+                .limit(ANNOUNCEMENT_TARGET_LIMIT)
+                .onSnapshot((snapshot) => {
+                    announcementTargetDocs = snapshot.docs.slice();
+                    mergeAnnouncementSources(user);
+                }, (error) => {
+                    console.warn('Targeted announcements listener error:', error.message);
                 });
         }
 
