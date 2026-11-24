@@ -33,7 +33,7 @@
         IMAGE_MS: 6000,
         SLIDE_MS: 5000,
         MAX_REPLY: 300,
-        composerSrc: 'stories-composer.js?v=1.16.1',
+        composerSrc: 'stories-composer.js?v=1.16.2',
         spotifySearchUrl: '',
         allowStoryDelete: true,        // pages can override via window.STORIES_CONFIG
         allowStoryViews: true          // pages can override via window.STORIES_CONFIG
@@ -1116,10 +1116,12 @@
             let data;
             if (kind === 'reaction') {
                 const e = opts.emoji || '❤️';
-                data = { type: 'reaction', pushContext: `reaction_story_${s.id}`, title: `${e} ${who} reacted to your story`, message: `${who} reacted ${e} to your story.`, icon: e, link: `index.html?story=${encodeURIComponent(s.id)}`, linkLabel: 'View Story' };
+                data = { type: 'reaction', pushContext: `reaction_story_${s.id}`, title: `${e} ${who} reacted to your story`, message: `${who} reacted ${e} to your story.`, icon: e, link: `index.html?story=${encodeURIComponent(s.id)}`, pushUrl: `index.html?story=${encodeURIComponent(s.id)}`, linkLabel: 'View Story', targetType: 'story', targetId: s.id };
             } else {
                 const t = String(opts.text || '').slice(0, 80) + (String(opts.text || '').length > 80 ? '...' : '');
-                data = { type: 'chat', pushContext: `chat:${me.uid}`, title: `💬 ${who} replied to your story`, message: `"${t}"`, icon: '💬', link: 'dashboard.html', linkLabel: 'Open Chat' };
+                const chatUrl = `dashboard.html#chat=${encodeURIComponent(me.uid)}` +
+                    (opts.messageId ? `&msg=${encodeURIComponent(opts.messageId)}` : '');
+                data = { type: 'chat', pushContext: `chat:${me.uid}`, title: `💬 ${who} replied to your story`, message: `"${t}"`, icon: '💬', link: chatUrl, pushUrl: chatUrl, linkLabel: 'Open Chat', targetType: 'chat', targetId: me.uid, messageId: opts.messageId || '' };
             }
             await db.collection('announcements').doc(id).set(Object.assign(base, data));
         } catch (err) { console.warn('story notification not sent:', err.code || err.message); }
@@ -1165,8 +1167,9 @@
                 receiverUid: s.ownerUid, participants: [me.uid, s.ownerUid],
                 type: 'story_reply', storyRef: ref
             };
-            await db.collection('chatMessages').doc().set(msg);
-            notifyOwner('reply', s, { text });
+            const msgRef = db.collection('chatMessages').doc();
+            await msgRef.set(msg);
+            notifyOwner('reply', s, { text, messageId: msgRef.id });
             V.q.input.value = '';
             toast('Reply sent! Find it in your Chat tab.', 'success');
             V.q.input.blur();
@@ -1347,5 +1350,5 @@
     function boot() { auth.onAuthStateChanged(onUser); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
-    window.Stories = { openUser, openById, openComposer, openComposerWith, renderChatRef, isActive: id => !!st.stories.find(s => s.id === id), refreshChatRefs, version: '1.12.13' };
+    window.Stories = { openUser, openById, openComposer, openComposerWith, renderChatRef, isActive: id => !!st.stories.find(s => s.id === id), refreshChatRefs, version: '1.12.14' };
 })();

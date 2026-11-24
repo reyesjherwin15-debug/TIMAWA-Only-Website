@@ -1,8 +1,8 @@
 {
   "_readme": "The build that is live. pwa.js compares this with the build a device last applied; they differ only when a release needs the member to update, so nothing is shown otherwise. Bump 'version' with every release that changes the icon, the launch screen or the app shell. requiresReinstall:true means the installed icon/manifest changed (phones only re-read it on an app update). announceOnFirstRun:true also prompts devices that have never stored a version — use it when members who installed before this feature existed still need the change.",
-  "version": "1.10.53",
+  "version": "1.10.54",
   "requiresReinstall": false,
   "announceOnFirstRun": true,
-  "title": "Mentions everywhere, calmer composers",
-  "message": "Every comment box — note replies, highlight comments and the Freedom Wall — now has @mention suggestions with member photos. The composer stays one line until you type, and a member's notifications wait for them even after time offline."
+  "title": "Notifications now land on the exact item",
+  "message": "Tapping a notification opens the exact note, reply, highlight comment, chat message, event, story or snap — and scrolls it into view with a quick highlight, on both phone and desktop."
 }

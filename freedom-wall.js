@@ -913,9 +913,10 @@
             actorName: who.name,
             actorPhoto: who.photo,
             priority: 'info',
-            link: 'index.html#freedom-wall',
+            link: 'index.html#freedom=' + encodeURIComponent(note.id) + '&comment=' + encodeURIComponent(commentId),
             linkLabel: 'View Mention',
-            pushUrl: 'index.html#freedom-wall',
+            pushUrl: 'index.html#freedom=' + encodeURIComponent(note.id) + '&comment=' + encodeURIComponent(commentId),
+            targetType: 'freedom', targetId: note.id, commentId: commentId || '',
             targetUid: targetUid,
             referenceId: 'freedom_c_' + commentId,
             readBy: [],
@@ -984,10 +985,12 @@
             });
     }
 
-    function notifyNote(note, who, icon, title, message, toUid, refId) {
+    function notifyNote(note, who, icon, title, message, toUid, refId, commentId) {
         if (!db || !note || !me || who.isGuest) return;
         var target = toUid || note.authorUid;
         if (!target || target === who.uid) return;
+        var noteUrl = 'index.html#freedom=' + encodeURIComponent(note.id) +
+            (commentId ? '&comment=' + encodeURIComponent(commentId) : '');
         db.collection('announcements').add({
             type: 'freedom',
             title: title,
@@ -997,11 +1000,12 @@
             actorName: who.name,
             actorPhoto: who.photo,
             priority: 'info',
-            link: 'index.html#freedom-wall',
+            link: noteUrl,
             linkLabel: 'Read the note',
-            pushUrl: 'index.html#freedom-wall',
+            pushUrl: noteUrl,
             pushContext: 'freedom:' + note.id,
             pushPending: true,
+            targetType: 'freedom', targetId: note.id, commentId: commentId || '',
             targetUid: target,
             referenceId: refId || ('freedom_note_' + note.id + (toUid ? '_' + toUid : '')),
             readBy: [],
@@ -1068,11 +1072,12 @@
                 // not the one being answered, so only members get a bell
                 if (!target.isGuest && target.uid) {
                     notifyNote(note, who, '💬', who.name + ' replied to your reply', '"' + text + '"',
-                        target.uid, 'freedom_c_' + target.commentId);
+                        target.uid, 'freedom_c_' + target.commentId, ref.id);
                     notified[target.uid] = true;
                 }
             } else {
-                notifyNote(note, who, '💬', who.name + ' replied to your note', '"' + text + '"');
+                notifyNote(note, who, '💬', who.name + ' replied to your note', '"' + text + '"',
+                    null, null, ref.id);
                 if (note.authorUid) notified[note.authorUid] = true;
             }
 
@@ -1131,6 +1136,32 @@
             setTimeout(settleLift, 300);
         }, 180);
     }
+
+    /* Deep-link entry point used by deep-links.js. `start()` loads the board
+       even when the member has never scrolled it into view. */
+    var fwDeepLinkScrolled = false;
+    function openNotificationNote(id, commentId) {
+        if (!id) return false;
+        start();
+        var n = null;
+        for (var i = 0; i < notes.length; i++) if (notes[i].id === id) n = notes[i];
+        if (!n) {
+            if (!fwDeepLinkScrolled) {
+                fwDeepLinkScrolled = true;
+                var boardEl = document.getElementById('freedom-wall') || board;
+                if (boardEl) { try { boardEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* ignore */ } }
+            }
+            return false;
+        }
+        fwDeepLinkScrolled = false;
+        openView(id);
+        if (commentId && window.TIMAWA_DEEP_LINKS) {
+            window.TIMAWA_DEEP_LINKS.revealAttribute('data-cid', commentId, { delay: 280 });
+        }
+        return true;
+    }
+
+    window.FreedomWall = { openNote: openNotificationNote };
 
     function removeNote(n) {
         if (!me || n.authorUid !== me.uid) return;

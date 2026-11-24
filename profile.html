@@ -2719,6 +2719,9 @@
             if (!item) return;
             markAnnouncementRead(id);
             closeAnnouncementPopup();
+            if (window.TIMAWA_DEEP_LINKS && window.TIMAWA_DEEP_LINKS.openAnnouncement(item, {
+                onFail: function () { openAnnouncementView(item); }
+            })) return;
             openAnnouncementView(item);
         }
 
@@ -2751,9 +2754,10 @@
 
             const linkBtn = document.getElementById('annViewLinkBtn');
             const linkLabel = document.getElementById('annViewLinkLabel');
-            if (item.link) {
+            const targetLink = (window.TIMAWA_DEEP_LINKS && window.TIMAWA_DEEP_LINKS.urlForAnnouncement(item)) || item.link;
+            if (targetLink) {
                 linkBtn.style.display = 'inline-flex';
-                linkBtn.href = item.link;
+                linkBtn.href = targetLink;
                 linkLabel.textContent = item.linkLabel || 'Open Link';
             } else linkBtn.style.display = 'none';
 
@@ -2941,7 +2945,9 @@
                         message: `Don't forget to greet ${person.name} a happy birthday! 🎉`,
                         icon: '🎂', priority: 'urgent',
                         actorUid: person.uid, actorName: person.name, actorPhoto: person.photoURL || '',
-                        link: 'calendar.html', linkLabel: 'View Calendar',
+                        link: `calendar.html#birthday=${encodeURIComponent(person.uid)}`,
+                        pushUrl: `calendar.html#birthday=${encodeURIComponent(person.uid)}`,
+                        linkLabel: 'View Birthday', targetType: 'birthday', targetId: person.uid,
                         targetUid: '', referenceId: `${localDateStr}_${person.uid}`, readBy: [],
                         createdBy: 'system', createdByName: 'System',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2993,7 +2999,9 @@
                         title: `⏰ Reminder: ${title} is tomorrow!`,
                         message: `${title}${loc} — happening tomorrow. Don't miss it!`,
                         icon: '📅', priority: 'urgent',
-                        link: 'calendar.html', linkLabel: 'View Event',
+                        link: `calendar.html#event=${encodeURIComponent(doc.id)}`,
+                        pushUrl: `calendar.html#event=${encodeURIComponent(doc.id)}`,
+                        linkLabel: 'View Event', targetType: 'event', targetId: doc.id,
                         targetUid: '', referenceId: doc.id, readBy: [],
                         createdBy: 'system', createdByName: 'System',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3039,7 +3047,9 @@
                         ? `${author} just shared a new moment with the squad.`
                         : `Fresh moments from the squad — check them out!`,
                     icon: '📸', priority: 'info',
-                    link: 'index.html#highlights', linkLabel: 'View Highlights',
+                    link: `index.html#highlight=${encodeURIComponent(latestHighlightId)}`,
+                    pushUrl: `index.html#highlight=${encodeURIComponent(latestHighlightId)}`,
+                    linkLabel: 'View Highlight', targetType: 'highlight', targetId: latestHighlightId,
                     targetUid: '', referenceId: latestHighlightId, readBy: [],
                     createdBy: 'system', createdByName: 'System',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3084,8 +3094,9 @@
                     message: `${name} just joined the TIMAWA squad. Say hi!`,
                     icon: '👥',
                     priority: 'info',
-                    link: 'index.html#members-section',
-                    linkLabel: 'View Members',
+                    link: `index.html#member=${encodeURIComponent(newUser.uid)}`,
+                    pushUrl: `index.html#member=${encodeURIComponent(newUser.uid)}`,
+                    linkLabel: 'View Member', targetType: 'member', targetId: newUser.uid,
                     targetUid: '',
                     referenceId: newUser.uid,
                     readBy: [],
@@ -4125,6 +4136,7 @@
     <script src="push-config.js"></script>
     <script src="avatar-crop.js?v=1.1.0" defer></script>
     <script src="presence.js?v=1.0.0" defer></script>
+    <script src="deep-links.js?v=1.0.2" defer></script>
     <script src="pwa.js?v=1.5.14" defer></script>
 
     <script>

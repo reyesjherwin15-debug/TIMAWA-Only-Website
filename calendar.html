@@ -3150,6 +3150,9 @@
             if (!item) return;
             markAnnouncementRead(id);
             closeAnnouncementPopup();
+            if (window.TIMAWA_DEEP_LINKS && window.TIMAWA_DEEP_LINKS.openAnnouncement(item, {
+                onFail: function () { openAnnouncementView(item); }
+            })) return;
             openAnnouncementView(item);
         }
 
@@ -3182,9 +3185,10 @@
 
             const linkBtn = document.getElementById('annViewLinkBtn');
             const linkLabel = document.getElementById('annViewLinkLabel');
-            if (item.link) {
+            const targetLink = (window.TIMAWA_DEEP_LINKS && window.TIMAWA_DEEP_LINKS.urlForAnnouncement(item)) || item.link;
+            if (targetLink) {
                 linkBtn.style.display = 'inline-flex';
-                linkBtn.href = item.link;
+                linkBtn.href = targetLink;
                 linkLabel.textContent = item.linkLabel || 'Open Link';
             } else linkBtn.style.display = 'none';
 
@@ -3369,7 +3373,10 @@
                         message: `Don't forget to greet ${person.name} a happy birthday! 🎉`,
                         icon: '🎂', priority: 'urgent',
                         actorUid: person.uid, actorName: person.name, actorPhoto: person.photoURL || '',
-                        link: 'calendar.html', linkLabel: 'View Calendar',
+                        link: `calendar.html#birthday=${encodeURIComponent(person.uid)}`,
+                        pushUrl: `calendar.html#birthday=${encodeURIComponent(person.uid)}`,
+                        linkLabel: 'View Birthday',
+                        targetType: 'birthday', targetId: person.uid,
                         targetUid: '', referenceId: `${localDateStr}_${person.uid}`, readBy: [],
                         createdBy: 'system', createdByName: 'System',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3424,7 +3431,10 @@
                         title: `⏰ Reminder: ${title} is tomorrow!`,
                         message: `${title}${loc} — happening tomorrow. Don't miss it!`,
                         icon: '📅', priority: 'urgent',
-                        link: 'calendar.html', linkLabel: 'View Event',
+                        link: `calendar.html#event=${encodeURIComponent(doc.id)}`,
+                        pushUrl: `calendar.html#event=${encodeURIComponent(doc.id)}`,
+                        linkLabel: 'View Event',
+                        targetType: 'event', targetId: doc.id,
                         targetUid: '', referenceId: doc.id, readBy: [],
                         createdBy: 'system', createdByName: 'System',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3476,7 +3486,9 @@
                         ? `${author} just shared a new moment with the squad.`
                         : `Fresh moments from the squad — check them out!`,
                     icon: '📸', priority: 'info',
-                    link: 'index.html#highlights', linkLabel: 'View Highlights',
+                    link: `index.html#highlight=${encodeURIComponent(latestHighlightId)}`,
+                    pushUrl: `index.html#highlight=${encodeURIComponent(latestHighlightId)}`,
+                    linkLabel: 'View Highlight', targetType: 'highlight', targetId: latestHighlightId,
                     targetUid: '', referenceId: latestHighlightId, readBy: [],
                     createdBy: 'system', createdByName: 'System',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3526,8 +3538,9 @@
                     message: `${name} just joined the TIMAWA squad. Say hi!`,
                     icon: '👥',
                     priority: 'info',
-                    link: 'index.html#members-section',
-                    linkLabel: 'View Members',
+                    link: `index.html#member=${encodeURIComponent(newUser.uid)}`,
+                    pushUrl: `index.html#member=${encodeURIComponent(newUser.uid)}`,
+                    linkLabel: 'View Member', targetType: 'member', targetId: newUser.uid,
                     targetUid: '',
                     referenceId: newUser.uid,
                     readBy: [],
@@ -3806,7 +3819,7 @@
                 const idSafe = escapeAttr(event.id);
 
                 html += `
-                    <div class="event-list-item" style="--event-color: ${color};" onclick="openMiniEventFromList('${idSafe}')" role="button" tabindex="0">
+                    <div class="event-list-item" data-event-id="${idSafe}" style="--event-color: ${color};" onclick="openMiniEventFromList('${idSafe}')" role="button" tabindex="0">
                         <div class="event-date-box">
                             <div class="month" style="color: ${color};">${monthStr}</div>
                             <div class="day">${dayStr}</div>
@@ -3842,6 +3855,31 @@
                 }
             });
         }
+
+        /* The shared deep-links.js router calls these once the calendar data
+           has loaded. Both are safe to retry on a cold notification tap. */
+        window.TIMAWA_NOTIF_HANDLERS = Object.assign(window.TIMAWA_NOTIF_HANDLERS || {}, {
+            event: function (eventId) {
+                if (!eventId || !Array.isArray(currentEvents)) return false;
+                const ev = currentEvents.find(e => e.id === eventId);
+                if (!ev) return false;
+                openMiniEventFromList(eventId);
+                try {
+                    const when = convertTimestampToDate(ev.dateTime);
+                    if (when && calendar) calendar.gotoDate(when);
+                } catch (e) { /* the mini window is already open */ }
+                if (window.TIMAWA_DEEP_LINKS) {
+                    window.TIMAWA_DEEP_LINKS.revealAttribute('data-event-id', eventId, { delay: 260 });
+                }
+                return true;
+            },
+            birthday: function (uid) {
+                if (!uid || !Array.isArray(birthdayEvents)) return false;
+                if (!birthdayEvents.some(b => b.id === uid)) return false;
+                openMiniBirthday(uid);
+                return true;
+            }
+        });
 
         function switchListTab(tab) {
             const tabBirthdays = document.getElementById('tabBirthdays');
@@ -4147,8 +4185,10 @@
                     actorUid: user.uid,
                     actorName: authorName,
                     actorPhoto: (userData && userData.photoURL) || user.photoURL || '',
-                    link: 'calendar.html', linkLabel: 'View Event',
-                    pushUrl: 'calendar.html',
+                    link: `calendar.html#event=${encodeURIComponent(eventRef.id)}`,
+                    linkLabel: 'View Event',
+                    pushUrl: `calendar.html#event=${encodeURIComponent(eventRef.id)}`,
+                    targetType: 'event', targetId: eventRef.id,
                     targetUid: '', referenceId: 'created_' + eventRef.id, readBy: [],
                     createdBy: 'system', createdByName: 'System',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -4785,6 +4825,7 @@
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
     <script src="presence.js?v=1.0.0" defer></script>
+    <script src="deep-links.js?v=1.0.2" defer></script>
     <script src="pwa.js?v=1.5.14" defer></script>
     <script src="avatar-fallback.js?v=1.0.0" defer></script>
 </body>

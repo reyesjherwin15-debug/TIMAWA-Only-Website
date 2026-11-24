@@ -562,7 +562,7 @@
        member per snap, so changing an emoji updates instead of piling up */
     function notifySnap(snap, icon, title, message) {
         if (!me || !snap || !snap.ownerUid || snap.ownerUid === me.uid) return;
-        var url = 'index.html#quicksnap';
+        var url = 'index.html#snap=' + encodeURIComponent(snap.id);
         var noteId = 'qs_react_' + snap.id + '_' + me.uid;
         db.collection('announcements').doc(noteId).set({
             type: 'quicksnap',
@@ -578,6 +578,7 @@
             pushUrl: url,
             pushContext: 'snap:' + snap.id,
             pushPending: true,
+            targetType: 'snap', targetId: snap.id,
             targetUid: snap.ownerUid,
             referenceId: 'snap_' + snap.id,
             readBy: [],
@@ -616,7 +617,7 @@
         replySend.disabled = true;
         try {
             var myUid = me.uid;
-            await db.collection('chatMessages').add({
+            var msgRef = await db.collection('chatMessages').add({
                 senderUid: myUid,
                 receiverUid: ownerUid,
                 participants: [myUid, ownerUid],
@@ -631,7 +632,7 @@
                 reactions: {},
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            notifyDmReply(ownerUid, text);
+            notifyDmReply(ownerUid, text, msgRef.id);
             closeReply();
             showMsg('Reply sent to ' + (snap.ownerName || 'their messages'));
         } catch (err) {
@@ -643,10 +644,11 @@
     }
 
     /* one chat notification per sender, exactly like the chat screen's */
-    async function notifyDmReply(ownerUid, text) {
+    async function notifyDmReply(ownerUid, text, messageId) {
         var myUid = me.uid;
         var snippet = String(text || '').slice(0, 80) + (String(text || '').length > 80 ? '...' : '');
-        var pushUrl = 'dashboard.html#chat_' + myUid;
+        var pushUrl = 'dashboard.html#chat=' + encodeURIComponent(myUid) +
+            (messageId ? '&msg=' + encodeURIComponent(messageId) : '');
         var pushContext = 'chat:' + myUid;
         var expiresAt = new Date(Date.now() + 3 * 86400000);
         try {
@@ -669,6 +671,7 @@
                     pushContext: pushContext,
                     pushPending: true,
                     pushCount: pushCount,
+                    targetType: 'chat', targetId: myUid, messageId: messageId || '',
                     actorUid: myUid,
                     actorName: profile.name,
                     actorPhoto: profile.photo
@@ -689,6 +692,7 @@
                     pushPending: true,
                     pushCount: pushCount,
                     linkLabel: 'Open Chat',
+                    targetType: 'chat', targetId: myUid, messageId: messageId || '',
                     targetUid: ownerUid,
                     referenceId: 'dm_' + myUid,
                     readBy: [],
@@ -1094,8 +1098,22 @@
         }
     });
 
+    async function openSnap(id) {
+        if (!id) return false;
+        if (!snaps.length) await loadSnaps();
+        var snap = snaps.find(function (s) { return s.id === id; }) ||
+            archive.find(function (s) { return s.id === id; });
+        if (!snap) return false;
+        zoomIn();
+        lock(true);
+        openViewer(snap, snap.ownerUid === (me && me.uid));
+        return true;
+    }
+
     window.QuickSnap = {
+        version: '3.6.1',
         open: openCard,
+        openSnap: openSnap,
         openCamera: openCamera,
         refresh: async function () { await loadSnaps(); await refreshFab(); }
     };

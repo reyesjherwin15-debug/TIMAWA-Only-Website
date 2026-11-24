@@ -10132,6 +10132,14 @@
         (function captureBootDeepLink() {
             try {
                 const hash = window.location.hash || '';
+                // The item-level router also needs the hash stripped before the
+                // tab restore pushes a history entry that would copy it.
+                if (hash.indexOf('#chat=') === 0) {
+                    window.__TIMAWA_BOOT_DEEP_LINK__ = window.location.href;
+                    window.history.replaceState(window.history.state, '',
+                        window.location.pathname + window.location.search);
+                    return;
+                }
                 if (hash.indexOf(CHAT_DEEP_LINK_HASH) !== 0) return;
                 const target = hash.slice(CHAT_DEEP_LINK_HASH.length);
                 if (!target) return;
@@ -10285,6 +10293,68 @@
             } catch (err) { /* ignore */ }
             return false;
         }
+
+        /* A notification can point at a message older than the first page of
+           chat history. Pull older pages until that exact message renders. */
+        let chatJumpRunning = false;
+        async function jumpToChatMessage(messageId) {
+            if (!messageId || chatJumpRunning) return;
+            const selector = '[data-msg-id="' + String(messageId).replace(/["\\]/g, '\\$&') + '"]';
+            chatJumpRunning = true;
+            try {
+                for (let attempt = 0; attempt < 10; attempt += 1) {
+                    if (document.querySelector(selector)) {
+                        if (window.TIMAWA_DEEP_LINKS) {
+                            window.TIMAWA_DEEP_LINKS.reveal(selector, { delay: 260 });
+                        }
+                        return;
+                    }
+                    if (!chatMessagesInitialLoadDone) {
+                        await new Promise(resolve => setTimeout(resolve, 160));
+                        continue;
+                    }
+                    if (!chatHasMoreOlder) break;
+                    await loadOlderChatMessages();
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                }
+                if (window.TIMAWA_DEEP_LINKS) {
+                    window.TIMAWA_DEEP_LINKS.reveal(selector, { delay: 260 });
+                }
+            } finally {
+                chatJumpRunning = false;
+            }
+        }
+
+        /* Item-level notification openers for the shared deep-links.js router. */
+        window.TIMAWA_NOTIF_HANDLERS = Object.assign(window.TIMAWA_NOTIF_HANDLERS || {}, {
+            note: function (uid, commentId) {
+                if (!uid || !notesCache[uid]) return false;
+                openNoteModal(uid);
+                if (commentId && window.TIMAWA_DEEP_LINKS) {
+                    window.TIMAWA_DEEP_LINKS.revealAttribute('data-comment-id', commentId, { delay: 240 });
+                }
+                return true;
+            },
+            highlight: function (highlightId, commentId) {
+                if (!highlightId) return false;
+                openHighlightDetail(highlightId);
+                if (commentId && window.TIMAWA_DEEP_LINKS) {
+                    window.TIMAWA_DEEP_LINKS.revealAttribute('data-comment-id', commentId, { delay: 280 });
+                }
+                return true;
+            },
+            chat: function (uid, messageId) {
+                if (!uid || !currentUser || !chatFeatureEnabled) return false;
+                if (uid === 'group') openGroupChat();
+                else openChatWith(uid);
+                if (messageId) jumpToChatMessage(messageId);
+                return true;
+            },
+            snap: function (snapId) {
+                return !!(window.QuickSnap && typeof window.QuickSnap.openSnap === 'function' &&
+                    window.QuickSnap.openSnap(snapId));
+            }
+        });
 
         function openChatWith(uid) {
             if (!chatFeatureEnabled) return;
@@ -11322,7 +11392,8 @@
                         receiverUid: activeChatUid,
                         senderUid: myUid,
                         senderName,
-                        text
+                        text,
+                        messageId: msgRef.id
                     });
                 }
 
@@ -11333,7 +11404,8 @@
                         senderName,
                         text,
                         isGroup: activeChatIsGroup,
-                        groupName: 'Squad Group Chat'
+                        groupName: 'Squad Group Chat',
+                        messageId: msgRef.id
                     });
                 }
 
@@ -11342,7 +11414,8 @@
                         senderUid: myUid,
                         senderName,
                         text,
-                        groupName: 'Squad Group Chat'
+                        groupName: 'Squad Group Chat',
+                        messageId: msgRef.id
                     });
                 }
 
@@ -11390,7 +11463,8 @@
             receiverUid,
             senderUid,
             senderName,
-            text
+            text,
+            messageId
         }) {
             if (!receiverUid || !senderUid) return;
             if (receiverUid === senderUid) return;
@@ -11416,7 +11490,8 @@
             // The flag is consumed by tools/push_dispatcher.py.
             // ============================================================
             const previous = existingSnap.empty ? null : existingSnap.docs[0].data();
-            const pushUrl = `dashboard.html#chat_${senderUid}`;
+            const pushUrl = `dashboard.html#chat=${encodeURIComponent(senderUid)}` +
+                (messageId ? `&msg=${encodeURIComponent(messageId)}` : '');
             // Stable per sender: the notification tag, so messages thread.
             const pushContext = `chat:${senderUid}`;
             // "· N new" counts what arrived since the receiver last looked, so
@@ -11443,6 +11518,9 @@
                 update.pushContext = pushContext;
                 update.pushUrl = pushUrl;
                 update.pushCount = pushCount;
+                update.targetType = 'chat';
+                update.targetId = senderUid;
+                update.messageId = messageId || '';
                 update.actorUid = senderUid;
                 update.actorName = senderName;
                 update.actorPhoto = (userProfileCache[senderUid] && userProfileCache[senderUid].photoURL) || '';
@@ -11463,6 +11541,7 @@
                     pushPending: true,
                     pushCount,
                     linkLabel: 'Open Chat',
+                    targetType: 'chat', targetId: senderUid, messageId: messageId || '',
                     targetUid: receiverUid,
                     referenceId: `dm_${senderUid}`,
                     readBy: [],
@@ -11875,7 +11954,7 @@
         // ================================================================
         // ===== CHAT: MENTION NOTIFICATIONS =====
         // ================================================================
-        async function createChatMentionNotifications({ mentionedUids, senderUid, senderName, text, isGroup, groupName }) {
+        async function createChatMentionNotifications({ mentionedUids, senderUid, senderName, text, isGroup, groupName, messageId }) {
             try {
                 const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
                 const snippet = (text || '').slice(0, 80) + ((text || '').length > 80 ? '...' : '');
@@ -11894,7 +11973,8 @@
                         : `📣 ${senderName} mentioned you in a chat`;
 
                     const conversationKey = isGroup ? 'group' : `chat_${senderUid}`;
-                    const conversationUrl = isGroup ? 'dashboard.html#chat_group' : `dashboard.html#chat_${senderUid}`;
+                    const conversationUrl = `dashboard.html#chat=${encodeURIComponent(isGroup ? 'group' : senderUid)}` +
+                        (messageId ? `&msg=${encodeURIComponent(messageId)}` : '');
                     notifications.push({
                         type: 'mention',
                         pushPending: true,
@@ -11909,6 +11989,7 @@
                         priority: 'info',
                         link: conversationUrl,
                         linkLabel: 'Open Chat',
+                        targetType: 'chat', targetId: isGroup ? 'group' : senderUid, messageId: messageId || '',
                         targetUid: uid,
                         referenceId: isGroup ? `group_${uid}` : `chat_${senderUid}`,
                         readBy: [],
@@ -11938,10 +12019,12 @@
             }
         }
 
-        async function createSquadMentionNotifications({ senderUid, senderName, text, groupName }) {
+        async function createSquadMentionNotifications({ senderUid, senderName, text, groupName, messageId }) {
             try {
                 const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
                 const snippet = (text || '').slice(0, 80) + ((text || '').length > 80 ? '...' : '');
+                const squadUrl = `dashboard.html#chat=group` +
+                    (messageId ? `&msg=${encodeURIComponent(messageId)}` : '');
 
                 const allUids = Object.keys(userProfileCache).filter(uid => uid && uid !== senderUid);
 
@@ -11958,8 +12041,10 @@
                     actorName: senderName,
                     actorPhoto: (userProfileCache[senderUid] && userProfileCache[senderUid].photoURL) || '',
                     priority: 'urgent',
-                    link: 'dashboard.html',
+                    link: squadUrl,
+                    pushUrl: squadUrl,
                     linkLabel: 'Open Group Chat',
+                    targetType: 'chat', targetId: 'group', messageId: messageId || '',
                     targetUids: allUids,
                     targetUid: '',
                     referenceId: `squad_all`,
@@ -12142,7 +12227,8 @@
         async function createReplyAndMentionNotifications({
             noteUid, noteOwnerUid, noteOwnerName, noteText,
             parentCommentId, parentCommentAuthorUid, parentCommentAuthorName,
-            replierUid, replierName, replyText, isReplyToComment, mentionedUids
+            replierUid, replierName, replyText, isReplyToComment, mentionedUids,
+            commentId
         }) {
             try {
                 const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
@@ -12150,6 +12236,8 @@
                 const notifications = [];
                 const replySnippet = (replyText || '').slice(0, 80) + ((replyText || '').length > 80 ? '...' : '');
                 const noteSnippet = (noteText || '').slice(0, 60) + ((noteText || '').length > 60 ? '...' : '');
+                const noteTargetUrl = `index.html#note=${encodeURIComponent(noteUid)}` +
+                    (commentId ? `&comment=${encodeURIComponent(commentId)}` : '');
 
                 if (!isReplyToComment && noteOwnerUid && noteOwnerUid !== replierUid) {
                     if (!queued.has(noteOwnerUid)) {
@@ -12161,8 +12249,10 @@
                             icon: '💬',
                             actorUid: replierUid, actorName: replierName, actorPhoto: (userProfileCache[replierUid] && userProfileCache[replierUid].photoURL) || '',
                             priority: 'info',
-                            link: 'index.html#members-section',
+                            link: noteTargetUrl,
+                            pushUrl: noteTargetUrl,
                             linkLabel: 'View Reply',
+                            targetType: 'note', targetId: noteUid, commentId: commentId || '',
                             targetUid: noteOwnerUid,
                             referenceId: noteUid,
                             readBy: [],
@@ -12184,8 +12274,10 @@
                             icon: '💬',
                             actorUid: replierUid, actorName: replierName, actorPhoto: (userProfileCache[replierUid] && userProfileCache[replierUid].photoURL) || '',
                             priority: 'info',
-                            link: 'index.html#members-section',
+                            link: noteTargetUrl,
+                            pushUrl: noteTargetUrl,
                             linkLabel: 'View Reply',
+                            targetType: 'note', targetId: noteUid, commentId: commentId || '',
                             targetUid: parentCommentAuthorUid,
                             referenceId: noteUid,
                             readBy: [],
@@ -12212,8 +12304,10 @@
                             icon: '📣',
                             actorUid: replierUid, actorName: replierName, actorPhoto: (userProfileCache[replierUid] && userProfileCache[replierUid].photoURL) || '',
                             priority: 'info',
-                            link: 'index.html#members-section',
+                            link: noteTargetUrl,
+                            pushUrl: noteTargetUrl,
                             linkLabel: 'View Mention',
+                            targetType: 'note', targetId: noteUid, commentId: commentId || '',
                             targetUid: uid,
                             referenceId: noteUid,
                             readBy: [],
@@ -12698,7 +12792,7 @@ function startHighlightReply(commentId, authorName) {
 
                 const mentionedUids = resolveHighlightMentions(text);
 
-                await db.collection('highlightComments').add({
+                const commentRef = await db.collection('highlightComments').add({
                     highlightId: currentHighlightDetailId,
                     text,
                     authorUid: currentUser.uid,
@@ -12725,7 +12819,8 @@ function startHighlightReply(commentId, authorName) {
                         commenterName: authorName,
                         commentText: text,
                         isReply: !!parentCommentId,
-                        mentionedUids
+                        mentionedUids,
+                        commentId: commentRef.id
                     });
                 }
 
@@ -12770,12 +12865,15 @@ function startHighlightReply(commentId, authorName) {
         async function createHighlightCommentNotification({
             highlightId, highlightOwnerUid, highlightOwnerName, highlightCaption,
             parentCommentId, parentCommentAuthorUid, parentCommentAuthorName,
-            commenterUid, commenterName, commentText, isReply, mentionedUids
+            commenterUid, commenterName, commentText, isReply, mentionedUids,
+            commentId
         }) {
             try {
                 const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
                 const snippet = (commentText || '').slice(0, 80) + ((commentText || '').length > 80 ? '...' : '');
                 const captionSnippet = (highlightCaption || '').slice(0, 60) + ((highlightCaption || '').length > 60 ? '...' : '');
+                const highlightTargetUrl = `index.html#highlight=${encodeURIComponent(highlightId)}` +
+                    (commentId ? `&comment=${encodeURIComponent(commentId)}` : '');
 
                 const queued = new Set();
                 const notifications = [];
@@ -12788,8 +12886,10 @@ function startHighlightReply(commentId, authorName) {
                         message: `"${snippet}"\n\nOn: "${captionSnippet}"`,
                         icon: '💬',
                         priority: 'info',
-                        link: 'index.html#highlights',
+                        link: highlightTargetUrl,
+                        pushUrl: highlightTargetUrl,
                         linkLabel: 'View Comment',
+                        targetType: 'highlight', targetId: highlightId, commentId: commentId || '',
                         targetUid: highlightOwnerUid,
                         referenceId: highlightId,
                         readBy: [],
@@ -12808,8 +12908,10 @@ function startHighlightReply(commentId, authorName) {
                         message: `"${snippet}"\n\nOn: "${captionSnippet}"`,
                         icon: '💬',
                         priority: 'info',
-                        link: 'index.html#highlights',
+                        link: highlightTargetUrl,
+                        pushUrl: highlightTargetUrl,
                         linkLabel: 'View Reply',
+                        targetType: 'highlight', targetId: highlightId, commentId: commentId || '',
                         targetUid: parentCommentAuthorUid,
                         referenceId: highlightId,
                         readBy: [],
@@ -12839,8 +12941,10 @@ function startHighlightReply(commentId, authorName) {
                             actorName: commenterName,
                             actorPhoto: (userProfileCache[commenterUid] && userProfileCache[commenterUid].photoURL) || '',
                             priority: 'info',
-                            link: 'index.html#highlights',
+                            link: highlightTargetUrl,
+                            pushUrl: highlightTargetUrl,
                             linkLabel: 'View Mention',
+                            targetType: 'highlight', targetId: highlightId, commentId: commentId || '',
                             targetUid: uid,
                             referenceId: highlightId,
                             readBy: [],
@@ -13588,7 +13692,8 @@ function startHighlightReply(commentId, authorName) {
                 await db.collection('announcements').add({
                     type: 'reaction',
                     pushPending: true,
-                    pushContext: 'reaction_' + referenceId,
+                    pushContext: 'reaction_highlight_' + highlightId,
+                    pushUrl: `index.html#highlight=${encodeURIComponent(highlightId)}`,
                     title: `${emoji} ${reactorName} reacted to your highlight`,
                     message: messageText,
                     icon: emoji,
@@ -13596,8 +13701,9 @@ function startHighlightReply(commentId, authorName) {
                     actorName: reactorName,
                     actorPhoto: reactorPhoto || '',
                     priority: 'info',
-                    link: 'index.html#highlights',
+                    link: `index.html#highlight=${encodeURIComponent(highlightId)}`,
                     linkLabel: 'View Highlight',
+                    targetType: 'highlight', targetId: highlightId,
                     targetUid: ownerUid,
                     referenceId,
                     readBy: [],
@@ -14296,7 +14402,7 @@ function startReplyTo(commentId, authorName) {
 
                 const mentionedUids = resolveMentions(text);
 
-                await db.collection('noteComments').add({
+                const commentRef = await db.collection('noteComments').add({
                     noteUid: currentNoteUid,
                     text,
                     authorUid: titaCurrentUser.uid,
@@ -14324,7 +14430,8 @@ function startReplyTo(commentId, authorName) {
                     replierName: authorName,
                     replyText: text,
                     isReplyToComment: !!parentCommentId,
-                    mentionedUids
+                    mentionedUids,
+                    commentId: commentRef.id
                 });
 
                 input.value = '';
@@ -14652,6 +14759,9 @@ function startReplyTo(commentId, authorName) {
             if (!item) return;
             markAnnouncementRead(id);
             closeAnnouncementPopup();
+            if (window.TIMAWA_DEEP_LINKS && window.TIMAWA_DEEP_LINKS.openAnnouncement(item, {
+                onFail: function () { openAnnouncementView(item); }
+            })) return;
             openAnnouncementView(item);
         }
 
@@ -14685,15 +14795,16 @@ function startReplyTo(commentId, authorName) {
 
             const linkBtn = document.getElementById('annViewLinkBtn');
             const linkLabel = document.getElementById('annViewLinkLabel');
-            if (item.link) {
+            const targetLink = (window.TIMAWA_DEEP_LINKS && window.TIMAWA_DEEP_LINKS.urlForAnnouncement(item)) || item.link;
+            if (targetLink) {
                 linkBtn.style.display = 'inline-flex';
-                linkBtn.href = item.link;
+                linkBtn.href = targetLink;
                 linkLabel.textContent = item.linkLabel || 'Open Link';
                 linkBtn.onclick = function(e) {
                     e.preventDefault();
                     e.stopPropagation();
                     closeAnnouncementView();
-                    setTimeout(() => { window.location.href = item.link; }, 150);
+                    setTimeout(() => { window.location.href = targetLink; }, 150);
                 };
             } else {
                 linkBtn.style.display = 'none';
@@ -14703,14 +14814,17 @@ function startReplyTo(commentId, authorName) {
             document.getElementById('announcementViewModal').classList.add('active');
             document.body.style.overflow = 'hidden';
             pushModalBackState('announcementViewModal', closeAnnouncementView);
-            if (item.type === 'chat') {
+            if (item.type === 'chat' && !targetLink) {
                 const senderUid = String(item.referenceId || '').replace(/^dm_/, '');
                 if (senderUid) {
-                    linkBtn.href = `dashboard.html#chat_${senderUid}`;
+                    const chatUrl = `dashboard.html#chat=${encodeURIComponent(senderUid)}`;
+                    linkBtn.style.display = 'inline-flex';
+                    linkBtn.href = chatUrl;
+                    linkLabel.textContent = item.linkLabel || 'Open Chat';
                     linkBtn.onclick = function(e) {
                         e.preventDefault();
                         closeAnnouncementView();
-                        setTimeout(() => { window.location.href = `dashboard.html#chat_${senderUid}`; }, 150);
+                        setTimeout(() => { window.location.href = chatUrl; }, 150);
                     };
                 }
             }
@@ -14912,11 +15026,12 @@ function startReplyTo(commentId, authorName) {
                         actorName: person.name,
                         actorPhoto: person.photoURL || '',
                         priority: 'urgent',
-                        link: 'calendar.html',
-                        linkLabel: 'View Calendar',
+                        link: `calendar.html#birthday=${encodeURIComponent(person.uid)}`,
+                        linkLabel: 'View Birthday',
                         pushPending: true,
-                        pushUrl: 'calendar.html',
+                        pushUrl: `calendar.html#birthday=${encodeURIComponent(person.uid)}`,
                         pushContext: `birthday_${localDateStr}`,
+                        targetType: 'birthday', targetId: person.uid,
                         targetUid: '',
                         referenceId: `${localDateStr}_${person.uid}`,
                         readBy: [],
@@ -14985,8 +15100,10 @@ function startReplyTo(commentId, authorName) {
                         message: `${title}${loc} — happening tomorrow. Don't miss it!`,
                         icon: '📅',
                         priority: 'urgent',
-                        link: 'calendar.html',
+                        link: `calendar.html#event=${encodeURIComponent(doc.id)}`,
+                        pushUrl: `calendar.html#event=${encodeURIComponent(doc.id)}`,
                         linkLabel: 'View Event',
+                        targetType: 'event', targetId: doc.id,
                         targetUid: '',
                         referenceId: doc.id,
                         readBy: [],
@@ -15056,8 +15173,10 @@ function startReplyTo(commentId, authorName) {
                         : `Fresh moments from the squad — check them out!`,
                     icon: '📸',
                     priority: 'info',
-                    link: 'index.html#highlights',
-                    linkLabel: 'View Highlights',
+                    link: `index.html#highlight=${encodeURIComponent(latestHighlightId)}`,
+                    pushUrl: `index.html#highlight=${encodeURIComponent(latestHighlightId)}`,
+                    linkLabel: 'View Highlight',
+                    targetType: 'highlight', targetId: latestHighlightId,
                     targetUid: '',
                     referenceId: latestHighlightId,
                     readBy: [],
@@ -15106,8 +15225,10 @@ function startReplyTo(commentId, authorName) {
                     message: `${name} just joined the TIMAWA squad. Say hi!`,
                     icon: '👥',
                     priority: 'info',
-                    link: 'index.html#members-section',
-                    linkLabel: 'View Members',
+                    link: `index.html#member=${encodeURIComponent(newUser.uid)}`,
+                    pushUrl: `index.html#member=${encodeURIComponent(newUser.uid)}`,
+                    linkLabel: 'View Member',
+                    targetType: 'member', targetId: newUser.uid,
                     targetUid: '',
                     referenceId: newUser.uid,
                     readBy: [],
@@ -18000,8 +18121,8 @@ function startReplyTo(commentId, authorName) {
 
     <script src="stories-shared.js?v=1.11.5"></script>
     <script src="notes-music.js?v=1.3.0"></script>
-    <script src="stories.js?v=1.12.13"></script>
-    <script src="quick-snap.js?v=3.6.0" defer></script>
+    <script src="stories.js?v=1.12.14"></script>
+    <script src="quick-snap.js?v=3.6.1" defer></script>
     <script src="idle-logout.js"></script>
     <script src="visit-tracker.js"></script>
     <script src="public-profile.js?v=1.2.1"></script>
@@ -18010,6 +18131,7 @@ function startReplyTo(commentId, authorName) {
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
     <script src="presence.js?v=1.0.0" defer></script>
+    <script src="deep-links.js?v=1.0.2" defer></script>
     <script src="pwa.js?v=1.5.14" defer></script>
     <script src="avatar-fallback.js?v=1.0.0" defer></script>
 </body>
