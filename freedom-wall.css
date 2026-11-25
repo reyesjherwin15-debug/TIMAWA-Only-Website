@@ -1028,6 +1028,18 @@ html[data-timawa-mode="dark"] .fw-note {
 
 .fw-mention-dropdown[hidden] { display: none; }
 
+/* The reply list opens upwards from the bottom of a note; the composer's box
+   sits at the top of its sheet, so its list drops below the note instead. */
+.fw-compose-input { position: relative; }
+.fw-compose-input .fw-mention-dropdown {
+    top: calc(100% + 6px);
+    bottom: auto;
+    left: 0;
+    right: 0;
+    max-height: min(38vh, 220px);
+    z-index: 45;
+}
+
 .fw-mention-head {
     position: sticky;
     top: -6px;

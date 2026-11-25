@@ -8655,6 +8655,19 @@
             return new Date(timestamp);
         }
 
+        // A message this device just sent comes back from Firestore with a
+        // pending server timestamp: `createdAt` is null until the write is
+        // acknowledged. Treating that as 0 sorted your own new message to the
+        // top of the thread until a refresh; it is the newest message, so it
+        // belongs at the bottom.
+        const CHAT_PENDING_TIME = Number.MAX_SAFE_INTEGER;
+        function chatTimeMs(msg) {
+            if (!msg || !msg.createdAt) return CHAT_PENDING_TIME;
+            const date = toJsDate(msg.createdAt);
+            const time = date ? date.getTime() : NaN;
+            return isNaN(time) ? CHAT_PENDING_TIME : time;
+        }
+
         async function getCurrentUserProfileCached(user) {
             const CACHE_KEY = 'timawa_me_' + user.uid;
             try {
@@ -9783,8 +9796,11 @@
             });
 
             allItems.sort((a, b) => {
-                const aDate = a.last ? (toJsDate(a.last.createdAt) || new Date(0)) : new Date(0);
-                const bDate = b.last ? (toJsDate(b.last.createdAt) || new Date(0)) : new Date(0);
+                // A message that is still pending has no timestamp yet; its
+                // conversation is the most recent one, so keep it at the top
+                // rather than at the bottom with the empty conversations.
+                const aDate = a.last ? (toJsDate(a.last.createdAt) || new Date()) : new Date(0);
+                const bDate = b.last ? (toJsDate(b.last.createdAt) || new Date()) : new Date(0);
                 const diff = bDate - aDate;
                 if (diff !== 0) return diff;
                 if (a.unread !== b.unread) return b.unread - a.unread;
@@ -10071,7 +10087,16 @@
 
             const first = messages[0]?.id || '';
             const last = messages[messages.length - 1]?.id || '';
-            return `${messages.length}|${first}|${last}|${reactionHash}`;
+            // Include the newest message's timestamp state so acknowledging a
+            // just-sent message (pending -> server time) re-renders the thread
+            // instead of leaving it in its optimistic position.
+            const newestStamp = messages[0] ? messages[0].createdAt : null;
+            const stampKey = !newestStamp
+                ? 'pending'
+                : (newestStamp.seconds !== undefined
+                    ? `${newestStamp.seconds}.${newestStamp.nanoseconds || 0}`
+                    : String(newestStamp));
+            return `${messages.length}|${first}|${last}|${stampKey}|${reactionHash}`;
         }
 
         // ================================================================
@@ -10717,11 +10742,7 @@
                 return;
             }
 
-            const sorted = [...chatMessages].sort((a, b) => {
-                const ad = a.createdAt ? (a.createdAt.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt).getTime()) : 0;
-                const bd = b.createdAt ? (b.createdAt.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt).getTime()) : 0;
-                return ad - bd;
-            });
+            const sorted = [...chatMessages].sort((a, b) => chatTimeMs(a) - chatTimeMs(b));
 
             const myUid = currentUser?.uid;
             let html = '';
@@ -10739,9 +10760,8 @@
             let lastDateDivider = '';
 
             sorted.forEach(msg => {
-                const createdDate = msg.createdAt
-                    ? (msg.createdAt.seconds ? new Date(msg.createdAt.seconds * 1000) : new Date(msg.createdAt))
-                    : new Date();
+                const msgTime = chatTimeMs(msg);
+                const createdDate = msgTime === CHAT_PENDING_TIME ? new Date() : new Date(msgTime);
 
                 const dateDivider = formatChatDateDivider(createdDate);
                 if (dateDivider !== lastDateDivider) {

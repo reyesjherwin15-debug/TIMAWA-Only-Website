@@ -88,7 +88,7 @@
         html.t-themed .loading-overlay.t-splash.active { opacity: 1; pointer-events: auto; }
     </style>
     <link rel="stylesheet" href="theme.css?v=1.17.30" />
-    <link rel="stylesheet" href="freedom-wall.css?v=1.6.1" />
+    <link rel="stylesheet" href="freedom-wall.css?v=1.6.2" />
     <link rel="stylesheet" href="stories.css?v=1.13.0" />
     <script src="theme.js?v=1.41.54"></script>
 
@@ -1220,6 +1220,20 @@
             font-size: 20px;
             margin-bottom: 4px;
             color: var(--theme-primary-soft);
+        }
+
+        /* The Tita panel's quick note had no positioned wrapper, so its mention
+           list was positioned against a far ancestor and opened outside the
+           visible card. Anchor it to the input and drop it just below. */
+        .tita-note-editor { position: relative; }
+        .tita-note-editor .mention-dropdown {
+            top: calc(100% + 6px);
+            bottom: auto;
+            left: 0;
+            right: 0;
+            margin: 0;
+            max-height: 190px;
+            z-index: 120;
         }
 
         /* ===== MENTION CHIP IN COMMENTS ===== */
@@ -9305,8 +9319,11 @@ function startHighlightReply(commentId, authorName) {
                 </div>
                 <div class="fw-field">
                     <label for="fwText">The note</label>
-                    <textarea class="fw-area" id="fwText" maxlength="100" rows="3"
-                        placeholder="Say it in a hundred characters…" required></textarea>
+                    <div class="fw-compose-input">
+                        <div class="fw-mention-dropdown" id="fwComposeMentionDropdown" role="listbox" hidden></div>
+                        <textarea class="fw-area" id="fwText" maxlength="100" rows="3"
+                            placeholder="Say it in a hundred characters… (type @ to mention)" required></textarea>
+                    </div>
                     <div class="fw-counter" id="fwCounter"></div>
                 </div>
                 <div class="fw-tools">
@@ -9351,7 +9368,7 @@ function startHighlightReply(commentId, authorName) {
         </div>
     </div>
 
-    <script src="freedom-wall.js?v=1.5.3"></script>
+    <script src="freedom-wall.js?v=1.5.4"></script>
     <script src="quick-snap.js?v=3.6.1" defer></script>
     <script src="avatar-fallback.js?v=1.0.0" defer></script>
 </body>

@@ -3,6 +3,6 @@
   "version": "1.10.55",
   "requiresReinstall": false,
   "announceOnFirstRun": true,
-  "title": "Notification redirects are smoother",
-  "message": "Tapping a notification opens the exact note, reply, highlight comment, chat message, event, story or snap and keeps it in view. A direct message now opens once instead of stalling, and the chat no longer jumps away from the message you tapped."
+  "title": "Mentions and notification redirects",
+  "message": "Tapping a notification opens the exact item and keeps it in view, and a direct message now opens once instead of stalling. The @mention list works in the quick note again, Freedom Wall notes can mention members too, and your new chat message stays at the bottom where it was sent."
 }

@@ -58,6 +58,7 @@
     var replyNameEl = document.getElementById('fwReplyName');
     var replyCancel = document.getElementById('fwReplyCancel');
     var mentionDropdown = document.getElementById('fwMentionDropdown');
+    var composeMentionDropdown = document.getElementById('fwComposeMentionDropdown');
 
     var db = null;
     try { db = firebase.app().firestore(); } catch (e) { db = null; }
@@ -86,6 +87,7 @@
     var fwMentionCandidates = [];
     var fwMentionIndex = 0;
     var fwMentionOpen = false;
+    var fwMentionOwner = 'reply';   // which composer the open list belongs to
     var fwPendingMentions = new Map();   // lower(name) -> { uid, name }
 
     /* ── helpers ─────────────────────────────────────────────────── */
@@ -255,7 +257,7 @@
             ' aria-label="Note by ' + esc(name) + ': ' + esc(n.text) + '">' +
             '<span class="fw-pin" aria-hidden="true"></span>' +
             '<span class="fw-who">' + ava + '<span class="fw-name">' + esc(name) + '</span></span>' +
-            '<span class="fw-text">' + esc(n.text) + '</span>' +
+            '<span class="fw-text">' + mentionHtml(n.text, n.mentions) + '</span>' +
             img +
             '<span class="fw-ago" data-at="' + (n.createdAt || 0) + '">' + ago(n.createdAt) + '</span>' +
             '</button>';
@@ -439,6 +441,7 @@
                         authorName: v.authorName || 'Guest',
                         authorPhoto: v.authorPhoto || '',
                         isGuest: !!v.isGuest,
+                        mentions: Array.isArray(v.mentions) ? v.mentions : [],
                         createdAt: v.createdAt && v.createdAt.toMillis ? v.createdAt.toMillis() : 0,
                         expiresAt: v.expiresAt && v.expiresAt.toMillis ? v.expiresAt.toMillis() : 0
                     };
@@ -458,6 +461,11 @@
         if (typeof start === 'function') start();
         if (!db) { toast('The wall is not ready yet.'); return; }
         setMsg('');
+        // A fresh note starts with a clean mention state, and the member list is
+        // warmed so @ works on the first keystroke instead of the second.
+        fwPendingMentions.clear();
+        closeFwMentions();
+        loadFwMentionUsers();
         nameWrap.hidden = !!me;
         if (!me) {
             nameInput.value = localStorage.getItem('fw_guest_name') || '';
@@ -470,6 +478,8 @@
     function closeComposer() {
         closeSheet(modal);
         clearImage();
+        closeFwMentions();
+        fwPendingMentions.clear();
         area.value = '';
         updateCounter();
     }
@@ -546,6 +556,7 @@
         if (busy) return;
         var text = area.value.trim().slice(0, CFG.charLimit);
         if (!text) { setMsg('Write something first — even one word.'); return; }
+        var mentioned = resolveFwMentions(text);
 
         var name = me
             ? ((profile && profile.name) || me.displayName || (me.email ? me.email.split('@')[0] : 'Member'))
@@ -567,6 +578,7 @@
             var now = new Date();
             return db.collection('freedomNotes').add({
                 text: text,
+                mentions: mentioned,
                 imageUrl: media ? media.url : '',
                 imagePublicId: media ? media.publicId : '',
                 authorUid: me ? me.uid : '',
@@ -584,6 +596,11 @@
             closeComposer();
             toast('Pinned — it stays up for 14 days.');
             announceNote(ref.id, text);
+            if (mentioned.length) {
+                var who = actor();
+                mentioned.forEach(function (m) { notifyFwNoteMention(ref.id, who, m.uid, text); });
+            }
+            fwPendingMentions.clear();
             if (board) {
                 board.classList.remove('is-thumped');
                 void board.offsetWidth;
@@ -725,7 +742,7 @@
         }
     }
 
-    /* ── @mentions in replies ────────────────────────────────────── */
+    /* ── @mentions in replies and in a new note ──────────────────── */
 
     function escapeRegExp(value) {
         return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -763,18 +780,32 @@
         return fwMentionLoading;
     }
 
+    /* One picker serves both composers: the reply box under a note and the box
+       that pins a new note. `owner` is whichever input is being typed in, so
+       the list is always drawn under that input and the name is inserted
+       there. */
+    function fwMentionParts(owner) {
+        return owner === 'compose'
+            ? { input: area, dropdown: composeMentionDropdown }
+            : { input: commentInput, dropdown: mentionDropdown };
+    }
+
     function closeFwMentions() {
         fwMentionOpen = false;
         fwMentionCandidates = [];
         fwMentionIndex = -1;
         if (mentionDropdown) mentionDropdown.hidden = true;
+        if (composeMentionDropdown) composeMentionDropdown.hidden = true;
     }
 
-    function detectFwMention() {
-        if (!commentInput || !me) { closeFwMentions(); return; }
+    function detectFwMention(owner) {
+        var which = owner === 'compose' ? 'compose' : 'reply';
+        var parts = fwMentionParts(which);
+        var input = parts.input;
+        if (!input || !me || !parts.dropdown) { closeFwMentions(); return; }
 
-        var value = commentInput.value || '';
-        var caret = commentInput.selectionStart == null ? value.length : commentInput.selectionStart;
+        var value = input.value || '';
+        var caret = input.selectionStart == null ? value.length : input.selectionStart;
         var before = value.slice(0, caret);
         var match = before.match(/@([\w\s.'-]{0,30})$/);
         if (!match) { closeFwMentions(); return; }
@@ -783,10 +814,10 @@
         var pendingCaret = caret;
 
         loadFwMentionUsers().then(function (users) {
-            if (!commentInput || document.activeElement !== commentInput) return;
+            if (!input || document.activeElement !== input) return;
             // The caret may have moved while the member list was loading.
-            var nowCaret = commentInput.selectionStart == null ? commentInput.value.length : commentInput.selectionStart;
-            var nowBefore = commentInput.value.slice(0, nowCaret);
+            var nowCaret = input.selectionStart == null ? input.value.length : input.selectionStart;
+            var nowBefore = input.value.slice(0, nowCaret);
             if (!/@([\w\s.'-]{0,30})$/.test(nowBefore) || nowCaret !== pendingCaret) return;
 
             var list = users.filter(function (u) { return u.uid !== (me && me.uid); });
@@ -803,6 +834,7 @@
                 });
             }
 
+            fwMentionOwner = which;
             fwMentionCandidates = list.slice(0, 8);
             fwMentionIndex = 0;
             fwMentionOpen = true;
@@ -811,8 +843,11 @@
     }
 
     function renderFwMentions() {
-        if (!mentionDropdown) return;
-        if (!fwMentionOpen) { mentionDropdown.hidden = true; return; }
+        var dropdown = fwMentionParts(fwMentionOwner).dropdown;
+        var other = fwMentionParts(fwMentionOwner === 'compose' ? 'reply' : 'compose').dropdown;
+        if (other) other.hidden = true;
+        if (!dropdown) return;
+        if (!fwMentionOpen) { dropdown.hidden = true; return; }
 
         var html = '<div class="fw-mention-head"><i class="fas fa-at" aria-hidden="true"></i> Mention a member</div>';
         if (!fwMentionCandidates.length) {
@@ -832,27 +867,29 @@
             });
         }
 
-        mentionDropdown.innerHTML = html;
-        mentionDropdown.hidden = false;
+        dropdown.innerHTML = html;
+        dropdown.hidden = false;
     }
 
     function selectFwMention(user) {
-        if (!commentInput || !user) return;
-        var value = commentInput.value || '';
-        var caret = commentInput.selectionStart == null ? value.length : commentInput.selectionStart;
+        var input = fwMentionParts(fwMentionOwner).input;
+        if (!input || !user) return;
+        var value = input.value || '';
+        var caret = input.selectionStart == null ? value.length : input.selectionStart;
         var match = value.slice(0, caret).match(/@([\w\s.'-]{0,30})$/);
         if (!match) { closeFwMentions(); return; }
 
         var start = caret - match[0].length;
         var insert = '@' + user.name + ' ';
-        commentInput.value = value.slice(0, start) + insert + value.slice(caret);
+        input.value = value.slice(0, start) + insert + value.slice(caret);
 
         var pos = start + insert.length;
-        try { commentInput.setSelectionRange(pos, pos); } catch (e) { /* older browsers */ }
+        try { input.setSelectionRange(pos, pos); } catch (e) { /* older browsers */ }
 
         fwPendingMentions.set(user.name.toLowerCase(), { uid: user.uid, name: user.name });
         closeFwMentions();
-        commentInput.focus();
+        input.focus();
+        if (input === area) updateCounter();
     }
 
     function resolveFwMentions(text) {
@@ -925,6 +962,38 @@
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             expiresAt: new Date(Date.now() + 7 * 86400000)
         }).catch(function () { /* the reply is posted either way */ });
+    }
+
+    /* A note that @mentions someone rings their bell once, pointing at the note
+       itself (no reply to anchor to). */
+    function notifyFwNoteMention(noteId, who, targetUid, text) {
+        if (!db || !noteId || !me || who.isGuest) return;
+        if (!targetUid || targetUid === who.uid) return;
+
+        var url = 'index.html#freedom=' + encodeURIComponent(noteId);
+        db.collection('announcements').add({
+            type: 'mention',
+            pushPending: true,
+            pushContext: 'mention:freedom_' + noteId,
+            title: '📣 ' + who.name + ' mentioned you',
+            message: '"' + String(text).slice(0, 120) + '"',
+            icon: '📣',
+            actorUid: who.uid,
+            actorName: who.name,
+            actorPhoto: who.photo,
+            priority: 'info',
+            link: url,
+            linkLabel: 'View Mention',
+            pushUrl: url,
+            targetType: 'freedom', targetId: noteId, commentId: '',
+            targetUid: targetUid,
+            referenceId: 'freedom_note_' + noteId + '_' + targetUid,
+            readBy: [],
+            createdBy: 'system',
+            createdByName: 'System',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            expiresAt: new Date(Date.now() + 7 * 86400000)
+        }).catch(function () { /* the note is pinned either way */ });
     }
 
     function toggleCommentReact(chip) {
@@ -1099,7 +1168,7 @@
         for (var i = 0; i < notes.length; i++) if (notes[i].id === id) n = notes[i];
         if (!n) return;
 
-        viewBody.textContent = n.text;
+        viewBody.innerHTML = mentionHtml(n.text, n.mentions);
         if (n.imageUrl) {
             viewImg.src = n.imageUrl;
             viewImg.hidden = false;
@@ -1202,41 +1271,36 @@
     if (replyCancel) replyCancel.addEventListener('click', clearReplyTarget);
     if (commentForm) commentForm.addEventListener('submit', sendComment);
 
-    if (commentInput) {
-        commentInput.addEventListener('input', detectFwMention);
-        commentInput.addEventListener('keydown', function (ev) {
-            if (!fwMentionOpen) return;
-            if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
-                ev.preventDefault();
-                if (!fwMentionCandidates.length) return;
-                fwMentionIndex = ev.key === 'ArrowDown'
-                    ? (fwMentionIndex + 1) % fwMentionCandidates.length
-                    : (fwMentionIndex <= 0 ? fwMentionCandidates.length - 1 : fwMentionIndex - 1);
-                renderFwMentions();
-                return;
-            }
-            if (ev.key === 'Enter' || ev.key === 'Tab') {
-                if (!fwMentionCandidates[fwMentionIndex]) return;
-                ev.preventDefault();
-                selectFwMention(fwMentionCandidates[fwMentionIndex]);
-                return;
-            }
-            if (ev.key === 'Escape') {
-                ev.preventDefault();
-                closeFwMentions();
-            }
-        });
-        commentInput.addEventListener('blur', function () {
-            setTimeout(closeFwMentions, 180);
-        });
+    function handleFwMentionKeydown(ev) {
+        if (!fwMentionOpen) return;
+        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+            ev.preventDefault();
+            if (!fwMentionCandidates.length) return;
+            fwMentionIndex = ev.key === 'ArrowDown'
+                ? (fwMentionIndex + 1) % fwMentionCandidates.length
+                : (fwMentionIndex <= 0 ? fwMentionCandidates.length - 1 : fwMentionIndex - 1);
+            renderFwMentions();
+            return;
+        }
+        if (ev.key === 'Enter' || ev.key === 'Tab') {
+            if (!fwMentionCandidates[fwMentionIndex]) return;
+            ev.preventDefault();
+            selectFwMention(fwMentionCandidates[fwMentionIndex]);
+            return;
+        }
+        if (ev.key === 'Escape') {
+            ev.preventDefault();
+            closeFwMentions();
+        }
     }
 
-    if (mentionDropdown) {
-        // Keep the input focused while a suggestion is pressed, then select on click.
-        mentionDropdown.addEventListener('mousedown', function (ev) {
+    // Keep the input focused while a suggestion is pressed, then select on click.
+    function bindFwMentionDropdown(el) {
+        if (!el) return;
+        el.addEventListener('mousedown', function (ev) {
             if (ev.target.closest('[data-fw-mention-idx]')) ev.preventDefault();
         });
-        mentionDropdown.addEventListener('click', function (ev) {
+        el.addEventListener('click', function (ev) {
             var opt = ev.target.closest('[data-fw-mention-idx]');
             if (!opt) return;
             ev.preventDefault();
@@ -1244,6 +1308,25 @@
             if (user) selectFwMention(user);
         });
     }
+
+    if (commentInput) {
+        commentInput.addEventListener('input', function () { detectFwMention('reply'); });
+        commentInput.addEventListener('keydown', handleFwMentionKeydown);
+        commentInput.addEventListener('blur', function () {
+            setTimeout(closeFwMentions, 180);
+        });
+    }
+
+    if (area) {
+        area.addEventListener('input', function () { detectFwMention('compose'); });
+        area.addEventListener('keydown', handleFwMentionKeydown);
+        area.addEventListener('blur', function () {
+            setTimeout(closeFwMentions, 180);
+        });
+    }
+
+    bindFwMentionDropdown(mentionDropdown);
+    bindFwMentionDropdown(composeMentionDropdown);
     if (form) form.addEventListener('submit', submit);
     if (fileInput) fileInput.addEventListener('change', function () { setImage(fileInput.files && fileInput.files[0]); });
     if (pickBtn) pickBtn.addEventListener('click', function () { fileInput.click(); });
