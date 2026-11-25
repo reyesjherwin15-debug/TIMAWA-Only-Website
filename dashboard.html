@@ -9535,6 +9535,11 @@
         // ================================================================
         let _fullscreenScrollY = 0;
         let _chatFullscreenHistory = false;
+        // A notification jump owns the chat scroll position until it lands:
+        // while a target id is set, a snapshot re-render must not snap the log
+        // back to the newest message.
+        let chatDeepLinkTargetId = '';
+        let chatScrollLockUntil = 0;
         let _chatConversationHistory = false;
         let ignoredChatBackEvents = 0;
         // The conversation a back press just closed. A queued hashchange can
@@ -9697,7 +9702,9 @@
                 if (activeChatUid) hideChatSidebar();
                 setTimeout(() => {
                     const chatBody = document.getElementById('chatBody');
-                    if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+                    // A notification jump is placing a specific message; do not
+                    // undo it by snapping to the newest one.
+                    if (chatBody && !chatDeepLinkTargetId) chatBody.scrollTop = chatBody.scrollHeight;
                 }, 60);
             } else if (!skipReturn) {
                 const sidebar = document.getElementById('chatSidebar');
@@ -10296,32 +10303,46 @@
 
         /* A notification can point at a message older than the first page of
            chat history. Pull older pages until that exact message renders. */
-        let chatJumpRunning = false;
+        let chatJumpToken = 0;
         async function jumpToChatMessage(messageId) {
-            if (!messageId || chatJumpRunning) return;
-            const selector = '[data-msg-id="' + String(messageId).replace(/["\\]/g, '\\$&') + '"]';
-            chatJumpRunning = true;
+            if (!messageId) return;
+            const id = String(messageId);
+            const token = (chatJumpToken += 1);
+            // Hold the log still while older pages load and the jump settles.
+            chatDeepLinkTargetId = id;
+            chatScrollLockUntil = performance.now() + 12000;
+            const selector = '[data-msg-id="' + id.replace(/["\\]/g, '\\$&') + '"]';
             try {
-                for (let attempt = 0; attempt < 10; attempt += 1) {
-                    if (document.querySelector(selector)) {
-                        if (window.TIMAWA_DEEP_LINKS) {
-                            window.TIMAWA_DEEP_LINKS.reveal(selector, { delay: 260 });
-                        }
-                        return;
-                    }
+                for (let attempt = 0; attempt < 8; attempt += 1) {
+                    if (token !== chatJumpToken) return;
+                    if (document.querySelector(selector)) break;
                     if (!chatMessagesInitialLoadDone) {
-                        await new Promise(resolve => setTimeout(resolve, 160));
+                        await new Promise(resolve => setTimeout(resolve, 140));
                         continue;
                     }
                     if (!chatHasMoreOlder) break;
+                    const beforeOldest = chatOldestDoc;
                     await loadOlderChatMessages();
-                    await new Promise(resolve => setTimeout(resolve, 150));
+                    if (token !== chatJumpToken) return;
+                    // A page that added nothing means the history is exhausted;
+                    // retrying would only spend the same query again.
+                    if (chatOldestDoc === beforeOldest) break;
+                    await new Promise(resolve => setTimeout(resolve, 40));
                 }
-                if (window.TIMAWA_DEEP_LINKS) {
-                    window.TIMAWA_DEEP_LINKS.reveal(selector, { delay: 260 });
+                if (token !== chatJumpToken) return;
+                if (document.querySelector(selector) && window.TIMAWA_DEEP_LINKS) {
+                    window.TIMAWA_DEEP_LINKS.reveal(selector, { delay: 120 });
                 }
             } finally {
-                chatJumpRunning = false;
+                if (token === chatJumpToken) {
+                    // Release the lock only after the reveal has settled, so a
+                    // late snapshot cannot drag the log back to the bottom.
+                    setTimeout(() => {
+                        if (token !== chatJumpToken) return;
+                        chatDeepLinkTargetId = '';
+                        chatScrollLockUntil = 0;
+                    }, 900);
+                }
             }
         }
 
@@ -10345,6 +10366,9 @@
             },
             chat: function (uid, messageId) {
                 if (!uid || !currentUser || !chatFeatureEnabled) return false;
+                // The sheet lives on the Chats tab; opening it over Members left
+                // a fullscreen chat with no tab behind it to return to.
+                if (!chatActiveTabIsSelected()) switchSocialTab('chats');
                 if (uid === 'group') openGroupChat();
                 else openChatWith(uid);
                 if (messageId) jumpToChatMessage(messageId);
@@ -10361,6 +10385,15 @@
             if (!uid || !currentUser) return;
             if (!document.getElementById('chatContainerEl')?.classList.contains('fullscreen-chat')) setChatFullscreen(true);
             if (uid === currentUser.uid) return;
+
+            // A push and a hashchange can both deliver the same tap. Rebuilding
+            // the conversation for the second one reset the log, reattached the
+            // listener and flashed the sheet — the stall on a DM redirect.
+            if (activeChatUid === uid && !activeChatIsGroup && chatMessagesInitialLoadDone) {
+                if (isMobile()) hideChatSidebar();
+                markChatReadFrom(uid);
+                return;
+            }
 
             pushConversationHistoryEntry();
             activeChatUid = uid;
@@ -10380,8 +10413,7 @@
             renderChatHeader();
             renderChatMessages();
 
-            markChatReadFrom(uid);
-            resolveChatNotifications(uid);
+            markChatReadFrom(uid); // also resolves this conversation's notifications
 
             if (isMobile()) {
                 hideChatSidebar();
@@ -10530,10 +10562,17 @@
                 (snap) => {
                     const items = [];
                     snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-                    chatMessages = items;
-
-                    chatOldestDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
-                    chatHasMoreOlder = snap.size === CHAT_PAGE_SIZE;
+                    // While a notification jump holds older pages, keep them:
+                    // replacing the log with the newest page would drop the
+                    // message the member was sent to and reset its scroll.
+                    if (chatDeepLinkTargetId && chatMessages.length > items.length) {
+                        const seen = new Set(items.map(m => m.id));
+                        chatMessages = chatMessages.filter(m => !seen.has(m.id)).concat(items);
+                    } else {
+                        chatMessages = items;
+                        chatOldestDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+                        chatHasMoreOlder = snap.size === CHAT_PAGE_SIZE;
+                    }
 
                     const newSig = chatMessagesSignature(items);
                     if (newSig !== chatMessagesSignatureCache) {
@@ -10784,8 +10823,23 @@
                 `;
             });
 
+            // Keep the member where they were reading: follow the newest
+            // message only when they were already at the bottom (or on first
+            // paint), and never while a notification jump is placing one.
+            const atBottomBefore = body.scrollHeight - body.scrollTop - body.clientHeight < 72;
+            const prevTop = body.scrollTop;
+            const prevHeight = body.scrollHeight;
+            const jumpHolding = !!chatDeepLinkTargetId && performance.now() < chatScrollLockUntil;
+
             body.innerHTML = html;
-            body.scrollTop = body.scrollHeight;
+
+            if (jumpHolding) {
+                // jumpToChatMessage owns the scroll position.
+            } else if (atBottomBefore || prevHeight === 0) {
+                body.scrollTop = body.scrollHeight;
+            } else {
+                body.scrollTop = prevTop + (body.scrollHeight - prevHeight);
+            }
 
             attachChatMsgLongPress();
 
@@ -18131,7 +18185,7 @@ function startReplyTo(commentId, authorName) {
     <!-- ═══ PWA runtime (service worker, install prompt, push) ═══ -->
     <script src="push-config.js"></script>
     <script src="presence.js?v=1.0.0" defer></script>
-    <script src="deep-links.js?v=1.0.2" defer></script>
+    <script src="deep-links.js?v=1.0.3" defer></script>
     <script src="pwa.js?v=1.5.14" defer></script>
     <script src="avatar-fallback.js?v=1.0.0" defer></script>
 </body>

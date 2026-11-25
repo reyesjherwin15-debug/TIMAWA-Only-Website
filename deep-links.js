@@ -23,15 +23,18 @@
 (function () {
     'use strict';
 
-    var VERSION = '1.0.2';
+    var VERSION = '1.0.3';
     var RETRY_MS = 350;
     var MAX_TRIES = 60;                 // ~21 s for a cold Firestore load
     var PULSE_CLASS = 'timawa-target-pulse';
+    var SCROLL_SETTLE_MAX = 2;
     var HASH_KEYS = ['note', 'highlight', 'chat', 'freedom', 'event', 'snap', 'member', 'birthday', 'story'];
     var HASH_EXTRAS = ['comment', 'msg'];
     var active = null;
     var timer = 0;
     var tries = 0;
+    var lastKey = '';
+    var lastKeyAt = 0;
 
     function pageName() {
         var parts = String(location.pathname || '').split('/');
@@ -299,7 +302,7 @@
         return null;
     }
 
-    function scrollToElement(el) {
+            function scrollToElement(el, depth) {
         if (!el) return;
         // Jump immediately: notification targets must be in place even when
         // the tab is backgrounded or a mobile browser throttles animations.
@@ -324,6 +327,25 @@
             }
         }
         setTimeout(function () { pulse(el); }, 260);
+        if ((depth || 0) < SCROLL_SETTLE_MAX) settleScroll(el, depth || 0);
+    }
+
+    /* A late render (a chat snapshot, a modal animation, an image) can move the
+       target right after the scroll. One short correction keeps the member on
+       the item they tapped without a second visible jump. */
+    function inViewport(el) {
+        try {
+            var rect = el.getBoundingClientRect();
+            var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+            return rect.bottom > 8 && rect.top < vh - 8;
+        } catch (e) { return true; }
+    }
+
+    function settleScroll(el, depth) {
+        setTimeout(function () {
+            if (!el || !el.isConnected || inViewport(el)) return;
+            scrollToElement(el, depth + 1);
+        }, 420);
     }
 
     function waitFor(selector, onFound, timeout) {
@@ -335,8 +357,14 @@
             if (observer) { try { observer.disconnect(); } catch (e) { /* ignore */ } }
             if (interval) clearInterval(interval);
         }
+        var lastCheck = 0;
         function check() {
             if (done) return;
+            // Mutation storms (a chat re-render toggles dozens of classes) must
+            // not turn one waiter into hundreds of document-wide queries.
+            var now = Date.now();
+            if (now - lastCheck < 70) return;
+            lastCheck = now;
             var el = findVisible(selector);
             if (el) {
                 done = true;
@@ -351,9 +379,11 @@
         }
         try {
             observer = new MutationObserver(check);
+            // Only `hidden` is worth observing: class/style churn is the norm
+            // on these pages and the interval already covers it.
             observer.observe(document.documentElement, {
                 childList: true, subtree: true, attributes: true,
-                attributeFilter: ['class', 'style', 'hidden']
+                attributeFilter: ['hidden']
             });
         } catch (e) { observer = null; }
         interval = setInterval(check, 120);
@@ -501,6 +531,15 @@
     function start(source) {
         var target = parse(source || location.href);
         if (!target) return false;
+        // A warm tap arrives twice: the worker changes the hash (hashchange)
+        // and also fires `timawa:push-open`. Opening the same target twice
+        // reset the screen mid-open, which read as a freeze on a DM redirect.
+        var key = target.kind + ':' + (target.id || '') + ':' +
+            (target.commentId || target.messageId || '');
+        var now = Date.now();
+        if (key === lastKey && now - lastKeyAt < 1200) return true;
+        lastKey = key;
+        lastKeyAt = now;
         // A cold `?story=` is handled by stories.js, which strips the param and
         // opens the viewer after its listener has the story. Do not reload it.
         if (target.kind === 'story') {
